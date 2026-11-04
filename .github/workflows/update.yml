@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
   push:
     branches: ["main"]
+    paths: ["site/**", "pipeline/**", ".github/workflows/update.yml"]
 
 permissions:
   contents: write     # only for the keep-alive commit below
@@ -23,7 +24,7 @@ jobs:
     timeout-minutes: 25
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -51,6 +52,15 @@ jobs:
         with:
           path: site
       - id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      # Pages occasionally times out or reports a deployment still in progress; wait and try once more.
+      - name: Wait before retrying the deploy
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 90
+      - id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
 
       # GitHub pauses scheduled workflows after 60 days without repository activity.

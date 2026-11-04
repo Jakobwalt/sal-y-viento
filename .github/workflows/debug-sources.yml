@@ -32,15 +32,12 @@ jobs:
           curl -s "$base/dodsC/wave_regional_gib/$y/$m/$f.dds" | head -40
       - name: Wave datasets on the server
         run: |
-          curl -s https://opendap.puertos.es/thredds/catalog/catalog.html | grep -o 'catalog/[a-z_0-9]*/catalog.html' | sort -u | head -80
-          echo "--- ibi"; y=$(date -u +%Y); m=$(date -u +%m)
-          curl -s https://opendap.puertos.es/thredds/catalog/wave_regional_ibi/$y/$m/catalog.xml | grep -o 'name="[^"]*FC[^"]*"' | tail -3
-          f=$(curl -s https://opendap.puertos.es/thredds/catalog/wave_regional_ibi/$y/$m/catalog.xml | grep -o 'HW-[0-9]*-[0-9]*-B[0-9]*-FC.nc' | sort -t B -k2 | tail -1)
-          curl -s "https://opendap.puertos.es/thredds/ncss/grid/wave_regional_ibi/$y/$m/$f/dataset.xml" | grep -iE "LatLonBox|west|east|north|south|<axis|shape|gridDefinition" | head -20
-          for d in s05b s05 s06 s04 s01 s02 s03; do
-            g=wave_coast_$d; f=$(curl -s https://opendap.puertos.es/thredds/catalog/$g/$y/$m/catalog.xml | grep -o 'HW-[0-9]*-[0-9]*-B[0-9]*-FC.nc' | sort -t B -k2 | tail -1)
-            [ -z "$f" ] && { echo "$g: none"; continue; }
-            echo "$g: $f"; curl -s "https://opendap.puertos.es/thredds/ncss/grid/$g/$y/$m/$f/dataset.xml" | grep -iE "LatLonBox|west|east|north|south" | head -6
+          y=$(date -u +%Y); m=$(date -u +%m)
+          for g in wave_regional_ibi wave_regional_gib wave_coast_s01 wave_coast_s02 wave_coast_s05 wave_coast_s05b harmonie1k_tarifa harmonie1k_algeciras; do
+            f=$(curl -s https://opendap.puertos.es/thredds/catalog/$g/$y/$m/catalog.xml | grep -o 'name="[^"]*\.nc"' | grep -v HC | sed 's/name="//;s/"//' | sort | tail -1)
+            [ -z "$f" ] && f=$(curl -s https://opendap.puertos.es/thredds/catalog/$g/catalog.xml | grep -o 'name="[^"]*"' | tail -3 | tr '\n' ' ')
+            echo "== $g  $f"
+            curl -s "https://opendap.puertos.es/thredds/ncss/grid/$g/$y/$m/$f/dataset.xml" | tr -d '\n' | grep -o '<LatLonBox>.*</LatLonBox>\|<axis name="[a-z]*" shape="[^"]*"\|<grid name="[A-Za-z0-9_]*"' | tr '\n' ' ' | sed 's/  */ /g'; echo
           done
       - name: Live report
         run: curl -s https://jakobwalt.github.io/sal-y-viento/data/report.json

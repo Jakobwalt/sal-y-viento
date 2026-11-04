@@ -32,9 +32,16 @@ jobs:
           curl -s "$base/dodsC/wave_regional_gib/$y/$m/$f.dds" | head -40
       - name: Wave datasets on the server
         run: |
-          curl -s https://opendap.puertos.es/thredds/catalog.xml | grep -o 'xlink:title="[^"]*"\|name="[^"]*"' | head -80
-          for d in wave_regional_cad wave_regional_gc wave_regional_ibi wave_coast_cad wave_regional_atl wave_local_cad; do
-            printf "%s " $d; curl -s -o /dev/null -w "%{http_code}\n" https://opendap.puertos.es/thredds/catalog/$d/catalog.xml; done
+          curl -s https://opendap.puertos.es/thredds/catalog/catalog.html | grep -o 'catalog/[a-z_0-9]*/catalog.html' | sort -u | head -80
+          echo "--- ibi"; y=$(date -u +%Y); m=$(date -u +%m)
+          curl -s https://opendap.puertos.es/thredds/catalog/wave_regional_ibi/$y/$m/catalog.xml | grep -o 'name="[^"]*FC[^"]*"' | tail -3
+          f=$(curl -s https://opendap.puertos.es/thredds/catalog/wave_regional_ibi/$y/$m/catalog.xml | grep -o 'HW-[0-9]*-[0-9]*-B[0-9]*-FC.nc' | sort -t B -k2 | tail -1)
+          curl -s "https://opendap.puertos.es/thredds/ncss/grid/wave_regional_ibi/$y/$m/$f/dataset.xml" | grep -iE "LatLonBox|west|east|north|south|<axis|shape|gridDefinition" | head -20
+          for d in s05b s05 s06 s04 s01 s02 s03; do
+            g=wave_coast_$d; f=$(curl -s https://opendap.puertos.es/thredds/catalog/$g/$y/$m/catalog.xml | grep -o 'HW-[0-9]*-[0-9]*-B[0-9]*-FC.nc' | sort -t B -k2 | tail -1)
+            [ -z "$f" ] && { echo "$g: none"; continue; }
+            echo "$g: $f"; curl -s "https://opendap.puertos.es/thredds/ncss/grid/$g/$y/$m/$f/dataset.xml" | grep -iE "LatLonBox|west|east|north|south" | head -6
+          done
       - name: Live report
         run: curl -s https://jakobwalt.github.io/sal-y-viento/data/report.json
       - name: Snapshot live data to the snapshot branch

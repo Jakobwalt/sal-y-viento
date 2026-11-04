@@ -101,7 +101,10 @@ def _to_grid(src: rasterio.DatasetReader, legend: dict, name: str) -> tuple[np.n
     if bad.any() and (~bad).any():
         _, (iy, ix) = ndimage.distance_transform_edt(bad, return_indices=True)
         vals = vals[iy, ix]
-    # sample at our cell centres (bilinear between pixels, which also softens the colour bands)
+    # wind and gusts come in 10 km/h colour bands; a ~5 km blur turns the steps into gradients
+    if name in ("wind_kmh", "gust_kmh"):
+        vals = ndimage.gaussian_filter(vals, sigma=2.0, mode="nearest")
+    # sample at our cell centres (bilinear between pixels)
     t = src.window_transform(win)
     cols = (C.LONS[None, :] - t.c) / t.a - 0.5
     rows = (C.LATS[:, None] - t.f) / t.e - 0.5

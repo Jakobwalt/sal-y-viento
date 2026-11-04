@@ -2,8 +2,10 @@ name: Update forecast and deploy
 
 on:
   schedule:
-    # About 4 h after each AEMET HARMONIE run (00, 06, 12, 18 UTC). Tune once we know the real publish times.
-    - cron: "20 4,10,16,22 * * *"
+    # Hourly, at an off-peak minute. Each check is only a HEAD request to AEMET and two wave
+    # catalogue reads; the downloads and the Open-Meteo request happen only when a new run exists.
+    # Hourly also means a dropped GitHub schedule costs an hour, not six.
+    - cron: "47 * * * *"
   workflow_dispatch:
   push:
     branches: ["main"]

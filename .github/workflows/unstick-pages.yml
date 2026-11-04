@@ -18,4 +18,9 @@ jobs:
       - name: Cancel it
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh api -X POST "repos/${{ github.repository }}/pages/deployments/${{ inputs.deployment_id }}/cancel" && echo cancelled
+        run: |
+          d="repos/${{ github.repository }}/pages/deployments/${{ inputs.deployment_id }}"
+          echo "before:"; gh api "$d" || true
+          gh api -X POST "$d/cancel" && echo cancelled
+          sleep 20; echo "after:"; gh api "$d" || true
+          echo "pages:"; gh api "repos/${{ github.repository }}/pages" || true

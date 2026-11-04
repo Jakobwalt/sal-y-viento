@@ -3,6 +3,9 @@ name: Debug sources
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -29,3 +32,14 @@ jobs:
           curl -s "$base/dodsC/wave_regional_gib/$y/$m/$f.dds" | head -40
       - name: Live report
         run: curl -s https://jakobwalt.github.io/sal-y-viento/data/report.json
+      - name: Snapshot live data to the snapshot branch
+        run: |
+          mkdir snap && cd snap
+          for f in meta.json spots.json wind.bin waves.bin report.json; do
+            curl -sf -o "$f" "https://jakobwalt.github.io/sal-y-viento/data/$f?nocache=$RANDOM" || echo "missing $f"
+          done
+          git init -q -b snapshot
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A && git commit -q -m "Live data snapshot $(date -u +%FT%TZ)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" snapshot

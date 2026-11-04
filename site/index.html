@@ -168,6 +168,7 @@ body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
 .row.now .dlab em{color:var(--wax)}
 .dlab span{display:flex;gap:6px;align-items:center;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.06em;opacity:.85}
 .dlab svg{width:13px;height:13px}
+.dlab span{white-space:nowrap}
 .hrs{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));font-family:var(--f-mono);font-size:.62rem;text-align:center;opacity:.6;font-variant-numeric:tabular-nums}
 .hrs .cur{opacity:1;color:var(--wax)}
 @media (max-width:760px){
@@ -433,13 +434,9 @@ body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
     <button id="l-wind" type="button" aria-pressed="true">Wind</button>
     <button id="l-wave" type="button" aria-pressed="false">Waves</button>
   </div>
-  <div class="toggle small" role="group" aria-label="Wind situation">
-    <button id="w-lev" type="button" aria-pressed="true">Levante <small>E</small></button>
-    <button id="w-pon" type="button" aria-pressed="false">Poniente <small>W</small></button>
-  </div>
   <div class="legend" id="lg-wind"><span class="kscale" aria-label="Wind in knots: under 10 to over 40"><span class="ksw"></span><span class="ktk"><b>10</b><b>20</b><b>30</b><b>40+</b></span></span><span>kn</span></div>
   <div class="legend" id="lg-wave" hidden><span>0</span><i class="ramp"></i><span>3 m</span></div>
-  <div class="sample">Sample data</div>
+  <div class="sample" id="status" aria-live="polite"></div>
 </div>
 <button class="ui back" id="back" type="button" aria-label="Back to the whole coast">←</button>
 <div class="ui tl" id="tl">
@@ -597,7 +594,7 @@ const signs=TOWNS.map(([n,lo,la,maj,af])=>{const d=document.createElement("div")
 
 /* ---------- camera ---------- */
 const svg=document.getElementById("map"),dsv=document.getElementById("detail"),cv=document.getElementById("wind"),ctx=cv.getContext("2d");
-let W=0,H=0,dpr=1,cam={x:0,y:0,z:8},fitZ=8,zMin=8,selected=null,mode="levante",layer="wind",diving=false;
+let W=0,H=0,dpr=1,cam={x:0,y:0,z:8},fitZ=8,zMin=8,selected=null,layer="wind",diving=false;
 const B={x0:P(-6.42,0)[0],x1:P(-5.22,0)[0],y0:P(0,36.64)[1],y1:P(0,35.74)[1]};
 const D={x0:GEO.box[0],y0:GEO.box[1],x1:GEO.box[0]+GEO.box[2],y1:GEO.box[1]+GEO.box[3]};
 function fit(){zMin=Math.max(W/(D.x1-D.x0),H/(D.y1-D.y0));fitZ=Math.max(Math.min(W/(B.x1-B.x0),H/(B.y1-B.y0)),H/120,zMin);return{x:(B.x0+B.x1)/2,y:(B.y0+B.y1)/2,z:fitZ}}
@@ -627,28 +624,42 @@ function flyTo(t,ms=950,done,arc=true){const s={...cam},lz0=Math.log(s.z),lz1=Ma
 const markersEls=SPOTS.map(s=>{const b=document.createElement("button");b.type="button";b.className="mk";b.id="mk-"+s.id;b.setAttribute("aria-label",s.name);b.title=s.name;
   b.innerHTML=`<span class="dot"></span>`;b.onclick=e=>{e.stopPropagation();openSpot(s)};document.getElementById("markers").append(b);return{s,e:b}});
 
-/* ---------- forecast time ----------
-   Hourly steps from 00:00 today to the last hour of the latest model run (HARMONIE reaches ~48 h past its run). */
-const T0=new Date(2026,10,4),N=60,NOW=17,NDAYS=Math.ceil(N/24);
-const DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-const dayDate=d=>new Date(T0.getFullYear(),T0.getMonth(),T0.getDate()+d);
-const dayName=d=>{const x=dayDate(d);return `${DOW[x.getDay()]} ${x.getDate()}`};
-let curT=NOW,playing=false;
-const lerpDays=(arr,t)=>{const d=Math.max(0,Math.min(arr.length-1,t/24)),i=Math.floor(d),k=d-i;return arr[i]*(1-k)+arr[Math.min(arr.length-1,i+1)]*k};
-const windMul=t=>{const h=((t%24)+24)%24;return (0.82+0.24*Math.max(0,Math.sin((h-8)/14*Math.PI)))*lerpDays(mode==="levante"?[1,.92,.7]:[.78,1,1.12],t)};
-const waveMul=t=>lerpDays(mode==="levante"?[1,.95,.8]:[.85,1.05,1.2],t)*(1+0.06*Math.sin(t/7));
-
-/* ---------- wind field (sample) ---------- */
-const AX=P(-5.9,35.95),AX2=P(-5.35,35.98);
-function field(x,y,t=curT,land){const lev=mode==="levante",sgn=lev?-1:1;
-  const axY=AX[1]+(AX2[1]-AX[1])*Math.max(0,Math.min(1,(x-AX[0])/(AX2[0]-AX[0])));
-  const inX=1/(1+Math.exp(-(x-AX[0]-4)/4))/(1+Math.exp((x-AX2[0]-2)/4)),core=Math.exp(-(((y-axY)/11)**2));
-  let kn=(lev?13:11)+inX*core*(lev?29:18),vx=sgn,vy=sgn*(AX2[1]-AX[1])/(AX2[0]-AX[0]);
-  if(lev&&x<AX[0]+8){const k=Math.min(1,(AX[0]+8-x)/25);vy+=(y-axY)*0.025*k;kn-=k*3}
-  if(!lev&&x>AX2[0]-6){const k=Math.min(1,(x-AX2[0]+6)/25);vy+=(y-axY)*0.025*k}
-  if(!lev&&x<AX[0])vy+=0.12;
-  vx+=0.06*Math.sin(y*0.12+x*0.04);vy+=0.06*Math.sin(x*0.1-y*0.05);if(land===undefined?onLand(x,y):land)kn*=0.8;kn*=windMul(t);
-  const m=Math.hypot(vx,vy);return{vx:vx/m,vy:vy/m,kn}}
+/* ---------- forecast data ----------
+   data/meta.json, wind.bin, waves.bin, spots.json are written 4x a day by pipeline/build.py.
+   The timeline runs hourly from 00:00 today (Madrid) to the last hour of the newest run. */
+const TZ="Europe/Madrid";
+const fmtDay=new Intl.DateTimeFormat("en-GB",{timeZone:TZ,weekday:"short",day:"numeric"});
+const fmtHour=new Intl.DateTimeFormat("en-GB",{timeZone:TZ,hour:"2-digit",hourCycle:"h23"});
+const fmtStamp=new Intl.DateTimeFormat("en-GB",{timeZone:TZ,weekday:"short",hour:"2-digit",minute:"2-digit",hourCycle:"h23"});
+let FC=null,T0=new Date(new Date().setHours(0,0,0,0)),N=48,NOW=0,NDAYS=2,curT=0,playing=false;
+const atHour=h=>new Date(T0.getTime()+h*3600e3);
+const dayName=d=>{const p=fmtDay.formatToParts(atHour(d*24+12));return `${p.find(q=>q.type==="weekday").value} ${p.find(q=>q.type==="day").value}`};
+const hourOf=h=>+fmtHour.format(atHour(h));
+async function loadForecast(){
+  const get=(f,kind)=>fetch("data/"+f,{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error(f+" "+r.status);return kind==="json"?r.json():r.arrayBuffer()});
+  const meta=await get("meta.json","json");
+  const [spots,wind,waves]=await Promise.all([get("spots.json","json"),get("wind.bin"),get("waves.bin").catch(()=>null)]);
+  const g=meta.grid,cells=g.nx*g.ny*3;
+  if(wind.byteLength!==cells*meta.hours)throw new Error("wind.bin has the wrong size");
+  FC={meta,g,spots:spots.spots,wi:new Int8Array(wind),wu:new Uint8Array(wind),wv:waves&&waves.byteLength===cells*meta.hours?new Uint8Array(waves):null};
+  T0=new Date(meta.t0);N=meta.hours;NDAYS=Math.ceil(N/24);
+  NOW=Math.max(0,Math.min(N-1,Math.floor((Date.now()-T0)/3600e3)));
+}
+const lonOf=x=>x/(C0*100)-5.8,latOf=y=>36.15-y/100;
+// bilinear in space and linear in time over the data grid; missing cells are skipped
+function gridSample(lon,lat,t,read){const g=FC.g,fi=(lon-g.lon0)/g.step,fj=(g.lat0-lat)/g.step;
+  if(fi<0||fj<0||fi>g.nx-1||fj>g.ny-1)return null;
+  const i=Math.min(g.nx-2,fi|0),j=Math.min(g.ny-2,fj|0),a=fi-i,b=fj-j,t0=Math.max(0,Math.min(N-1,Math.floor(t))),t1=Math.min(N-1,t0+1),c=Math.max(0,Math.min(1,t-t0));
+  const acc=[0,0,0,0];let wsum=0;
+  for(const [tt,wt] of [[t0,1-c],[t1,c]]){if(wt<=0)continue;
+    for(const [di,dj,w] of [[0,0,(1-a)*(1-b)],[1,0,a*(1-b)],[0,1,(1-a)*b],[1,1,a*b]]){if(w<=0)continue;
+      const k=((tt*g.ny+j+dj)*g.nx+i+di)*3,v=read(k);if(!v)continue;const ww=w*wt;wsum+=ww;for(let n=0;n<v.length;n++)acc[n]+=v[n]*ww}}
+  return wsum>0?acc.map(x=>x/wsum):null}
+const readWind=k=>FC.wi[k]===-128?null:[FC.wi[k]/2,FC.wi[k+1]/2,FC.wu[k+2]];
+const readWave=k=>{const w=FC.wv;if(w[k]===255)return null;const d=w[k+2]*Math.PI/128;return[w[k]*.05,w[k+1]*.1,Math.sin(d),Math.cos(d)]};
+function field(x,y,t=curT){if(!FC)return{vx:1,vy:0,kn:0};
+  const s=gridSample(lonOf(x),latOf(y),t,readWind);if(!s)return{vx:1,vy:0,kn:0};
+  const m=Math.hypot(s[0],s[1]);return m<.05?{vx:1,vy:0,kn:0}:{vx:s[0]/m,vy:-s[1]/m,kn:m}}
 const KN=[10,15,20,25,30,35,40];
 const SEA=["251,245,230","244,227,181","243,194,90","240,151,62","238,106,57","217,67,58","176,44,74","125,42,110"];
 const LND=["35,49,47","92,88,52","176,112,30","196,86,31","201,64,36","176,42,42","142,31,63","94,31,90"];
@@ -656,17 +667,20 @@ const kstep=kn=>{let i=0;while(i<KN.length&&kn>=KN[i])i++;return i};
 const colFor=(kn,land)=>(land?LND:SEA)[kstep(kn)];
 const barCol=kn=>kn<10?"#e9dfc6":`rgb(${SEA[kstep(kn)]})`;
 
-/* ---------- wave field (sample) ---------- */
-const sig=v=>1/(1+Math.exp(-v));
+/* ---------- wave field ---------- */
 const G={st:0.8};G.x0=D.x0;G.y0=D.y0;G.nx=Math.ceil((D.x1-D.x0)/G.st)+1;G.ny=Math.ceil((D.y1-D.y0)/G.st)+1;
-const GL=new Uint8Array(G.nx*G.ny),GD=new Float32Array(G.nx*G.ny).fill(99),GH=new Float32Array(G.nx*G.ny),GX=new Float32Array(G.nx*G.ny),GY=new Float32Array(G.nx*G.ny);
-{const q=[];for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i;if(onLand(G.x0+i*G.st,G.y0+j*G.st)){GL[k]=1;GD[k]=0;q.push(k)}}
-  for(let h=0;h<q.length;h++){const k=q[h],i=k%G.nx,j=(k/G.nx)|0;for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1]]){const a=i+di,b=j+dj;if(a<0||b<0||a>=G.nx||b>=G.ny)continue;const n=b*G.nx+a;if(GD[n]>GD[k]+1){GD[n]=GD[k]+1;q.push(n)}}}}
+const GL=new Uint8Array(G.nx*G.ny),GV=new Uint8Array(G.nx*G.ny),GH=new Float32Array(G.nx*G.ny),GX=new Float32Array(G.nx*G.ny),GY=new Float32Array(G.nx*G.ny);
+for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++)if(onLand(G.x0+i*G.st,G.y0+j*G.st))GL[j*G.nx+i]=1;
 let waveT=-9;
-function buildWaves(){waveT=curT;const lev=mode==="levante";
-  for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,x=G.x0+i*G.st,y=G.y0+j*G.st,t=sig((x-AX[0])/5),t2=sig((x-AX2[0])/5);let h,dx,dy;
-    if(lev){h=1.0*(1-t)+1.5*(t-t2)+1.3*t2;dx=(1-t)-t;dy=.45*(1-t)+.05*t}else{h=2.3*(1-t)+1.25*(t-t2)+.7*t2;dx=1;dy=.35*(1-t)-.05*(t-t2)+.1*t2}
-    h*=(0.35+0.65*Math.min(1,GD[k]/4))*(1+0.12*Math.sin(x*.25+y*.17))*waveMul(curT);const m=Math.hypot(dx,dy)||1;GH[k]=GL[k]?0:h;GX[k]=dx/m;GY[k]=dy/m}
+function buildWaves(){waveT=curT;GH.fill(0);GX.fill(0);GY.fill(0);GV.fill(0);
+  if(FC&&FC.wv)for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i;if(GL[k])continue;
+    const w=gridSample(lonOf(G.x0+i*G.st),latOf(G.y0+j*G.st),curT,readWave);if(!w)continue;
+    const m=Math.hypot(w[2],w[3])||1;GH[k]=w[0];GX[k]=-w[2]/m;GY[k]=w[3]/m;GV[k]=1}  // waves travel away from where they come from
+  // sea cells the wave model leaves empty (close inshore) borrow their nearest neighbour's value
+  const q=[];for(let k=0;k<GV.length;k++)if(GV[k])q.push(k);
+  for(let n=0;n<q.length;n++){const k=q[n],i=k%G.nx,j=(k/G.nx)|0;
+    for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1]]){const a=i+di,b=j+dj;if(a<0||b<0||a>=G.nx||b>=G.ny)continue;const m=b*G.nx+a;
+      if(GV[m]||GL[m])continue;GV[m]=1;GH[m]=GH[k];GX[m]=GX[k];GY[m]=GY[k];q.push(m)}}
   paintHeatSrc();paintWindSrc()}
 function waveAt(x,y){const fi=(x-G.x0)/G.st,fj=(y-G.y0)/G.st,i=Math.max(0,Math.min(G.nx-2,fi|0)),j=Math.max(0,Math.min(G.ny-2,fj|0)),u=Math.min(1,Math.max(0,fi-i)),v=Math.min(1,Math.max(0,fj-j));
   const L=A=>{const k=j*G.nx+i;return A[k]*(1-u)*(1-v)+A[k+1]*u*(1-v)+A[k+G.nx]*(1-u)*v+A[k+G.nx+1]*u*v};return{h:L(GH),dx:L(GX),dy:L(GY)}}
@@ -680,7 +694,7 @@ const windSrc=document.createElement("canvas");windSrc.width=G.nx;windSrc.height
 const WRAMP=[[8,[255,240,200,0]],[15,[255,226,150,.42]],[20,[255,200,95,.6]],[25,[255,160,70,.72]],[30,[255,115,60,.82]],[35,[240,70,60,.9]],[40,[200,50,90,.95]],[46,[150,50,130,1]]];
 function wcol(kn){if(kn<=WRAMP[0][0])return WRAMP[0][1];for(let i=0;i<WRAMP.length-1;i++){const [a,ca]=WRAMP[i],[b,cb]=WRAMP[i+1];if(kn<=b){const k=(kn-a)/(b-a);return ca.map((c,n)=>c+(cb[n]-c)*k)}}return WRAMP.at(-1)[1]}
 function paintWindSrc(){const c=windSrc.getContext("2d"),id=c.createImageData(G.nx,G.ny);
-  for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,[r,g,b,a]=wcol(field(G.x0+i*G.st,G.y0+j*G.st,curT,!!GL[k]).kn);id.data.set([r,g,b,a*255],k*4)}c.putImageData(id,0,0)}
+  for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,[r,g,b,a]=wcol(field(G.x0+i*G.st,G.y0+j*G.st,curT).kn);id.data.set([r,g,b,a*255],k*4)}c.putImageData(id,0,0)}
 function drawHeat(){hctx.setTransform(1,0,0,1,0,0);hctx.clearRect(0,0,hv.width,hv.height);
   if(layer!=="waves"){hv.style.opacity=selected?.35:.55;hv.style.mixBlendMode="screen";hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
     hctx.drawImage(windSrc,G.x0-G.st/2,G.y0-G.st/2,G.nx*G.st,G.ny*G.st);return}
@@ -711,33 +725,32 @@ function drawStatic(){ctx.clearRect(0,0,W,H);if(layer==="waves")return;const ste
     ctx.strokeStyle=`rgba(${colFor(f.kn,l)},${l?.55:.85})`;ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(sx-f.vx*L/2,sy-f.vy*L/2);ctx.lineTo(sx+f.vx*L/2,sy+f.vy*L/2);ctx.stroke()}}
 
 /* ---------- spot detail ---------- */
-function seeded(n){let s=n;return()=>{s=(s*16807)%2147483647;return s/2147483647}}
-function hours(s,day){const [x,y]=P(...s.fc),lev=mode==="levante",r=seeded([...s.id+mode].reduce((a,c)=>a+c.charCodeAt(0),11)*97+day*7),w=waveAt(x,y),base=w.h/waveMul(curT),tt=sig((x-AX[0])/5);
-  const p0=lev?11*(1-tt)+5*tt:8*(1-tt)+6*tt; // swell on the Atlantic side, short wind-sea in the Strait
-  return Array.from({length:12},(_,i)=>{const h=9+i,T=day*24+h,j1=r()-.5,j2=r()-.5,j3=r()-.5,j4=r();if(T>N-1)return{h,na:true};
-    const kk=Math.max(4,Math.round(field(x,y,T).kn+j1*3)),wh=Math.max(.2,base*waveMul(T)*(1+0.08*Math.sin((h-6)/12*Math.PI))+j2*.1);
-    const pd=Math.max(4,Math.round(p0+(lev?-1.5:1.5)*(T/N)+0.7*Math.sin(T/6)+j3*.6)); // the period drifts hour by hour
-    return{h,kn:kk,g:Math.round(kk*(1.22+j4*.18)),wh:Math.round(wh*10)/10,pd,wd:Math.atan2(w.dy,w.dx)*180/Math.PI-90}})}
-function dayWx(s,d){const [x]=P(...s.fc),inl=Math.round(2*sig((x-AX[0])/6));
-  const L=[{hi:24,sky:"sun",word:"Sunny",rain:0},{hi:24,sky:"sun",word:"Sunny",rain:0},{hi:22,sky:"cloud",word:"Cloudy spells",rain:20}],
-        Pn=[{hi:21,sky:"cloud",word:"Bright spells",rain:20},{hi:19,sky:"rain",word:"Showers",rain:60},{hi:20,sky:"cloud",word:"Cloudy spells",rain:10}];
-  const o=(mode==="levante"?L:Pn)[Math.min(d,2)];return{...o,hi:o.hi+inl}}
+function hours(s,day){const o=FC&&FC.spots[s.id];
+  return Array.from({length:12},(_,i)=>{const h=9+i,T=day*24+h;if(!o||T>N-1||o.kn[T]==null)return{h,na:true};
+    return{h,kn:o.kn[T],g:Math.max(o.gust[T]??o.kn[T],o.kn[T]),dir:o.dir[T],wh:o.wh[T],pd:o.wp[T]==null?null:Math.round(o.wp[T]),wd:o.wd[T]}})}
+function dayWx(s,d){const o=FC&&FC.spots[s.id];if(!o)return null;
+  const span=[...Array(24).keys()].map(h=>d*24+h).filter(T=>T<N),pick=(a,T)=>T.map(t=>a[t]).filter(v=>v!=null);
+  const temps=pick(o.temp,span);if(!temps.length)return null;
+  const rain=pick(o.rain,span).reduce((a,b)=>a+b,0),day=span.filter(T=>{const h=T-d*24;return h>=9&&h<=20}),cl=pick(o.cloud,day);
+  const cloud=cl.length?cl.reduce((a,b)=>a+b,0)/cl.length:0,sky=rain>=1?"rain":cloud>=60?"cloud":"sun";
+  return{hi:Math.round(Math.max(...temps)),sky,word:sky==="rain"?"Rain":sky==="cloud"?"Cloudy":"Mostly sunny",rain}}
 const SKY={sun:'<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="3" fill="currentColor"/><g stroke="currentColor" stroke-width="1.1" stroke-linecap="round"><path d="M7 .8v1.6M7 11.6v1.6M.8 7h1.6M11.6 7h1.6M2.6 2.6l1.1 1.1M10.3 10.3l1.1 1.1M2.6 11.4l1.1-1.1M10.3 3.7l1.1-1.1"/></g></svg>',
   cloud:'<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="5" cy="5" r="2.2" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M4 12h6.5a2.3 2.3 0 0 0 0-4.6 3.2 3.2 0 0 0-6.1.7A2 2 0 0 0 4 12Z" fill="currentColor"/></svg>',
   rain:'<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3.5 8h7a2.3 2.3 0 0 0 0-4.6 3.2 3.2 0 0 0-6.1.7A2 2 0 0 0 3.5 8Z" fill="currentColor"/><path d="M5 10l-.8 2.4M8 10l-.8 2.4M11 10l-.8 2.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>'};
 const arrow=deg=>`<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M7 1v12M3 9l4 4 4-4" stroke="currentColor" stroke-width="1.8" fill="none" transform="rotate(${deg} 7 7)"/></svg>`;
-function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.round(curT)%24,dir=mode==="levante"?90:-90;
+function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.round(curT)-day*24;
   const all=Array.from({length:NDAYS},(_,k)=>hours(s,k)),ok=all.flat().filter(h=>!h.na);
-  const gx=Math.max(30,...ok.map(h=>h.g)),wm=Math.max(2.5,...ok.map(h=>h.wh));
+  const gx=Math.max(30,...ok.map(h=>h.g)),wm=Math.max(2.5,...ok.map(h=>h.wh??0));
+  const mm=r=>r<10?r.toFixed(1):Math.round(r);
   document.getElementById("i-name").textContent=s.name;
   const hd=`<div class="row hd"><div></div><div class="hrs">${all[0].map(h=>`<span class="${h.h===hr?"cur":""}">${h.h}</span>`).join("")}</div></div>`;
   const na='<div class="na"><span class="kn">·</span></div>';
   const rows=(cells,withWx)=>all.map((hs,k)=>{const now=k===day,x=dayWx(s,k);
-    return `<div class="row ${now?"now":"dim"}"><div class="dlab"><em>${dayName(k)}</em>${withWx?`<span role="img" aria-label="${x.word}, ${x.hi} degrees${x.rain?`, ${x.rain}% chance of rain`:""}">${SKY[x.sky]}${x.hi}°${x.rain?` ${SKY.rain}${x.rain}%`:""}</span>`:""}</div>
+    return `<div class="row ${now?"now":"dim"}"><div class="dlab"><em>${dayName(k)}</em>${withWx&&x?`<span role="img" aria-label="${x.word}, ${x.hi} degrees${x.rain>=.5?`, ${mm(x.rain)} mm of rain`:""}">${SKY[x.sky]}${x.hi}°${x.rain>=.5?` ${x.sky==="rain"?"":SKY.rain}${mm(x.rain)} mm`:""}</span>`:""}</div>
       <div class="strip">${hs.map(h=>h.na?na:cells(h,now)).join("")}</div></div>`}).join("");
   document.getElementById("i-wind").innerHTML=hd+rows((h,now)=>{const s2=now?62:30;
-    return `<div class="${now&&h.h===hr?"cur":""}"><span class="gu">${h.g}</span><span class="kn">${h.kn}</span><span class="stack" style="height:${Math.round(h.g/gx*s2)}px"><span class="gbar"></span><span class="bar" style="height:${Math.round(h.kn/h.g*100)}%;background:${barCol(h.kn)}"></span></span>${now?arrow(dir):""}</div>`},true);
-  document.getElementById("i-wave").innerHTML=hd+rows((h,now)=>`<div class="${now&&h.h===hr?"cur":""}"><span class="kn">${h.wh.toFixed(1)}</span><span class="bar" style="height:${Math.round(h.wh/wm*(now?52:24))}px;background:rgb(${ramp(h.wh)})"></span>${now?arrow(h.wd):""}<span class="pd">${h.pd}s</span></div>`,false)}
+    return `<div class="${now&&h.h===hr?"cur":""}"><span class="gu">${h.g}</span><span class="kn">${h.kn}</span><span class="stack" style="height:${Math.round(h.g/gx*s2)}px"><span class="gbar"></span><span class="bar" style="height:${Math.round(h.kn/h.g*100)}%;background:${barCol(h.kn)}"></span></span>${now&&h.dir!=null?arrow(h.dir):""}</div>`},true);
+  document.getElementById("i-wave").innerHTML=hd+rows((h,now)=>h.wh==null?na:`<div class="${now&&h.h===hr?"cur":""}"><span class="kn">${h.wh.toFixed(1)}</span><span class="bar" style="height:${Math.round(h.wh/wm*(now?52:24))}px;background:rgb(${ramp(h.wh)})"></span>${now&&h.wd!=null?arrow(h.wd):""}<span class="pd">${h.pd??"–"}s</span></div>`,false)}
 function buildDetail(s){const p=s.pal,[x,y]=P(s.lon,s.lat),[fx,fy]=P(...s.fc);
   document.documentElement.style.setProperty("--spot",p.sea);
   document.getElementById("d-bg").setAttribute("fill",p.sea);
@@ -777,16 +790,17 @@ document.getElementById("back").onclick=closeSpot;
 addEventListener("keydown",e=>{if(e.key==="Escape")closeSpot()});
 
 /* ---------- timeline ---------- */
-const tlRange=document.getElementById("tl-range"),tlPlay=document.getElementById("tl-play");tlRange.max=N-1;
-const pct=v=>v/(N-1)*100+"%";
-document.getElementById("tl-days").innerHTML=Array.from({length:NDAYS},(_,d)=>{const a=d*24/(N-1)*100,b=Math.min(100,(d+1)*24/(N-1)*100);return `<span class="tl-day" style="left:${a}%;width:${b-a}%">${dayName(d)}</span>`}).join("");
-document.getElementById("tl-ticks").innerHTML=Array.from({length:Math.floor((N-1)/6)},(_,i)=>(i+1)*6).filter(v=>v%24).map(v=>`<span class="tl-tick" style="left:${pct(v)}"></span>`).join("");
-document.getElementById("tl-now").style.left=pct(NOW);
+const tlRange=document.getElementById("tl-range"),tlPlay=document.getElementById("tl-play");
+const pct=v=>v/Math.max(1,N-1)*100+"%";
+function buildTimeline(){tlRange.max=N-1;
+  document.getElementById("tl-days").innerHTML=Array.from({length:NDAYS},(_,d)=>{const a=d*24/(N-1)*100,b=Math.min(100,(d+1)*24/(N-1)*100);return `<span class="tl-day" style="left:${a}%;width:${b-a}%">${dayName(d)}</span>`}).join("");
+  document.getElementById("tl-ticks").innerHTML=Array.from({length:Math.floor((N-1)/6)},(_,i)=>(i+1)*6).filter(v=>v%24).map(v=>`<span class="tl-tick" style="left:${pct(v)}"></span>`).join("");
+  document.getElementById("tl-now").style.left=pct(NOW)}
 const PLAY='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1l8 5-8 5Z" fill="currentColor"/></svg>',PAUSE='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1h2.6v10H2.5ZM6.9 1h2.6v10H6.9Z" fill="currentColor"/></svg>';
 let lastHour=-1;
 function onTime(){const p=pct(curT);document.getElementById("tl-thumb").style.left=p;document.getElementById("tl-fill").style.width=p;
-  const h=Math.round(curT),d=Math.floor(h/24);tlRange.value=h;tlRange.setAttribute("aria-valuetext",`${dayName(d)}, ${String(h%24).padStart(2,"0")}:00`);
-  document.getElementById("tl-chip").textContent=`${dayName(d)} · ${String(h%24).padStart(2,"0")}:00`;
+  const h=Math.round(curT),d=Math.min(NDAYS-1,Math.floor(h/24)),hh=String(hourOf(h)).padStart(2,"0");tlRange.value=h;tlRange.setAttribute("aria-valuetext",`${dayName(d)}, ${hh}:00`);
+  document.getElementById("tl-chip").textContent=`${dayName(d)} · ${hh}:00`;
   document.querySelectorAll(".tl-day").forEach((e,i)=>e.classList.toggle("on",i===d));
   if(Math.abs(curT-waveT)>=0.25){buildWaves();drawHeat()}
   if(h!==lastHour){lastHour=h;if(selected)fillInfo(selected);if(reduce)drawStatic()}}
@@ -801,11 +815,8 @@ function clock(now){if(++shipTick%12===0)shipCheck(now);if(playing){curT+=(now-l
 /* ---------- toggles ---------- */
 function setLayer(l){layer=l;document.getElementById("l-wind").setAttribute("aria-pressed",l==="wind");document.getElementById("l-wave").setAttribute("aria-pressed",l==="waves");
   document.getElementById("lg-wind").hidden=l!=="wind";document.getElementById("lg-wave").hidden=l!=="waves";try{localStorage.setItem("syv-layer",l)}catch(e){};resetParts();drawHeat();if(reduce)drawStatic()}
-function setMode(m){mode=m;buildWaves();drawHeat();document.getElementById("w-lev").setAttribute("aria-pressed",m==="levante");document.getElementById("w-pon").setAttribute("aria-pressed",m==="poniente");
-  try{localStorage.setItem("syv-mode",m)}catch(e){};ctx.clearRect(0,0,W,H);if(reduce)drawStatic();if(selected)fillInfo(selected)}
 document.getElementById("l-wind").onclick=()=>setLayer("wind");document.getElementById("l-wave").onclick=()=>setLayer("waves");
-document.getElementById("w-lev").onclick=()=>setMode("levante");document.getElementById("w-pon").onclick=()=>setMode("poniente");
-try{if(localStorage.getItem("syv-layer")==="waves")layer="waves";if(localStorage.getItem("syv-mode")==="poniente")mode="poniente"}catch(e){}
+try{if(localStorage.getItem("syv-layer")==="waves")layer="waves"}catch(e){}
 
 /* ---------- pan & zoom (overview only) ---------- */
 let drag=null;const pts=new Map();
@@ -827,7 +838,11 @@ document.getElementById("z-in").onclick=()=>zoomBy(1.6);document.getElementById(
 function resize(){W=innerWidth;H=innerHeight;dpr=Math.min(2,devicePixelRatio||1);cv.width=hv.width=W*dpr;cv.height=hv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
   const f=fit();if(!selected)cam=f;clampCam();lastCam="";applyCam();if(selected)setReveal(Math.hypot(W,H)*1.2,0);resetParts()}
 addEventListener("resize",resize);
-setMode(mode);resize();setLayer(layer);setPlaying(false);onTime();requestAnimationFrame(clock);
+resize();setLayer(layer);setPlaying(false);buildTimeline();buildWaves();requestAnimationFrame(clock);
+const status=document.getElementById("status");
+loadForecast().then(()=>{buildTimeline();lastHour=-1;waveT=-9;setTime(NOW);drawHeat();resetParts();
+    status.textContent="Updated "+fmtStamp.format(new Date(FC.meta.generated));if(selected)fillInfo(selected)})
+  .catch(e=>{console.warn("forecast",e);status.textContent="Forecast unavailable, try again later"});
 if(!reduce)requestAnimationFrame(tick);
 </script>
 

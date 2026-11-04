@@ -1,0 +1,21 @@
+name: Cancel a stuck Pages deployment
+
+# Use when a deploy fails with "due to in progress deployment. Please cancel <id> first".
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_id:
+        description: "The id from the error message"
+        required: true
+
+permissions:
+  pages: write
+
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/deployments/${{ inputs.deployment_id }}/cancel" && echo cancelled

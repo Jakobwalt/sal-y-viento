@@ -37,8 +37,13 @@ jobs:
       - name: Install
         run: pip install -r pipeline/requirements.txt
 
+      # Scheduled runs fetch only when a source has a new run; a code push just republishes the live data.
       - name: Fetch forecasts and build data files
-        run: python -m pipeline.build --out site/data --previous "https://jakobwalt.github.io/sal-y-viento"
+        id: build
+        run: |
+          extra=""
+          [ "${{ github.event_name }}" = "push" ] && extra="--reuse-only"
+          python -m pipeline.build --out site/data --previous "https://jakobwalt.github.io/sal-y-viento" $extra
 
       - name: Summary
         if: always()
@@ -48,10 +53,13 @@ jobs:
           fi
 
       - uses: actions/configure-pages@v5
+        if: steps.build.outputs.changed != 'false'
       - uses: actions/upload-pages-artifact@v3
+        if: steps.build.outputs.changed != 'false'
         with:
           path: site
       - id: deployment
+        if: steps.build.outputs.changed != 'false'
         uses: actions/deploy-pages@v4
         continue-on-error: true
 

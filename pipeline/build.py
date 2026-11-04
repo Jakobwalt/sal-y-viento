@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -134,13 +135,57 @@ def load_previous(base_url: str | None):
         return None
 
 
+# ---------------------------------------------------------------- staying polite to the sources
+def set_output(key, value):
+    """Tell the GitHub workflow something (no-op when run locally)."""
+    path = os.environ.get("GITHUB_OUTPUT")
+    if path:
+        with open(path, "a") as f:
+            f.write(f"{key}={value}\n")
+
+
+def source_signatures(now, aemet_mod, waves_mod):
+    """Cheap checks for whether new runs exist: a HEAD request to AEMET, two catalogue reads for waves."""
+    sig = {}
+    try:
+        r = requests.head(C.AEMET_URL, timeout=30, allow_redirects=True, headers={"User-Agent": C.USER_AGENT})
+        parts = [r.headers.get(k, "") for k in ("ETag", "Last-Modified", "Content-Length")]
+        sig["aemet"] = "|".join(parts) if r.ok and any(parts) else None
+    except Exception:
+        sig["aemet"] = None
+    for ds in (C.WAVES_BASE, C.WAVES_DETAIL):
+        try:
+            sig[ds] = waves_mod.latest_file(now, ds)[0]
+        except Exception:
+            sig[ds] = None
+    return sig
+
+
+def reuse_live(base_url, out):
+    """Copy the live data files unchanged (used when only the site's code changed)."""
+    out.mkdir(parents=True, exist_ok=True)
+    for f in ("meta.json", "wind.bin", "waves.bin", "spots.json", "report.json"):
+        r = requests.get(f"{base_url.rstrip('/')}/data/{f}", timeout=60, headers={"User-Agent": C.USER_AGENT})
+        r.raise_for_status()
+        (out / f).write_bytes(r.content)
+
+
 # ---------------------------------------------------------------- main
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="site/data")
     ap.add_argument("--previous", default=None, help="base URL of the live site, to keep earlier hours")
     ap.add_argument("--now", default=None, help="override the clock (ISO, UTC) for testing")
+    ap.add_argument("--reuse-only", action="store_true", help="republish the live data without querying any source")
+    ap.add_argument("--force", action="store_true", help="fetch even if no source has a new run")
     args = ap.parse_args(argv)
+
+    if args.reuse_only and args.previous:
+        try:
+            reuse_live(args.previous, Path(args.out)); set_output("changed", "true")
+            log("reused the live data; no source was queried"); return 0
+        except Exception as e:
+            log(f"could not reuse live data ({e}); fetching instead")
 
     now = dt.datetime.fromisoformat(args.now) if args.now else dt.datetime.now(dt.timezone.utc)
     if now.tzinfo is None:
@@ -151,14 +196,21 @@ def main(argv=None):
 
     from . import aemet, ecmwf, waves  # noqa: E402  (imported late so --help works without GDAL)
 
+    prev = load_previous(args.previous)
+    sig = source_signatures(now, aemet, waves)
+    old = (prev or {}).get("meta", {}).get("signatures", {})
+    same_day = bool(prev) and prev["times"][0] == t0
+    if (not args.force and same_day and sig.get("aemet") and all(sig.get(k) and sig.get(k) == old.get(k) for k in sig)):
+        log(f"no new runs since the last build ({sig}); nothing fetched, nothing to deploy")
+        set_output("changed", "false")
+        return 0
+
     ae = None
     try:
         ae = aemet.fetch(); report["aemet"] = ae.report
         log(f"aemet: {len(ae.times)} hours {ae.times[0]} → {ae.times[-1]}")
     except Exception as e:
         report["errors"]["aemet"] = repr(e); log("aemet FAILED"); traceback.print_exc()
-
-    prev = load_previous(args.previous)
 
     end = ae.times[-1] if ae else (prev["times"][-1] if prev else None)
     if end is None:
@@ -275,6 +327,7 @@ def main(argv=None):
             "ecmwf": {"name": "ECMWF IFS 9 km via Open-Meteo", "ok": bool(ec)},
             "waves": {"name": "Puertos del Estado IBI + Strait wave models", "run": wv.run.isoformat() if wv else None},
         },
+        "signatures": sig,
         "coverage": {"wind": [s is not None for s in src_wind], "waves": [s is not None for s in src_wave]},
         "credit": "Forecast data: AEMET, ECMWF (CC BY 4.0), Puertos del Estado. Direction via Open-Meteo.",
     }
@@ -283,6 +336,7 @@ def main(argv=None):
     report["spot_sample"] = {"from_hour": first, **{sid: {k: v[first:first + 3] for k, v in o.items()}
                                                    for sid, o in spots_out.items() if sid in ("valde", "palmar")}}
     (out / "report.json").write_text(json.dumps(report, indent=1, default=str))
+    set_output("changed", "true")
     log(f"wrote {T} hours from {t0.isoformat()} to {out}  "
         f"(wind new {src_wind.count('new')}, prev {src_wind.count('prev')}; waves new {src_wave.count('new')}, prev {src_wave.count('prev')})")
     return 0

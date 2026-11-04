@@ -1,0 +1,31 @@
+name: Debug sources
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Wave catalogue and services
+        run: |
+          set -x
+          base=https://opendap.puertos.es/thredds
+          y=$(date -u +%Y); m=$(date -u +%m)
+          curl -s "$base/catalog/wave_regional_gib/$y/$m/catalog.xml" | tail -c 2500 || true
+          echo; echo ----- root catalog
+          curl -s "$base/catalog/wave_regional_gib/catalog.xml" | head -c 2500 || true
+          echo; echo ----- services of newest FC file
+          f=$(curl -s "$base/catalog/wave_regional_gib/$y/$m/catalog.xml" | grep -o 'HW-[0-9]*-[0-9]*-B[0-9]*-FC.nc' | sort -t B -k2 | tail -1)
+          echo "newest: $f"
+          curl -s "$base/catalog/wave_regional_gib/$y/$m/catalog.xml?dataset=wave_regional_gib/$y/$m/$f" | head -c 3000 || true
+          echo; echo ----- NCSS dataset.xml
+          curl -s -o /dev/null -w "%{http_code}\n" "$base/ncss/wave_regional_gib/$y/$m/$f/dataset.xml"
+          curl -s "$base/ncss/grid/wave_regional_gib/$y/$m/$f/dataset.xml" | head -c 1500; echo
+          curl -s -o /dev/null -w "ncss/grid: %{http_code}\n" "$base/ncss/grid/wave_regional_gib/$y/$m/$f/dataset.xml"
+          curl -s -o /dev/null -w "fileServer: %{http_code}\n" -r 0-100 "$base/fileServer/wave_regional_gib/$y/$m/$f"
+          curl -s -o /dev/null -w "dodsC: %{http_code}\n" "$base/dodsC/wave_regional_gib/$y/$m/$f.dds"
+          curl -s "$base/dodsC/wave_regional_gib/$y/$m/$f.dds" | head -40
+      - name: Live report
+        run: curl -s https://jakobwalt.github.io/sal-y-viento/data/report.json

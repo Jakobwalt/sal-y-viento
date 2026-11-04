@@ -30,6 +30,11 @@ jobs:
           curl -s -o /dev/null -w "fileServer: %{http_code}\n" -r 0-100 "$base/fileServer/wave_regional_gib/$y/$m/$f"
           curl -s -o /dev/null -w "dodsC: %{http_code}\n" "$base/dodsC/wave_regional_gib/$y/$m/$f.dds"
           curl -s "$base/dodsC/wave_regional_gib/$y/$m/$f.dds" | head -40
+      - name: Wave datasets on the server
+        run: |
+          curl -s https://opendap.puertos.es/thredds/catalog.xml | grep -o 'xlink:title="[^"]*"\|name="[^"]*"' | head -80
+          for d in wave_regional_cad wave_regional_gc wave_regional_ibi wave_coast_cad wave_regional_atl wave_local_cad; do
+            printf "%s " $d; curl -s -o /dev/null -w "%{http_code}\n" https://opendap.puertos.es/thredds/catalog/$d/catalog.xml; done
       - name: Live report
         run: curl -s https://jakobwalt.github.io/sal-y-viento/data/report.json
       - name: Snapshot live data to the snapshot branch

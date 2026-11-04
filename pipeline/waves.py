@@ -1,7 +1,9 @@
-"""Puertos del Estado regional wave model for the Strait (wave_regional_gib).
+"""Puertos del Estado wave forecasts.
 
-Finds the newest forecast file in the THREDDS catalogue, asks the subset service (NCSS)
-for our box only, and regrids height, peak period and direction onto our grid.
+IBI (wave_regional_ibi, about 8 km) covers the whole area; the Strait model
+(wave_regional_gib, finer) replaces it wherever it has data. For each, we find the newest
+forecast file in the THREDDS catalogue, ask the subset service (NCSS) for our box only,
+and regrid height, peak period and direction onto our grid.
 """
 from __future__ import annotations
 
@@ -38,14 +40,14 @@ def _get(url, **kw):
     return r
 
 
-def latest_file(now: dt.datetime) -> tuple[str, dt.datetime, int, int]:
+def latest_file(now: dt.datetime, ds: str) -> tuple[str, dt.datetime, int, int]:
     best = None
     for months_back in (0, 1):
         y, m = now.year, now.month - months_back
         if m == 0:
             y, m = y - 1, 12
         try:
-            xml = _get(C.WAVES_CATALOG.format(y=y, m=m), timeout=60).text
+            xml = _get(C.WAVES_CATALOG.format(ds=ds, y=y, m=m), timeout=60).text
         except requests.HTTPError:
             continue
         for el in ET.fromstring(xml).iter():
@@ -59,17 +61,37 @@ def latest_file(now: dt.datetime) -> tuple[str, dt.datetime, int, int]:
         if best:
             break
     if not best:
-        raise RuntimeError("No wave forecast file found in the Puertos del Estado catalogue")
+        raise RuntimeError(f"No wave forecast file found for {ds}")
     return best
 
 
 def fetch(now: dt.datetime) -> WaveRun:
-    name, base, y, m = latest_file(now)
+    base_run = _load(now, C.WAVES_BASE)
+    try:
+        detail = _load(now, C.WAVES_DETAIL)
+    except Exception as e:  # the base model alone is still fine
+        detail = None
+        base_run.report["detail_error"] = repr(e)
+    if detail:
+        di = {t: i for i, t in enumerate(detail.times)}
+        for k, t in enumerate(base_run.times):
+            j = di.get(t)
+            if j is None:
+                continue
+            ok = ~np.isnan(detail.h[j])
+            for a, b in ((base_run.h, detail.h), (base_run.period, detail.period), (base_run.dir_from, detail.dir_from)):
+                a[k][ok] = b[j][ok]
+        base_run.report["detail"] = detail.report
+    return base_run
+
+
+def _load(now: dt.datetime, ds: str) -> WaveRun:
+    name, base, y, m = latest_file(now, ds)
     params = [("var", v) for v in VARS] + [
         ("north", C.LAT_MAX + 0.1), ("south", C.LAT_MIN - 0.1), ("west", C.LON_MIN - 0.1), ("east", C.LON_MAX + 0.1),
         ("horizStride", 1), ("temporal", "all"), ("accept", "netcdf"),
     ]
-    blob = _get(C.WAVES_NCSS.format(y=y, m=m, name=name), params=params, timeout=300).content
+    blob = _get(C.WAVES_NCSS.format(ds=ds, y=y, m=m, name=name), params=params, timeout=300).content
     nc = Dataset("waves", memory=blob)
     lat = np.asarray(nc.variables[_find(nc, ("latitude", "lat"))][:], dtype=np.float64)
     lon = np.asarray(nc.variables[_find(nc, ("longitude", "lon"))][:], dtype=np.float64)
@@ -101,7 +123,7 @@ def fetch(now: dt.datetime) -> WaveRun:
                 res[t] = _interp(la, lon, f, gy, gx)
         out[var] = res
     nc.close()
-    report = {"file": name, "run": base.isoformat(), "hours": len(times),
+    report = {"dataset": ds, "file": name, "run": base.isoformat(), "hours": len(times),
               "grid": [int(len(lat)), int(len(lon))]}
     return WaveRun(run=base, times=times, h=out["VHM0"], period=out["VTPK"], dir_from=out["VMDR"], report=report)
 

@@ -273,7 +273,7 @@ def main(argv=None):
             "aemet": {"name": "AEMET HARMONIE-AROME", "first": ae.times[0].isoformat() if ae else None,
                       "last": ae.times[-1].isoformat() if ae else None},
             "ecmwf": {"name": "ECMWF IFS 9 km via Open-Meteo", "ok": bool(ec)},
-            "waves": {"name": "Puertos del Estado wave_regional_gib", "run": wv.run.isoformat() if wv else None},
+            "waves": {"name": "Puertos del Estado IBI + Strait wave models", "run": wv.run.isoformat() if wv else None},
         },
         "coverage": {"wind": [s is not None for s in src_wind], "waves": [s is not None for s in src_wave]},
         "credit": "Forecast data: AEMET, ECMWF (CC BY 4.0), Puertos del Estado. Direction via Open-Meteo.",

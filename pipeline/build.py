@@ -96,6 +96,12 @@ def nearest_sea(grid2d, lon, lat, radius=4):
     return best
 
 
+def wave_value(grid2d, spot):
+    """Value at the inshore wave point; if the wave model has nothing there, the offshore point."""
+    v = nearest_sea(grid2d, *spot["wave_point"])
+    return v if not np.isnan(v) else nearest_sea(grid2d, *spot["point"])
+
+
 def r1(x, nd=1):
     return None if x is None or (isinstance(x, float) and np.isnan(x)) else round(float(x), nd)
 
@@ -162,12 +168,27 @@ def source_signatures(now, aemet_mod, waves_mod):
 
 
 def reuse_live(base_url, out):
-    """Copy the live data files unchanged (used when only the site's code changed)."""
+    """Copy the live data files (used when only our own code changed) and re-derive the spot
+    wave values from the live wave grid, so changes to the spot points apply without any API call."""
     out.mkdir(parents=True, exist_ok=True)
     for f in ("meta.json", "wind.bin", "waves.bin", "spots.json", "report.json"):
         r = requests.get(f"{base_url.rstrip('/')}/data/{f}", timeout=60, headers={"User-Agent": C.USER_AGENT})
         r.raise_for_status()
         (out / f).write_bytes(r.content)
+    meta = json.loads((out / "meta.json").read_text()); T = meta["hours"]
+    WH, WP, WD = dec_waves((out / "waves.bin").read_bytes(), T)
+    sp = json.loads((out / "spots.json").read_text())
+    for sid, s in C.SPOTS.items():
+        o = sp["spots"].get(sid)
+        if not o:
+            continue
+        for k in range(T):
+            if np.isnan(WH[k]).all():
+                continue
+            o["wh"][k] = r1(wave_value(WH[k], s), 2)
+            o["wp"][k] = r1(wave_value(WP[k], s))
+            o["wd"][k] = r1(wave_value(WD[k], s), 0)
+    (out / "spots.json").write_text(json.dumps(sp, separators=(",", ":")))
 
 
 # ---------------------------------------------------------------- main
@@ -185,7 +206,9 @@ def main(argv=None):
             reuse_live(args.previous, Path(args.out)); set_output("changed", "true")
             log("reused the live data; no source was queried"); return 0
         except Exception as e:
-            log(f"could not reuse live data ({e}); fetching instead")
+            log(f"could not reuse live data ({e}); not fetching anything on a code push")
+            set_output("changed", "false")
+            return 1
 
     now = dt.datetime.fromisoformat(args.now) if args.now else dt.datetime.now(dt.timezone.utc)
     if now.tzinfo is None:
@@ -296,9 +319,9 @@ def main(argv=None):
                 for key in ("temp", "rain", "cloud"):
                     o[key].append(take_prev(key))
             if src_wave[k] is not None:
-                o["wh"].append(r1(nearest_sea(WH[k], plon, plat), 2))
-                o["wp"].append(r1(nearest_sea(WP[k], plon, plat)))
-                o["wd"].append(r1(nearest_sea(WD[k], plon, plat), 0))
+                o["wh"].append(r1(wave_value(WH[k], s), 2))
+                o["wp"].append(r1(wave_value(WP[k], s)))
+                o["wd"].append(r1(wave_value(WD[k], s), 0))
             else:
                 for key in ("wh", "wp", "wd"):
                     o[key].append(take_prev(key))

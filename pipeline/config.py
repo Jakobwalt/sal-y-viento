@@ -23,6 +23,12 @@ SPOTS = {
     "balneario": {"name": "Balneario",     "beach": (-5.6163, 36.0192), "point": (-5.6465, 36.0075)},
 }
 
+# Waves are read closer in: about a third of the way from the beach to the wind point (~1 km off).
+WAVE_FRACTION = 0.35
+for _s in SPOTS.values():
+    (_bx, _by), (_px, _py) = _s["beach"], _s["point"]
+    _s["wave_point"] = (_bx + (_px - _bx) * WAVE_FRACTION, _by + (_py - _by) * WAVE_FRACTION)
+
 # ECMWF points for wind direction: a 0.25° base grid, every spot point, and a few
 # extra points along the Strait where the wind turns fastest. We interpolate between them.
 _BASE = [(round(lo, 2), round(la, 2))

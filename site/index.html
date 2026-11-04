@@ -86,10 +86,10 @@ button{font:inherit;color:inherit}
 .legend[hidden]{display:none}
 .legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
 .kscale{display:grid;gap:3px}
-.ksw{display:block;width:176px;height:6px;border-radius:1px;background:linear-gradient(90deg,#fbf5e6 0 12.5%,#f4e3b5 0 25%,#f3c25a 0 37.5%,#f0973e 0 50%,#ee6a39 0 62.5%,#d9433a 0 75%,#b02c4a 0 87.5%,#7d2a6e 0)}
-.ktk{position:relative;display:block;width:176px;height:10px}
+.ksw{display:block;width:198px;height:6px;border-radius:1px;background:linear-gradient(90deg,rgba(251,245,230,.18) 0 11.11%,#fbf5e6 0 22.22%,#c4e6a0 0 33.33%,#76c270 0 44.44%,#f3c25a 0 55.55%,#f0973e 0 66.66%,#ee6a39 0 77.77%,#c83444 0 88.88%,#7d2a6e 0)}
+.ktk{position:relative;display:block;width:198px;height:10px}
 .ktk b{position:absolute;font-weight:400;font-size:.6rem;transform:translateX(-50%)}
-.ktk b:nth-child(1){left:12.5%}.ktk b:nth-child(2){left:37.5%}.ktk b:nth-child(3){left:62.5%}.ktk b:nth-child(4){left:87.5%}
+.ktk b:nth-child(1){left:11.11%}.ktk b:nth-child(2){left:22.22%}.ktk b:nth-child(3){left:44.44%}.ktk b:nth-child(4){left:66.66%}.ktk b:nth-child(5){left:88.88%}
 .legend .ramp{width:110px;height:6px;border-radius:3px;margin:0;background:linear-gradient(90deg,#215f68,#3f9896,#78c4af,#f3c25a,#ee6a39)}
 .sample{font-family:var(--f-mono);font-size:.64rem;color:var(--foam);opacity:.85;text-transform:uppercase;letter-spacing:.08em}
 .zoomers{bottom:calc(env(safe-area-inset-bottom,0px) + 84px);right:max(18px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:6px;transition:opacity .3s}
@@ -434,7 +434,7 @@ body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
     <button id="l-wind" type="button" aria-pressed="true">Wind</button>
     <button id="l-wave" type="button" aria-pressed="false">Waves</button>
   </div>
-  <div class="legend" id="lg-wind"><span class="kscale" aria-label="Wind in knots: under 10 to over 40"><span class="ksw"></span><span class="ktk"><b>10</b><b>20</b><b>30</b><b>40+</b></span></span><span>kn</span></div>
+  <div class="legend" id="lg-wind"><span class="kscale" aria-label="Wind in knots: calm under 5, white 5 to 10, greens 10 to 20, then yellow to purple up to 40 and over"><span class="ksw"></span><span class="ktk"><b>5</b><b>10</b><b>20</b><b>30</b><b>40</b></span></span><span>kn</span></div>
   <div class="legend" id="lg-wave" hidden><span>0</span><i class="ramp"></i><span>3 m</span></div>
   <div class="sample" id="status" aria-live="polite"></div>
 </div>
@@ -499,7 +499,7 @@ const SPOTS=[
  {id:"valde",name:"Valdevaqueros",sym:"dune",pal:{sea:"#23827f",ring:"#46a099",shallow:"#8fcfbc",land:"#f0d7a2",ink:"#2c2a1d"}},
  {id:"lances",name:"Los Lances",sym:"lifeguard",lm:[-5.6395,36.0500],pal:{sea:"#1f7a8c",ring:"#3f97a6",shallow:"#8ecfd0",land:"#f3e3bd",ink:"#173037"}},
  {id:"balneario",name:"Balneario",sym:"castle",pal:{sea:"#245f86",ring:"#437ea3",shallow:"#7eb0cb",land:"#fbf7ee",ink:"#162637"}}
-].map(s=>{const v=SP[s.id];return{...s,lon:v[0],lat:v[1],fc:[v[2],v[3]]}});
+].map(s=>{const v=SP[s.id];return{...s,lon:v[0],lat:v[1],fc:[v[2],v[3]],wp:[v[0]+(v[2]-v[0])*.35,v[1]+(v[3]-v[1])*.35]}});  // wave point ~1 km off
 const LANDMARKS=[{sym:"islet",lon:-6.226,lat:36.378,s:2.8},{sym:"lifeguard",lon:-5.654,lat:36.053,s:2.6},{sym:"tower",lon:-6.066,lat:36.243,s:3.0},{sym:"lighthouse",lon:-6.034,lat:36.19,s:3.2},
  {sym:"columns",lon:-5.772,lat:36.097,s:2.8},{sym:"dune",lon:-5.706,lat:36.078,s:3.6},{sym:"castle",lon:-5.603,lat:36.023,s:3.0},
  {sym:"village",lon:-5.966,lat:36.262,s:3.8},{sym:"ape",lon:-5.3475,lat:36.111,s:2.9},{sym:"atlas",lon:-5.43,lat:35.87,s:5.2}];
@@ -660,12 +660,13 @@ const readWave=k=>{const w=FC.wv;if(w[k]===255)return null;const d=w[k+2]*Math.P
 function field(x,y,t=curT){if(!FC)return{vx:1,vy:0,kn:0};
   const s=gridSample(lonOf(x),latOf(y),t,readWind);if(!s)return{vx:1,vy:0,kn:0};
   const m=Math.hypot(s[0],s[1]);return m<.05?{vx:1,vy:0,kn:0}:{vx:s[0]/m,vy:-s[1]/m,kn:m}}
-const KN=[10,15,20,25,30,35,40];
-const SEA=["251,245,230","244,227,181","243,194,90","240,151,62","238,106,57","217,67,58","176,44,74","125,42,110"];
-const LND=["35,49,47","92,88,52","176,112,30","196,86,31","201,64,36","176,42,42","142,31,63","94,31,90"];
+// <5 calm (no colour) · 5–10 white · 10–15 / 15–20 greens · 20 yellow → 40+ plum
+const KN=[5,10,15,20,25,30,35,40];
+const SEA=["200,214,212","251,245,230","196,230,160","118,194,112","243,194,90","240,151,62","238,106,57","200,52,68","125,42,110"];
+const LND=["35,49,47","35,49,47","58,108,58","84,140,56","176,112,30","196,86,31","201,64,36","160,40,55","94,31,90"];
 const kstep=kn=>{let i=0;while(i<KN.length&&kn>=KN[i])i++;return i};
 const colFor=(kn,land)=>(land?LND:SEA)[kstep(kn)];
-const barCol=kn=>kn<10?"#e9dfc6":`rgb(${SEA[kstep(kn)]})`;
+const barCol=kn=>kn<5?"rgba(233,223,198,.35)":`rgb(${SEA[kstep(kn)]})`;
 
 /* ---------- wave field ---------- */
 const G={st:0.8};G.x0=D.x0;G.y0=D.y0;G.nx=Math.ceil((D.x1-D.x0)/G.st)+1;G.ny=Math.ceil((D.y1-D.y0)/G.st)+1;
@@ -691,7 +692,7 @@ function paintHeatSrc(){const c=heatSrc.getContext("2d"),id=c.createImageData(G.
 const hv=document.getElementById("heat"),hctx=hv.getContext("2d");
 // wind strength as a light wash: calm stays clear, stronger wind warms the map
 const windSrc=document.createElement("canvas");windSrc.width=G.nx;windSrc.height=G.ny;
-const WRAMP=[[8,[255,240,200,0]],[15,[255,226,150,.42]],[20,[255,200,95,.6]],[25,[255,160,70,.72]],[30,[255,115,60,.82]],[35,[240,70,60,.9]],[40,[200,50,90,.95]],[46,[150,50,130,1]]];
+const WRAMP=[[5,[255,255,255,0]],[7,[255,250,235,.16]],[10,[255,250,235,.26]],[12.5,[205,238,170,.42]],[17.5,[125,205,115,.52]],[22.5,[255,205,95,.62]],[27.5,[255,150,65,.75]],[32.5,[255,110,60,.85]],[37.5,[225,60,75,.92]],[44,[150,50,130,1]]];
 function wcol(kn){if(kn<=WRAMP[0][0])return WRAMP[0][1];for(let i=0;i<WRAMP.length-1;i++){const [a,ca]=WRAMP[i],[b,cb]=WRAMP[i+1];if(kn<=b){const k=(kn-a)/(b-a);return ca.map((c,n)=>c+(cb[n]-c)*k)}}return WRAMP.at(-1)[1]}
 function paintWindSrc(){const c=windSrc.getContext("2d"),id=c.createImageData(G.nx,G.ny);
   for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,[r,g,b,a]=wcol(field(G.x0+i*G.st,G.y0+j*G.st,curT).kn);id.data.set([r,g,b,a*255],k*4)}c.putImageData(id,0,0)}
@@ -717,7 +718,7 @@ function tick(){
   else{const dv=selected&&!diving;fadeTrails(.045);const am=dv?.7:1;
     for(const p of parts){const f=field(p.x,p.y),v=f.kn*0.045/cam.z,nx=p.x+f.vx*v,ny=p.y+f.vy*v,[a,b]=toScreen(p.x,p.y),[c,d]=toScreen(nx,ny),land=onLand(p.x,p.y),
       fade=Math.min(1,p.age/40,(p.life-p.age)/40);
-      ctx.strokeStyle=`rgba(${colFor(f.kn,land)},${(land?.38:.6)*fade*am})`;ctx.lineWidth=f.kn>35?1.6:f.kn>25?1.3:1;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();
+      ctx.strokeStyle=`rgba(${colFor(f.kn,land)},${(land?.38:.6)*fade*am*(f.kn<5?.35:1)})`;ctx.lineWidth=f.kn>35?1.6:f.kn>25?1.3:1;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();
       p.x=nx;p.y=ny;p.age++;if(p.age>p.life||c<-20||c>W+20||d<-20||d>H+20)spawn(p)}}
   requestAnimationFrame(tick)}
 function drawStatic(){ctx.clearRect(0,0,W,H);if(layer==="waves")return;const step=46;ctx.lineCap="round";
@@ -768,7 +769,11 @@ function buildDetail(s){const p=s.pal,[x,y]=P(s.lon,s.lat),[fx,fy]=P(...s.fc);
   const ring=el("circle",{cx:fx,cy:fy,r:.12,fill:"none",stroke:"#fbf5e6","stroke-width":1.4,"vector-effect":"non-scaling-stroke"},b);
   if(!reduce){el("animate",{attributeName:"r",from:.12,to:.6,dur:"2.2s",repeatCount:"indefinite"},ring);el("animate",{attributeName:"opacity",from:1,to:0,dur:"2.2s",repeatCount:"indefinite"},ring)}
   el("circle",{cx:fx,cy:fy,r:.13,fill:"#fbf5e6",stroke:p.ink,"stroke-width":1.4,"vector-effect":"non-scaling-stroke"},b);
-  el("circle",{cx:fx,cy:fy,r:.055,fill:"#ee6a39"},b)}
+  el("circle",{cx:fx,cy:fy,r:.055,fill:"#ee6a39"},b);
+  // the wave point sits closer in, on the same line
+  const [wx,wy]=P(...s.wp),wg=el("g",{},b);
+  el("circle",{cx:wx,cy:wy,r:.1,fill:p.shallow,stroke:"#fbf5e6","stroke-width":1.4,"vector-effect":"non-scaling-stroke"},wg);
+  el("path",{d:`M${wx-.055} ${wy}q.0275 -.03 .055 0t.055 0`,fill:"none",stroke:p.ink,"stroke-width":1.2,"stroke-linecap":"round","vector-effect":"non-scaling-stroke"},wg)}
 function setReveal(r,blur){const [sx,sy]=selected?toScreen(...P(selected.lon,selected.lat)):[W/2,H/2];
   dsv.style.clipPath=`circle(${r}px at ${sx}px ${sy}px)`;dsv.style.visibility=r>0?"visible":"hidden";
   svg.style.filter=blur>0.01?`blur(${blur}px) saturate(${1-blur*.08})`:"";}

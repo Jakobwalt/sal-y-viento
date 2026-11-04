@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sal y Viento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+
+/* Layout: one full-bleed sun-bleached chart of the Strait. UI floats like stickers.
+   Tapping a spot flies in, then dives: the chart dissolves into that spot's own colour world
+   with a finer shoreline, and the forecast rises from the bottom. Single sunlit look on purpose. */
+:root{
+  --sand:#ecdcb6;--foam:#fbf5e6;--ink:#23312f;--sea:#2f7f84;--kite:#ee6a39;--wax:#f3c25a;--muted:#6c7570;
+  --spot:#2a8a8c;
+  --f-display:"Cormorant Garamond","Cormorant",Garamond,"Times New Roman",serif;
+  --f-body:"Cormorant Garamond",Garamond,"Times New Roman",serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{margin:0;background:var(--sea);color:var(--ink);font-family:var(--f-body);font-size:16px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+:focus-visible{outline:3px solid var(--kite);outline-offset:2px}
+button{font:inherit;color:inherit}
+#map,#detail,#heat,#wind,#grain{position:fixed;inset:0;width:100%;height:100%;display:block}
+#map{touch-action:none;cursor:grab}
+#map.drag{cursor:grabbing}
+#detail{pointer-events:none;clip-path:circle(0px at 50% 50%);visibility:hidden}
+#heat,#wind{pointer-events:none}
+#heat{opacity:.8}
+#whale .bob{animation:bob 7s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(.06px)}}
+#whale .fluke{transform-box:fill-box;transform-origin:50% 100%;transition:transform 2.6s cubic-bezier(.55,0,.75,.45) 0s}
+#whale.dove .fluke{transform:translateY(115%) rotate(-7deg)}
+#whale:not(.dove) .fluke{transition:transform 2.2s cubic-bezier(.25,.6,.35,1) 1.3s}
+#whale .drop{opacity:0;transform-box:fill-box}
+#whale.dove .drop{animation:drip 1.4s cubic-bezier(.5,0,1,1) 1 both}
+@keyframes drip{0%{opacity:0;transform:translateY(0)}12%{opacity:.95}100%{opacity:0;transform:translateY(1.1px)}}
+#whale .slick{opacity:0;transition:opacity 4s ease 0s}
+#whale.dove .slick{opacity:.42;transition:opacity 1.2s ease 1.6s}
+#whale .ring{opacity:0;transform-box:fill-box;transform-origin:center}
+#whale.dove .ring{animation:ring 3.2s ease-out 1 both}
+@keyframes ring{0%{opacity:0;transform:scale(.3)}10%{opacity:.85}100%{opacity:0;transform:scale(2.4)}}
+#whale .spout{opacity:0;transform-box:fill-box;transform-origin:50% 100%}
+#whale.up .spout{animation:spout 1.8s ease-out 1 both}
+@keyframes spout{0%{opacity:0;transform:scale(.2,.1)}25%{opacity:.9;transform:scale(.8,1)}100%{opacity:0;transform:scale(1.3,1.25) translateY(-.15px)}}
+.ship{transform-box:fill-box;transform-origin:50% 80%;transition:transform 4.5s cubic-bezier(.55,0,.8,.6),opacity 4s ease}
+.ship.sink{transform:translateY(.9px) rotate(16deg);opacity:0}
+.ship.back{transition:opacity 3s ease}
+.splash{opacity:0;transform-box:fill-box;transform-origin:center}
+.splash.go{animation:ring 3s ease-out 1 both}
+@media (prefers-reduced-motion:reduce){#whale .fluke,#whale:not(.dove) .fluke{transition:opacity .3s}#whale.dove .fluke{opacity:0;transform:none}#whale .drop,#whale .ring,#whale .spout,.splash.go{animation:none}.ship{transition:opacity .3s}.ship.sink{transform:none}}
+#grain{pointer-events:none;mix-blend-mode:multiply;opacity:.5;z-index:5}
+
+/* town signs + spot markers */
+#signs,#markers{position:fixed;inset:0;pointer-events:none;transition:opacity .4s}
+#signs{z-index:3}#markers{z-index:4}
+.sign{position:absolute;left:0;top:0;display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:14px;font-weight:500;font-style:italic;color:var(--ink);
+  text-shadow:0 0 3px var(--foam),0 0 6px var(--foam),0 0 1px var(--foam)}
+.sign i{width:4px;height:4px;border-radius:50%;background:var(--ink);box-shadow:0 0 0 2px var(--foam);margin-left:-2.5px;flex:none}
+.sign.major{font-style:normal;font-weight:600;font-size:12px;letter-spacing:.16em;text-transform:uppercase}
+.sign.major i{width:6px;height:6px;margin-left:-3px}
+.sign.af{color:#5a3e2b}
+.mk{position:absolute;left:0;top:0;pointer-events:auto;border:0;background:none;padding:0;cursor:pointer;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%}
+.mk .dot{position:absolute;left:4px;top:4px;width:14px;height:14px;border-radius:50%;background:var(--kite);border:2px solid var(--foam);
+  box-shadow:0 4px 12px -4px rgba(20,40,40,.6);transition:transform .2s;animation:pulse 2.6s infinite}
+.mk:hover .dot,.mk:focus-visible .dot{transform:scale(1.25)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(238,106,57,.55)}70%{box-shadow:0 0 0 16px rgba(238,106,57,0)}100%{box-shadow:0 0 0 0 rgba(238,106,57,0)}}
+@media (prefers-reduced-motion:reduce){.mk .dot{animation:none}}
+
+/* controls */
+.ui{position:fixed;z-index:6}
+.ctrl{top:calc(env(safe-area-inset-top,0px) + 18px);right:max(18px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.toggle{display:flex;background:rgba(251,245,230,.42);backdrop-filter:blur(10px) saturate(1.2);border-radius:4px;padding:3px;gap:2px;box-shadow:0 8px 24px -16px rgba(20,40,40,.5)}
+.toggle button{border:0;background:none;padding:8px 14px;border-radius:2px;cursor:pointer;font-family:var(--f-mono);font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);opacity:.75}
+.toggle button[aria-pressed="true"]{background:var(--foam);color:var(--ink);opacity:1}
+.toggle button small{font-family:var(--f-mono);font-size:.68rem;opacity:.7;margin-left:4px}
+.toggle.small button{padding:6px 11px;font-size:.62rem}
+.legend{display:flex;gap:10px;align-items:center;font-family:var(--f-mono);font-size:.68rem;color:var(--foam);text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.legend[hidden]{display:none}
+.legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.kscale{display:grid;gap:3px}
+.ksw{display:block;width:176px;height:6px;border-radius:1px;background:linear-gradient(90deg,#fbf5e6 0 12.5%,#f4e3b5 0 25%,#f3c25a 0 37.5%,#f0973e 0 50%,#ee6a39 0 62.5%,#d9433a 0 75%,#b02c4a 0 87.5%,#7d2a6e 0)}
+.ktk{position:relative;display:block;width:176px;height:10px}
+.ktk b{position:absolute;font-weight:400;font-size:.6rem;transform:translateX(-50%)}
+.ktk b:nth-child(1){left:12.5%}.ktk b:nth-child(2){left:37.5%}.ktk b:nth-child(3){left:62.5%}.ktk b:nth-child(4){left:87.5%}
+.legend .ramp{width:110px;height:6px;border-radius:3px;margin:0;background:linear-gradient(90deg,#215f68,#3f9896,#78c4af,#f3c25a,#ee6a39)}
+.sample{font-family:var(--f-mono);font-size:.64rem;color:var(--foam);opacity:.85;text-transform:uppercase;letter-spacing:.08em}
+.zoomers{bottom:calc(env(safe-area-inset-bottom,0px) + 84px);right:max(18px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:6px;transition:opacity .3s}
+.zoomers button,.back{width:38px;height:38px;border:0;border-radius:4px;background:rgba(251,245,230,.5);backdrop-filter:blur(10px);color:var(--ink);box-shadow:0 8px 24px -16px rgba(20,40,40,.5);font-family:var(--f-mono);font-size:1rem;cursor:pointer}
+.back{top:calc(env(safe-area-inset-top,0px) + 18px);left:max(18px,env(safe-area-inset-left,0px));opacity:0;pointer-events:none;transform:translateX(-8px);transition:opacity .35s,transform .35s}
+body.dive .back{opacity:1;pointer-events:auto;transform:none}
+body.dive .zoomers{opacity:0;pointer-events:none}
+
+/* spot info rising from the bottom */
+#info{position:fixed;z-index:6;left:0;right:0;bottom:0;max-height:100%;overflow:auto;padding:90px max(24px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 86px) max(24px,env(safe-area-inset-left,0px));
+  background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--spot) 90%,transparent) 58%);color:var(--foam);
+  transform:translateY(40px);opacity:0;pointer-events:none;transition:transform .7s cubic-bezier(.2,.8,.2,1),opacity .5s}
+body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
+#info h2{font-family:var(--f-display);font-weight:300;font-size:clamp(2.8rem,7vw,5.4rem);line-height:.95;margin:0;letter-spacing:-.005em;text-wrap:balance}
+.small{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 26px;font-family:var(--f-mono);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
+.small span{display:inline-flex;align-items:center;gap:7px}
+.small svg{width:16px;height:16px}
+.rows{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 40px;max-width:1180px}
+.rlab{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;opacity:.8;margin-bottom:8px}
+.strip{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px;align-items:end;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.strip div{display:grid;justify-items:center;gap:3px;font-size:.64rem}
+.strip .bar{width:46%;border-radius:2px 2px 0 0}
+.strip .kn{font-weight:500;font-size:.72rem}
+.strip .pd{opacity:.75;font-size:.6rem}
+.strip .gu{opacity:.6;font-size:.6rem}
+.strip .stack{position:relative;width:46%;display:flex;align-items:flex-end}
+.strip .stack .bar{width:100%;position:relative}
+.strip .gbar{position:absolute;inset:0;border:1px solid rgba(251,245,230,.45);border-bottom:0;border-radius:2px 2px 0 0}
+.rlab i{display:inline-block;width:9px;height:9px;border:1px solid rgba(251,245,230,.6);border-bottom:0;margin:0 5px 0 10px;vertical-align:-1px}
+.strip svg{width:12px;height:12px}
+.strip .h{opacity:.65}
+.foot{display:flex;gap:8px;align-items:center;margin-top:16px;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;opacity:.8}
+/* timeline */
+.tl{z-index:7;left:max(18px,env(safe-area-inset-left,0px));right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 14px);height:54px;display:flex;align-items:stretch;gap:14px;color:var(--foam);
+  text-shadow:0 1px 3px rgba(10,30,30,.45)}
+.tl-play{align-self:center;width:36px;height:36px;flex:none;border-radius:50%;border:0;background:var(--foam);cursor:pointer;display:grid;place-items:center;color:var(--ink);box-shadow:0 6px 18px -8px rgba(10,30,30,.6)}
+.tl-play:hover{background:#fff}
+.tl-play svg{width:11px;height:11px}
+.tl-track{position:relative;flex:1;min-width:0}
+.tl-track:focus-within{outline:2px solid var(--wax);outline-offset:2px}
+.tl-day{position:absolute;top:0;bottom:0;border-left:1px solid rgba(251,245,230,.35);padding:9px 0 0 9px;font-family:var(--f-display);font-style:italic;font-size:16px;line-height:1;white-space:nowrap;overflow:hidden;opacity:.85}
+.tl-day.on{opacity:1;color:var(--wax)}
+.tl-line{position:absolute;left:0;right:0;bottom:13px;height:1px;background:rgba(251,245,230,.4)}
+.tl-tick{position:absolute;bottom:13px;width:1px;height:5px;background:rgba(251,245,230,.5)}
+.tl-fill{position:absolute;left:0;bottom:13px;height:1px;background:var(--foam)}
+.tl-now{position:absolute;bottom:10px;width:7px;height:7px;margin-left:-3.5px;border-radius:50%;border:1px solid var(--foam);background:var(--sea)}
+.tl-thumb{position:absolute;bottom:7px;width:2px;height:14px;margin-left:-1px;background:var(--wax);pointer-events:none}
+.tl-chip{position:absolute;bottom:calc(100% + 36px);text-shadow:none;transform:translateX(-50%);background:var(--wax);color:var(--ink);font-family:var(--f-mono);font-size:.68rem;letter-spacing:.1em;padding:5px 9px;border-radius:2px;white-space:nowrap;pointer-events:none}
+.tl-chip::after{content:"";position:absolute;left:50%;top:100%;margin-left:-5px;border:5px solid transparent;border-top-color:var(--wax)}
+#tl-range{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+/* strips: current hour + days beyond the forecast */
+.strip div.cur .h{opacity:1;color:var(--wax)}
+.strip div.cur .kn{color:var(--wax)}
+.strip div.na{opacity:.25}
+.small .dl{font-family:var(--f-display);font-style:italic;font-size:1.05rem;letter-spacing:0;text-transform:none}
+.more{margin-top:18px;background:none;border:0;border-top:1px solid rgba(251,245,230,.2);width:100%;max-width:1180px;text-align:left;padding:12px 0 0;cursor:pointer;color:var(--foam);font-family:var(--f-mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
+.more span{display:inline-block;transition:transform .3s;margin-left:6px}
+.more[aria-expanded="true"] span{transform:rotate(180deg)}
+.days{max-width:860px;margin-top:6px}
+.days button{display:grid;grid-template-columns:7.5rem 5rem minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:center;width:100%;background:none;border:0;border-bottom:1px solid rgba(251,245,230,.14);padding:11px 0;color:var(--foam);cursor:pointer;text-align:left;font-family:var(--f-mono);font-size:.74rem;font-variant-numeric:tabular-nums}
+.days button:hover{background:rgba(251,245,230,.05)}
+.days button[aria-current="true"] .dn{color:var(--wax)}
+.days .dn{font-family:var(--f-display);font-style:italic;font-size:1.15rem}
+.days .wx{display:flex;gap:8px;align-items:center}
+.days svg{width:14px;height:14px}
+.days small{opacity:.6}
+@media (max-width:760px){.tl-day{font-size:13px}.days button{grid-template-columns:4.6rem 4rem minmax(0,1fr)}.days .wv{display:none}}
+.fc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 44px;max-width:1240px;margin-top:22px}
+.tbl .row{display:grid;grid-template-columns:5.4rem minmax(0,1fr);gap:12px;align-items:end;padding:9px 0;border-top:1px solid rgba(251,245,230,.14)}
+.tbl .row.hd{border:0;padding:0 0 4px}
+.tbl .row.dim .kn,.tbl .row.dim .gu,.tbl .row.dim .pd,.tbl .row.dim em{opacity:.72}
+.tbl .row.dim .bar,.tbl .row.dim .gbar{opacity:.85}
+.tbl .row.dim .kn{font-size:.64rem}
+.dlab{display:grid;gap:3px;align-self:center}
+.dlab em{font-family:var(--f-display);font-size:1.2rem;line-height:1}
+.row.now .dlab em{color:var(--wax)}
+.dlab span{display:flex;gap:6px;align-items:center;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.06em;opacity:.85}
+.dlab svg{width:13px;height:13px}
+.hrs{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));font-family:var(--f-mono);font-size:.62rem;text-align:center;opacity:.6;font-variant-numeric:tabular-nums}
+.hrs .cur{opacity:1;color:var(--wax)}
+@media (max-width:760px){
+  .fc{grid-template-columns:minmax(0,1fr);gap:22px;margin-top:14px}
+  .tbl .row{grid-template-columns:minmax(0,1fr);gap:6px;padding:8px 0}
+  .tbl .row.hd{padding:0}
+  .dlab{display:flex;align-items:baseline;gap:10px}
+  .dlab em{font-size:1.05rem}
+  .strip,.hrs{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .strip>div:nth-child(even),.hrs>span:nth-child(even){display:none}
+  #info{bottom:calc(env(safe-area-inset-bottom,0px) + 70px);max-height:58%;
+    padding:22px 20px 18px;background:color-mix(in srgb,var(--spot) 88%,transparent);backdrop-filter:blur(6px);border-radius:14px 14px 0 0;
+    -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 14px),transparent)}
+  #info h2{font-size:2.3rem}
+  body.dive .ctrl{opacity:0;pointer-events:none}
+  .ctrl{transition:opacity .3s}
+  .tl{bottom:calc(env(safe-area-inset-bottom,0px) + 8px)}
+  .tl-chip{bottom:calc(100% + 30px)}
+  body.dive .tl-chip{display:none}
+}
+@media (max-width:760px){.rows{grid-template-columns:minmax(0,1fr)}#info{padding-top:60px}.legend{display:none}}
+@media (prefers-reduced-motion:reduce){#info,.back{transition:opacity .2s}}
+</style>
+</head>
+<body>
+
+
+<svg id="map" role="img" aria-label="Map of the Costa de la Luz and the Strait of Gibraltar with wind, towns and spots" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="deep" cx="50%" cy="55%" r="70%"><stop offset="0" stop-color="#2f7f84"/><stop offset="1" stop-color="#215f66"/></radialGradient>
+    <path id="es" fill-rule="evenodd" clip-rule="evenodd"/>
+    <path id="esd" fill-rule="evenodd" clip-rule="evenodd"/>
+    <clipPath id="landclip"><use href="#es"/></clipPath>
+    <clipPath id="dclip"><use href="#esd"/></clipPath>
+    <symbol id="sym-castle" viewBox="0 0 100 100">
+      <path d="M8 100V60h6v-6h6v6h6v-6h6v6h6v-6h6V100Z" fill="#efe2c4"/>
+      <path d="M48 100V24h6v-7h6v7h6v-7h6v7h6v-7h6V100Z" fill="#f6ecd3"/>
+      <path d="M72 100V24h6v-7h6V100Z" fill="#cdb489"/>
+      <path d="M31 100V60h6v-6h6V100Z" fill="#d5bf95"/>
+      <rect x="59" y="40" width="5" height="9" rx="2.5" fill="#23312f"/><rect x="59" y="62" width="5" height="9" rx="2.5" fill="#23312f"/>
+      <rect x="16" y="74" width="9" height="26" rx="4.5" fill="#6b4a33"/>
+      <path d="M66 17V2" stroke="#23312f" stroke-width="1.6"/><path d="M66 3l14 4-14 4Z" fill="#ee6a39"/>
+    </symbol>
+    <symbol id="sym-dune" viewBox="0 0 100 100">
+      <path d="M0 100C14 82 30 52 56 44 70 40 86 66 100 100Z" fill="#f3e2b8"/>
+      <path d="M56 44C66 46 80 66 100 100H62C66 80 62 60 56 44Z" fill="#d7b77c"/>
+      <path d="M8 100c10-6 20-10 34-12" stroke="#c99f60" stroke-width="1.4" fill="none"/>
+      <path d="M22 24q10-12 22-2" stroke="#ee6a39" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      <path d="M26 24l12 30M44 22l-6 32" stroke="#23312f" stroke-width=".6"/>
+      <path d="M62 12q8-9 17-1" stroke="#f3c25a" stroke-width="3.6" fill="none" stroke-linecap="round"/>
+      <path d="M65 12l9 22M79 11l-5 23" stroke="#23312f" stroke-width=".5"/>
+      <path d="M78 30q6-6 12 0" stroke="#2f7f84" stroke-width="3" fill="none" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="sym-columns" viewBox="0 0 100 100">
+      <path d="M4 100V90h92v10Z" fill="#d7c39b"/><path d="M10 90V84h80v6Z" fill="#e7d6b2"/>
+      <g fill="#f3e7cc"><rect x="16" y="34" width="11" height="50"/><rect x="40" y="34" width="11" height="50"/><rect x="64" y="46" width="11" height="38"/></g>
+      <g stroke="#cdb489" stroke-width="1"><path d="M19.5 36v48M23.5 36v48M43.5 36v48M47.5 36v48M67.5 48v36M71.5 48v36"/></g>
+      <path d="M12 34h44v-8H12Z" fill="#efe0bf"/><path d="M60 46h19l2-5-6-2-15 3Z" fill="#e1cfa6"/>
+      <path d="M84 84l8-6 4 6Z" fill="#e1cfa6"/>
+    </symbol>
+    <symbol id="sym-lighthouse" viewBox="0 0 100 100">
+      <path d="M50 26L-6 0M50 26L106 2" stroke="#f3c25a" stroke-width="6" opacity=".45"/>
+      <path d="M2 100c6-14 20-20 34-22h30c14 2 26 10 32 22Z" fill="#bfa47a"/>
+      <path d="M38 80l6-50h12l6 50Z" fill="#fbf8f0"/><path d="M50 30h6l6 50H50Z" fill="#e7dcc6"/>
+      <rect x="40" y="27" width="20" height="4" fill="#23312f"/><rect x="44" y="17" width="12" height="10" fill="#f3c25a"/>
+      <path d="M43 17l7-7 7 7Z" fill="#23312f"/>
+      <rect x="47.5" y="44" width="5" height="7" rx="2.5" fill="#23312f"/><rect x="47.5" y="62" width="5" height="7" rx="2.5" fill="#23312f"/>
+    </symbol>
+    <symbol id="sym-tower" viewBox="0 0 100 100">
+      <path d="M0 100c18-8 52-10 100-4V100Z" fill="#f1e0b5"/>
+      <path d="M30 98V38q0-6 16-6t16 6v60Z" fill="#d8c095"/><path d="M46 32q16 0 16 6v60H46Z" fill="#c4a979"/>
+      <path d="M28 38h36v-6H28Z" fill="#cdb489"/>
+      <rect x="42" y="52" width="6" height="10" rx="3" fill="#23312f"/>
+      <ellipse cx="76" cy="70" rx="6" ry="26" transform="rotate(12 76 70)" fill="#ee6a39"/><path d="M76 46l-4 46" stroke="#fbf5e6" stroke-width="1.2" transform="rotate(12 76 70)"/>
+      <ellipse cx="89" cy="74" rx="5" ry="22" transform="rotate(-8 89 74)" fill="#2f7f84"/>
+      <ellipse cx="15" cy="78" rx="5" ry="20" transform="rotate(-14 15 78)" fill="#f3c25a"/>
+    </symbol>
+    <symbol id="sym-tuna" viewBox="0 0 100 100">
+      <path d="M8 66C24 40 60 34 82 50l12-12-2 20 6 16-16-10C62 80 26 82 8 66Z" fill="#3e5f78"/>
+      <path d="M8 66c18 12 50 14 74-2" fill="#cfd8d9" stroke="none" opacity=".9"/>
+      <path d="M40 45l8-14 4 14Z" fill="#3e5f78"/>
+      <g fill="#f3c25a"><path d="M60 46l3-4 2 4Z"/><path d="M66 48l3-4 2 4Z"/><path d="M72 51l3-4 2 4Z"/><path d="M58 70l3 4 2-4Z"/><path d="M64 68l3 4 2-4Z"/></g>
+      <circle cx="20" cy="60" r="2.4" fill="#fbf5e6"/><circle cx="20" cy="60" r="1.2" fill="#23312f"/>
+      <path d="M0 92q12-8 25 0t25 0 25 0 25 0" stroke="#fbf5e6" stroke-width="2.4" fill="none"/>
+    </symbol>
+    <symbol id="sym-village" viewBox="0 0 100 100">
+      <path d="M0 100C10 76 30 58 52 54s38 18 48 46Z" fill="#a9a45f"/>
+      <g fill="#fbf8f0"><rect x="22" y="70" width="12" height="12"/><rect x="34" y="62" width="14" height="14"/><rect x="48" y="58" width="12" height="16"/><rect x="60" y="64" width="13" height="12"/><rect x="28" y="80" width="14" height="10"/><rect x="44" y="74" width="16" height="12"/><rect x="62" y="76" width="14" height="12"/><rect x="74" y="72" width="10" height="12"/></g>
+      <g fill="#ddd3c0"><rect x="42" y="62" width="6" height="14"/><rect x="68" y="64" width="5" height="12"/><rect x="54" y="74" width="6" height="12"/></g>
+      <path d="M50 58V36h8v22Z" fill="#fbf8f0"/><path d="M49 36l5-8 5 8Z" fill="#c0603a"/>
+      <g fill="#23312f"><rect x="52.5" y="40" width="3" height="5" rx="1.5"/><rect x="38" y="66" width="2.5" height="3.5"/><rect x="25" y="74" width="2.5" height="3.5"/><rect x="64" y="68" width="2.5" height="3.5"/></g>
+      <g fill="#c0603a"><rect x="33" y="60" width="16" height="3"/><rect x="59" y="62" width="15" height="3"/></g>
+    </symbol>
+    <symbol id="sym-rock" viewBox="0 0 100 100">
+      <path d="M0 100C10 92 18 60 34 40 46 24 62 8 74 6c6 4 8 24 14 46s10 40 12 48Z" fill="#c9bfa8"/>
+      <path d="M74 6c6 4 8 24 14 46s10 40 12 48H72C76 70 74 30 74 6Z" fill="#a99f86"/>
+      <path d="M24 70c10-6 22-6 30 2" stroke="#8f9a6a" stroke-width="5" fill="none" opacity=".6"/>
+    </symbol>
+    <symbol id="sym-atlas" viewBox="0 0 100 100">
+      <path d="M0 100L18 58 30 70 50 30 66 56 76 44 100 100Z" fill="#b98a6a"/>
+      <path d="M50 30l16 26 10-12 24 56H62C62 70 56 48 50 30Z" fill="#9f7357"/>
+      <path d="M44 40l6-10 5 8-5 2Z" fill="#f2e7d6"/>
+      <rect x="20" y="70" width="6" height="22" fill="#f2e7d6"/><path d="M19 70h8l-4-6Z" fill="#2f7f84"/>
+    </symbol>
+    
+    <symbol id="sym-islet" viewBox="0 0 100 100">
+      <path d="M0 100c10-16 26-22 44-22h18c16 0 30 8 38 22Z" fill="#a99f86"/>
+      <path d="M62 78c16 0 30 8 38 22H70c0-8-3-16-8-22Z" fill="#8f866e"/>
+      <path d="M22 80V52h6v-5h6v5h6v-5h6v5h6V80Z" fill="#e7d8b8"/>
+      <path d="M40 80V30h6v-6h6v6h6v-6h6v6h4V80Z" fill="#f2e6cb"/>
+      <path d="M58 80V30h4v-6h6V80Z" fill="#cdb489"/>
+      <rect x="49" y="42" width="5" height="9" rx="2.5" fill="#23312f"/><rect x="29" y="60" width="4" height="7" rx="2" fill="#23312f"/>
+      <path d="M0 96q10-5 20 0t20 0 20 0 20 0 20 0" stroke="#fbf5e6" stroke-width="2" fill="none"/>
+    </symbol>
+    <symbol id="sym-lifeguard" viewBox="0 0 100 100">
+      <path d="M0 100c22-10 60-12 100-6V100Z" fill="#f1e0b5"/>
+      <path d="M36 98l8-44M64 98l-8-44M40 80h20M42 68h16" stroke="#8a6a44" stroke-width="3" stroke-linecap="round"/>
+      <path d="M34 54h32v-20H34Z" fill="#fbf5e6"/><path d="M30 34h40l-4-10H34Z" fill="#ee6a39"/>
+      <rect x="40" y="40" width="20" height="8" fill="#2f7f84"/>
+      <path d="M70 34V8" stroke="#23312f" stroke-width="1.6"/><path d="M70 9l16 5-16 5Z" fill="#f3c25a"/>
+      <path d="M8 40q10-12 22-2" stroke="#ee6a39" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path d="M12 40l8 26M30 38l-6 28" stroke="#23312f" stroke-width=".6"/>
+    </symbol>
+    <symbol id="sym-ape" viewBox="0 0 100 100">
+      <path d="M2 100C8 88 16 74 30 66c10-6 20-8 30-6 14 3 24 14 32 26l6 14Z" fill="#cfc6b0"/>
+      <path d="M60 60c14 3 24 14 32 26l6 14H70c2-14-2-28-10-40Z" fill="#b3a98f"/>
+      <path d="M14 92c8-4 16-5 24-3M58 78c6-2 12-1 18 3" stroke="#a79d83" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+      <path d="M40 64C35 54 36 42 46 38c10-4 20 2 21 13 1 8-3 14-8 16Z" fill="#8f7357"/>
+      <path d="M49 50c5 0 8 5 7 11-1 4-4 6-8 6-4-1-6-4-6-8 0-5 3-9 7-9Z" fill="#a98c6c"/>
+      <path d="M38 64c-6 1-10 4-9 6h20c0-3-5-6-11-6ZM58 64c6 0 10 3 9 6H49c0-3 4-6 9-6Z" fill="#7e6249"/>
+      <path d="M59 47c3 6 3 12 0 17" stroke="#7e6249" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      <g><animateTransform attributeName="transform" type="rotate" values="0 50 38;0 50 38;-10 50 38;-10 50 38;6 50 38;6 50 38;0 50 38" keyTimes="0;.45;.5;.62;.67;.82;1" dur="13s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;.4 0 .2 1;0 0 1 1;.4 0 .2 1;0 0 1 1;.4 0 .2 1"/>
+        <circle cx="38.5" cy="30" r="3" fill="#d9a48c"/><circle cx="61.5" cy="30" r="3" fill="#d9a48c"/>
+        <circle cx="50" cy="28" r="11.5" fill="#8f7357"/>
+        <path d="M41 23c3-4 15-4 18 0" stroke="#a98c6c" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+        <ellipse cx="50" cy="31" rx="7.2" ry="7.6" fill="#e6bfa6"/>
+        <ellipse cx="50" cy="35" rx="4.4" ry="3.2" fill="#d9a48c"/>
+        <path d="M44.5 27.2h4M51.5 27.2h4" stroke="#7a5a44" stroke-width="1.1" stroke-linecap="round"/>
+        <ellipse cx="46.8" cy="29.4" rx="1.05" ry="1.15" fill="#23312f"><animate attributeName="ry" values="1.15;1.15;.12;1.15;1.15" keyTimes="0;.92;.95;.98;1" dur="4.6s" repeatCount="indefinite"/></ellipse>
+        <ellipse cx="53.2" cy="29.4" rx="1.05" ry="1.15" fill="#23312f"><animate attributeName="ry" values="1.15;1.15;.12;1.15;1.15" keyTimes="0;.92;.95;.98;1" dur="4.6s" repeatCount="indefinite"/></ellipse>
+        <circle cx="48.9" cy="34.3" r=".55" fill="#7a5a44"/><circle cx="51.1" cy="34.3" r=".55" fill="#7a5a44"/>
+        <path d="M48.3 36.8q1.7 .9 3.4 0" stroke="#7a5a44" stroke-width=".8" fill="none" stroke-linecap="round"/>
+      </g>
+    </symbol>
+    <symbol id="sym-fluke" viewBox="0 0 100 52">
+      <path d="M50 52C49 38 44 30 34 24 26 20 14 18 4 20c8-8 22-12 34-8 6 2 10 6 12 10 2-4 6-8 12-10 12-4 26 0 34 8-10-2-22 0-30 4-10 6-15 14-16 28Z" fill="#3e5367"/>
+      <path d="M50 52c-1-12-4-20-10-25 5 1 9 4 10 8Z" fill="#53697e"/>
+      <path d="M4 20c10-2 20-1 28 3" stroke="#53697e" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="sym-dolphin" viewBox="0 0 60 22">
+      <path d="M2 12C10 5 24 3 38 5c7 1 13 3 18 6l2 1.4c-3 .4-6 .6-9 .7C42 17 31 19 20 17.6L15 21l-.6-4.4C9 15.8 5 14.2 2 12Z" fill="#567a8f"/>
+      <path d="M14.6 16.4C24 18.6 36 17.6 49 13.1c-8-.4-20 1.4-34 3.3Z" fill="#c9d8de"/>
+      <path d="M27 5.2c1.6-3.4 4.4-5 7.6-5-1.8 1.6-2.6 3.4-2.4 5.6Z" fill="#567a8f"/>
+      <path d="M3.4 11.6L-2.4 6.4 1 12.2-2.6 17.4Z" fill="#567a8f"/>
+      <circle cx="49.5" cy="9.6" r=".8" fill="#1d2b33"/>
+    </symbol>
+    <symbol id="sym-dolphins" viewBox="0 0 100 50">
+      <g fill="#5c7f93"><path d="M10 34c6-14 22-20 34-14l6-6 0 9c2 2 2 5 0 7-12-6-24-4-34 8Z"/><path d="M48 40c6-12 20-17 30-12l5-5v8c2 2 2 4 0 6-10-5-21-3-29 6Z"/></g>
+      <g stroke="#fbf5e6" stroke-width="1.8" fill="none" stroke-linecap="round"><path d="M4 44q10-4 20 0t20 0"/><path d="M44 47q9-3 18 0t18 0" opacity=".7"/></g>
+    </symbol>
+    <symbol id="sym-ferry" viewBox="0 0 100 44">
+      <path d="M2 28h90l-4 10H12Z" fill="#fbf5e6"/><path d="M2 28h90l-.6 2.6H4.4Z" fill="#2f7f84"/>
+      <path d="M22 28l6-9h56v9Z" fill="#fbf5e6"/><path d="M36 19l4-6h38v6Z" fill="#f2ead8"/>
+      <g fill="#23312f"><rect x="31" y="22" width="5" height="2.6" rx="1"/><rect x="39" y="22" width="5" height="2.6" rx="1"/><rect x="47" y="22" width="5" height="2.6" rx="1"/><rect x="55" y="22" width="5" height="2.6" rx="1"/><rect x="63" y="22" width="5" height="2.6" rx="1"/><rect x="71" y="22" width="5" height="2.6" rx="1"/><rect x="42" y="15" width="18" height="2" rx="1"/></g>
+      <path d="M64 13V6h8v7Z" fill="#ee6a39"/><path d="M64 8.4h8" stroke="#23312f" stroke-width="1.2"/>
+    </symbol>
+    <symbol id="sym-sail" viewBox="0 0 60 70">
+      <path d="M31 6v46" stroke="#23312f" stroke-width="1.4"/>
+      <path d="M32 8c12 12 16 26 14 40H32Z" fill="#fbf5e6"/><path d="M30 14c-8 10-12 22-12 34h12Z" fill="#f3c25a"/>
+      <path d="M12 54h40l-6 8H18Z" fill="#a5532f"/>
+      <path d="M6 66q8-3 16 0t16 0 16 0" stroke="#fbf5e6" stroke-width="1.4" fill="none" opacity=".8"/>
+    </symbol>
+    <symbol id="sym-cargo" viewBox="0 0 120 40">
+      <path d="M4 24h112l-8 10H14Z" fill="#7a3b2e"/><path d="M4 24h112l-1 3H5Z" fill="#23312f"/>
+      <g><rect x="18" y="14" width="12" height="10" fill="#2f7f84"/><rect x="31" y="14" width="12" height="10" fill="#ee6a39"/><rect x="44" y="14" width="12" height="10" fill="#f3c25a"/><rect x="57" y="14" width="12" height="10" fill="#2f7f84"/><rect x="70" y="14" width="12" height="10" fill="#ecdcb6"/><rect x="31" y="5" width="12" height="9" fill="#f3c25a"/><rect x="57" y="5" width="12" height="9" fill="#ee6a39"/></g>
+      <path d="M90 24V8h14v16Z" fill="#fbf5e6"/><rect x="93" y="11" width="8" height="3" fill="#23312f"/>
+      <path d="M0 38q15-3 30 0t30 0 30 0 30 0" stroke="#fbf5e6" stroke-width="1.4" fill="none" opacity=".7"/>
+    </symbol>
+    <symbol id="sym-gulls" viewBox="0 0 60 30">
+      <g stroke="#fbf5e6" stroke-width="2" fill="none" stroke-linecap="round"><path d="M4 16q6-8 12 0 6-8 12 0"/><path d="M30 8q5-6 10 0 5-6 10 0"/><path d="M40 22q4-5 8 0 4-5 8 0"/></g>
+    </symbol>
+    <symbol id="sym-flamingos" viewBox="0 0 60 60">
+      <g stroke="#d97a7a" stroke-width="1.4" fill="none"><path d="M18 58V40M24 58l-2-18M42 58V42"/></g>
+      <g fill="#ee9a8f"><ellipse cx="21" cy="36" rx="8" ry="5"/><ellipse cx="42" cy="38" rx="7" ry="4.5"/></g>
+      <g stroke="#ee9a8f" stroke-width="2.4" fill="none" stroke-linecap="round"><path d="M26 34c4-6 2-14-2-18"/><path d="M47 36c3-5 2-11-1-14"/></g>
+      <g fill="#23312f"><path d="M24 16l-4 2 3 1Z"/><path d="M46 22l-3 2 3 1Z"/></g>
+    </symbol>
+    <symbol id="sym-dome" viewBox="0 0 60 60">
+      <path d="M4 60V40h52v20Z" fill="#f2e6cb"/><path d="M14 40c0-12 7-20 16-20s16 8 16 20Z" fill="#d9a641"/>
+      <path d="M30 20c4 0 8 8 8 20" stroke="#b88a2f" stroke-width="1.4" fill="none"/>
+      <path d="M29 20v-8h2v8Z" fill="#23312f"/><circle cx="30" cy="11" r="2" fill="#d9a641"/>
+      <path d="M6 40V26h6v14ZM48 40V26h6v14Z" fill="#efe1c2"/><path d="M5 26l4-6 4 6ZM47 26l4-6 4 6Z" fill="#d9a641"/>
+    </symbol>
+    <symbol id="sym-minaret" viewBox="0 0 60 60">
+      <path d="M0 60V44h60v16Z" fill="#f4ede0"/><path d="M8 44V38h18v6ZM36 44V40h16v4Z" fill="#ebe1cf"/>
+      <path d="M22 60V18h16v42Z" fill="#f4ede0"/><path d="M30 18h8v42h-8Z" fill="#e2d6c0"/>
+      <path d="M20 18h20v-4H20Z" fill="#3f8f7a"/><path d="M25 14V8h10v6Z" fill="#f4ede0"/><path d="M24 8h12l-6-5Z" fill="#3f8f7a"/>
+      <rect x="27" y="24" width="6" height="8" rx="3" fill="#3f8f7a"/><rect x="27" y="38" width="6" height="8" rx="3" fill="#3f8f7a"/>
+    </symbol>
+    <symbol id="sym-compass" viewBox="0 0 100 100">
+      <g fill="none" stroke="#fbf5e6" opacity=".75"><circle cx="50" cy="50" r="30" stroke-width=".8"/><circle cx="50" cy="50" r="26" stroke-width=".5" stroke-dasharray="1 3"/></g>
+      <path d="M50 8l5 37-5 5-5-5Z" fill="#fbf5e6"/><path d="M50 92l5-37-5-5-5 5Z" fill="#fbf5e6" opacity=".55"/>
+      <path d="M8 50l37-5 5 5-5 5Z" fill="#fbf5e6" opacity=".55"/><path d="M92 50l-37-5-5 5 5 5Z" fill="#fbf5e6" opacity=".55"/>
+      <path d="M50 8l5 37-5 5Z" fill="#ee6a39"/>
+      <path d="M22 22l26 24M78 22 52 46M22 78l26-24M78 78 52 54" stroke="#fbf5e6" stroke-width="1" opacity=".5"/>
+      <text x="50" y="5" text-anchor="middle" font-size="7" fill="#fbf5e6" font-family="Cormorant Garamond, Garamond, serif" font-style="italic">N</text>
+    </symbol>
+    <symbol id="sym-fishing" viewBox="0 0 60 40">
+      <path d="M6 26h48l-6 8H12Z" fill="#2f7f84"/><path d="M6 26h48l-1 2H7Z" fill="#fbf5e6"/>
+      <path d="M30 26V16h10v10Z" fill="#fbf5e6"/><path d="M24 26V6" stroke="#23312f" stroke-width="1.2"/><path d="M24 7L10 22" stroke="#23312f" stroke-width=".6"/>
+      <path d="M2 38q7-3 14 0t14 0 14 0 14 0" stroke="#fbf5e6" stroke-width="1.3" fill="none" opacity=".8"/>
+    </symbol>
+    <symbol id="sym-turbine" viewBox="0 0 40 100">
+      <path d="M19 100l.6-66h.8l.6 66Z" fill="#fbf5e6"/>
+      <g transform="translate(20 34)"><g class="spin"><path d="M0 0V-27M0 0L23.4 13.5M0 0L-23.4 13.5" stroke="#fbf5e6" stroke-width="2.4" stroke-linecap="round"/>
+        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="5s" repeatCount="indefinite"/></g></g>
+      <circle cx="20" cy="34" r="2.6" fill="#23312f"/>
+    </symbol>
+    <symbol id="sym-pine" viewBox="0 0 60 60"><path d="M29 60l1-28h2l1 28Z" fill="#6b4a33"/><path d="M30 33l-9-6M31 33l10-7" stroke="#6b4a33" stroke-width="2"/><ellipse cx="31" cy="24" rx="27" ry="10" fill="#55603a"/><ellipse cx="29" cy="21" rx="20" ry="6" fill="#6f7a4a"/></symbol>
+    <symbol id="sym-cork" viewBox="0 0 60 60"><path d="M28 60c1-10 0-18-4-24h6c-1 8 1 16 2 24Z" fill="#7a4e30"/><circle cx="20" cy="28" r="13" fill="#7d8246"/><circle cx="36" cy="24" r="15" fill="#8b9050"/><circle cx="30" cy="16" r="11" fill="#99a05c"/></symbol>
+    <symbol id="sym-bull" viewBox="0 0 60 40"><path d="M10 18c2-6 10-8 24-7 6 0 10 1 13 3l5-4c1 3 0 5-2 6 3 2 4 5 3 7l-5-1c-1 4-3 6-5 6v8h-3l-1-7H20l-1 7h-3l-1-8c-3-1-5-4-5-8Z" fill="#23312f"/><path d="M48 10c2-4 6-5 9-3-3 0-5 2-6 4Z" fill="#f2e7d6"/></symbol>
+  </defs>
+  <g id="world">
+    <rect x="-300" y="-300" width="900" height="900" fill="url(#deep)"/>
+    <g fill="none" stroke-linejoin="round" stroke-linecap="round">
+      <use href="#es" stroke="#3a8c8f" stroke-width="10"/>
+      <use href="#es" stroke="#4f9e9c" stroke-width="6"/>
+      <use href="#es" stroke="#6db5aa" stroke-width="3"/>
+      <use href="#es" stroke="#9bd2c2" stroke-width="1.3"/>
+      <use href="#es" stroke="#fbf5e6" stroke-width=".7" opacity=".9"/>
+    </g>
+    <use href="#es" fill="#e8d5aa"/>
+    <image id="terrain" clip-path="url(#landclip)" preserveAspectRatio="none"/>
+    <use href="#es" fill="none" stroke="#f6e8c6" stroke-width=".45" opacity=".9"/>
+    <g id="salinas" clip-path="url(#landclip)"></g>
+    <g id="flora"></g>
+    <g id="sealabels" font-family="Cormorant Garamond, Garamond, serif" font-style="italic" fill="#fbf5e6" opacity=".7"></g>
+    <g id="deco"></g>
+    <g id="marks"></g>
+    <g id="buoys"></g>
+  </g>
+</svg>
+
+<svg id="detail" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <rect id="d-bg" x="-300" y="-300" width="900" height="900"/>
+  <g id="d-rings" fill="none" stroke-linejoin="round"></g>
+  <use href="#esd" id="d-land"/>
+  <image id="d-terrain" clip-path="url(#dclip)" preserveAspectRatio="none" style="mix-blend-mode:multiply" opacity=".35"/>
+  <path id="d-coast" fill="none" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+  <g id="d-flora"></g>
+  <g id="d-mark"></g>
+  <g id="d-buoy"></g>
+</svg>
+
+<canvas id="heat" aria-hidden="true"></canvas>
+<canvas id="wind" aria-hidden="true"></canvas>
+<div id="signs" aria-hidden="true"></div>
+<div id="markers"></div>
+<div id="grain" aria-hidden="true"></div>
+
+<div class="ui ctrl">
+  <div class="toggle" role="group" aria-label="Map layer">
+    <button id="l-wind" type="button" aria-pressed="true">Wind</button>
+    <button id="l-wave" type="button" aria-pressed="false">Waves</button>
+  </div>
+  <div class="toggle small" role="group" aria-label="Wind situation">
+    <button id="w-lev" type="button" aria-pressed="true">Levante <small>E</small></button>
+    <button id="w-pon" type="button" aria-pressed="false">Poniente <small>W</small></button>
+  </div>
+  <div class="legend" id="lg-wind"><span class="kscale" aria-label="Wind in knots: under 10 to over 40"><span class="ksw"></span><span class="ktk"><b>10</b><b>20</b><b>30</b><b>40+</b></span></span><span>kn</span></div>
+  <div class="legend" id="lg-wave" hidden><span>0</span><i class="ramp"></i><span>3 m</span></div>
+  <div class="sample">Sample data</div>
+</div>
+<button class="ui back" id="back" type="button" aria-label="Back to the whole coast">←</button>
+<div class="ui tl" id="tl">
+  <button class="tl-play" id="tl-play" type="button" aria-label="Play forecast" aria-pressed="false"></button>
+  <div class="tl-track" id="tl-track">
+    <div id="tl-days"></div>
+    <div class="tl-line"></div><div id="tl-ticks"></div><div class="tl-fill" id="tl-fill"></div><div class="tl-now" id="tl-now" title="Now"></div>
+    <div class="tl-thumb" id="tl-thumb"><span class="tl-chip" id="tl-chip"></span></div>
+    <input type="range" id="tl-range" min="0" max="59" step="1" aria-label="Forecast time">
+  </div>
+</div>
+<div class="ui zoomers"><button id="z-in" type="button" aria-label="Zoom in">+</button><button id="z-out" type="button" aria-label="Zoom out">−</button></div>
+
+<section id="info" aria-live="polite" aria-hidden="true">
+  <h2 id="i-name">Spot</h2>
+  <div class="fc">
+    <div class="blk"><div class="rlab">Wind · knots</div><div class="tbl" id="i-wind"></div></div>
+    <div class="blk"><div class="rlab">Waves · metres · period</div><div class="tbl" id="i-wave"></div></div>
+  </div>
+</section>
+
+<script>
+const GEO={"coast": "M121.12 -56.29L120.58 -56.37L120.04 -56.21L117.82 -56.21L117.42 -56.37L117.15 -56.62L116.81 -56.62L116.14 -56.88L113.71 -57.12L113.65 -57.21L112.57 -56.96L112.31 -56.79L111.97 -56.37L111.73 -56.42L111.87 -56.83L111.63 -56.79L111.33 -56.42L111.57 -56.37L111.56 -56.21L110.89 -55.96L110.32 -55.25L109.31 -53.00L108.90 -51.83L108.61 -51.46L108.47 -51.46L107.80 -50.87L107.50 -50.50L107.42 -50.24L106.21 -48.75L105.34 -47.25L105.21 -46.75L104.73 -46.16L104.60 -45.75L104.03 -44.87L103.83 -44.87L102.61 -43.87L102.08 -43.29L101.54 -42.96L100.12 -43.04L99.79 -42.79L98.92 -42.62L98.58 -42.37L97.97 -42.37L97.43 -41.96L97.03 -41.46L96.49 -41.21L95.52 -39.67L95.31 -39.16L95.38 -39.00L95.11 -38.66L94.44 -36.74L94.03 -36.17L93.97 -35.83L93.80 -35.71L93.60 -35.62L91.78 -35.62L91.51 -35.46L90.90 -35.46L90.17 -35.04L89.22 -33.96L88.89 -33.87L88.35 -33.96L87.88 -33.71L87.14 -33.54L86.06 -33.62L85.39 -33.37L82.97 -33.79L81.02 -34.54L79.33 -34.79L78.72 -35.04L78.25 -35.04L76.17 -35.71L71.67 -35.62L70.72 -35.04L69.71 -34.96L68.90 -34.12L68.43 -33.79L67.62 -33.29L67.42 -33.29L67.09 -32.96L66.61 -32.87L66.01 -32.54L65.00 -31.62L64.59 -31.46L63.99 -30.88L63.25 -31.21L63.11 -31.13L61.77 -31.13L60.96 -30.72L60.35 -30.22L60.08 -30.22L59.82 -30.05L59.07 -29.97L58.94 -30.22L58.06 -30.13L57.73 -29.97L56.11 -28.55L55.04 -27.96L54.63 -27.80L53.42 -27.79L52.82 -27.38L52.14 -26.63L51.87 -26.62L51.67 -26.46L51.40 -26.46L51.20 -26.63L50.46 -26.54L49.66 -25.80L47.43 -23.05L47.03 -22.96L46.79 -22.67L45.72 -19.84L45.65 -19.34L45.38 -18.75L45.24 -17.84L44.70 -16.67L44.64 -16.34L44.33 -16.04L44.00 -16.13L43.86 -16.04L42.82 -14.92L42.69 -14.42L42.18 -13.30L41.92 -13.54L41.68 -13.50L42.15 -13.08L41.68 -12.00L41.34 -11.59L40.80 -10.00L40.43 -9.46L40.30 -9.38L39.90 -9.46L39.69 -9.29L39.59 -9.01L39.12 -8.42L38.72 -7.34L38.52 -6.50L38.38 -6.34L38.18 -5.42L37.98 -5.00L37.98 -4.67L37.78 -4.09L37.78 -3.58L37.37 -2.42L37.37 -1.83L37.17 -0.59L37.11 1.00L37.03 1.08L37.10 2.67L36.97 2.92L36.97 3.25L36.77 4.00L36.67 4.13L36.33 4.04L36.16 3.84L36.23 3.34L35.76 2.50L35.89 2.08L35.83 1.75L35.69 1.59L35.89 1.41L35.79 1.29L35.62 1.33L35.69 1.00L35.62 0.67L36.16 -0.09L36.03 -0.67L35.79 -1.04L35.45 -1.38L33.97 -2.29L33.87 -2.59L33.57 -2.96L33.37 -3.04L32.77 -3.13L32.29 -2.96L31.82 -2.96L31.55 -3.13L31.22 -3.13L30.27 -2.71L29.84 -2.33L28.96 -1.17L28.69 -0.67L28.56 -0.25L28.69 0.25L28.49 0.92L28.73 1.96L28.79 1.46L28.90 1.50L28.99 1.87L29.16 1.92L28.89 2.33L29.19 2.29L29.33 2.46L29.46 2.29L29.57 2.33L29.57 2.66L29.47 2.79L29.27 2.62L28.99 2.63L28.76 2.92L28.99 3.29L29.20 3.29L29.30 3.41L29.30 3.75L29.70 4.08L29.77 4.42L29.46 4.37L28.96 4.83L28.76 5.75L29.06 6.29L29.54 6.29L30.17 6.67L30.17 7.25L29.74 7.96L28.86 8.46L28.59 8.88L28.36 9.00L28.36 9.25L28.26 9.38L27.58 9.62L27.25 9.96L26.44 9.96L26.24 9.79L25.56 9.71L25.36 9.54L25.16 9.62L24.62 9.96L23.68 10.79L22.60 11.38L22.06 11.46L21.19 11.79L20.79 12.13L20.25 12.30L19.44 12.96L19.24 12.96L18.30 13.46L18.03 13.46L17.15 13.79L15.80 13.88L15.77 14.00L15.91 14.08L15.57 14.33L15.64 14.76L15.47 14.96L15.20 14.96L15.03 14.83L14.97 14.50L15.30 14.17L15.30 13.92L14.83 13.08L14.49 12.67L14.36 12.33L12.92 10.54L11.97 9.71L11.17 9.37L10.69 9.38L9.89 8.79L8.81 8.30L8.47 8.29L8.20 8.46L7.87 8.88L7.60 9.04L6.19 8.96L5.38 8.37L5.11 8.38L4.91 8.21L4.16 8.04L3.69 7.79L3.16 7.13L1.95 6.29L1.27 6.29L1.04 6.75L0.67 7.13L0.13 7.22L-0.17 6.92L-0.37 6.42L-0.61 6.13L-1.11 6.17L-1.11 5.84L-1.32 5.26L-1.69 4.88L-1.96 4.88L-2.13 4.75L-2.12 4.59L-3.00 3.26L-3.20 2.75L-3.90 1.71L-5.12 0.21L-5.39 0.05L-6.20 -0.88L-7.27 -1.62L-7.48 -1.87L-7.74 -1.96L-8.41 -2.71L-8.55 -2.70L-8.72 -2.91L-8.72 -3.08L-8.35 -3.37L-8.62 -3.29L-8.96 -3.54L-8.78 -3.08L-8.95 -3.04L-9.09 -3.21L-9.77 -3.54L-10.43 -3.54L-10.50 -3.62L-11.17 -3.54L-11.38 -3.71L-11.65 -3.71L-12.19 -3.29L-13.06 -3.12L-13.26 -2.96L-13.46 -2.96L-14.20 -2.62L-14.94 -2.62L-15.41 -2.87L-15.88 -2.87L-16.15 -3.04L-16.76 -3.12L-17.43 -3.46L-18.37 -3.46L-18.64 -3.13L-19.11 -3.12L-19.28 -3.33L-19.35 -3.67L-19.68 -4.34L-20.05 -4.79L-20.52 -5.12L-21.10 -5.91L-21.90 -7.75L-22.91 -9.25L-23.39 -11.00L-24.06 -12.08L-24.13 -12.58L-24.66 -13.08L-24.73 -13.58L-25.03 -13.71L-25.30 -14.04L-25.64 -14.12L-25.77 -14.37L-25.98 -14.45L-26.45 -14.54L-27.12 -14.37L-27.18 -14.46L-27.39 -14.37L-27.66 -14.46L-28.36 -15.58L-28.63 -15.83L-28.70 -16.50L-29.04 -17.50L-29.51 -18.42L-29.64 -19.42L-29.98 -19.91L-30.05 -20.25L-30.66 -21.41L-31.16 -22.21L-32.23 -22.71L-32.57 -23.29L-32.84 -23.37L-33.07 -23.66L-33.14 -24.50L-32.84 -24.46L-32.74 -24.58L-32.94 -24.91L-32.74 -25.09L-32.74 -25.42L-32.30 -25.54L-32.03 -25.37L-32.00 -25.50L-32.10 -25.71L-32.44 -25.71L-32.50 -25.96L-32.60 -25.91L-32.70 -25.62L-32.90 -25.62L-33.27 -26.00L-33.41 -26.42L-33.31 -26.54L-33.18 -26.46L-32.80 -26.50L-33.35 -26.75L-33.28 -27.50L-33.07 -27.83L-32.81 -28.75L-32.64 -28.96L-32.17 -28.96L-31.77 -28.62L-31.66 -28.67L-32.16 -29.29L-32.47 -29.34L-32.50 -29.96L-32.60 -29.58L-33.01 -29.00L-33.07 -28.50L-33.28 -27.92L-33.44 -27.70L-33.58 -27.71L-34.12 -28.20L-34.22 -28.17L-34.12 -27.96L-33.78 -27.79L-33.61 -27.58L-33.68 -27.50L-33.55 -27.41L-33.61 -26.25L-33.28 -25.50L-33.34 -24.08L-33.71 -24.04L-33.88 -24.33L-33.88 -25.00L-34.22 -26.25L-34.49 -26.92L-34.96 -27.66L-34.96 -28.00L-35.23 -28.75L-35.73 -29.29L-35.87 -29.29L-36.31 -29.83L-36.78 -31.16L-37.24 -32.25L-37.65 -32.92L-37.65 -33.08L-38.12 -34.00L-38.45 -34.91L-38.59 -35.00L-39.34 -36.33L-39.33 -36.50L-39.53 -36.83L-39.54 -37.17L-39.84 -37.54L-40.24 -37.79L-40.98 -37.71L-41.08 -37.83L-41.02 -38.08L-41.28 -38.24L-41.29 -38.42L-41.12 -38.62L-40.44 -38.96L-40.24 -38.79L-39.63 -38.79L-39.53 -38.66L-39.67 -38.42L-39.64 -38.29L-39.16 -38.46L-39.16 -38.20L-38.96 -38.29L-38.96 -38.04L-38.76 -38.04L-38.59 -37.83L-38.62 -37.62L-38.86 -37.66L-38.76 -37.54L-38.46 -37.50L-38.19 -36.58L-37.85 -36.08L-37.85 -35.92L-37.76 -35.79L-37.42 -35.79L-37.31 -35.58L-37.38 -35.42L-37.31 -35.08L-37.72 -34.66L-37.72 -34.50L-37.38 -33.58L-37.11 -33.17L-36.58 -31.91L-36.20 -31.54L-34.86 -31.37L-34.69 -31.50L-34.66 -31.79L-33.98 -31.71L-33.65 -31.88L-33.35 -32.33L-33.35 -32.75L-33.48 -33.00L-33.38 -33.21L-32.97 -33.13L-32.50 -33.62L-32.10 -33.62L-31.86 -33.83L-31.83 -34.12L-31.66 -34.16L-31.69 -34.38L-31.90 -34.37L-32.07 -34.75L-32.27 -34.91L-32.23 -35.21L-32.03 -35.21L-31.56 -34.79L-31.09 -34.62L-30.92 -34.41L-30.79 -34.00L-30.69 -33.96L-30.65 -34.16L-30.99 -34.67L-30.96 -34.79L-30.08 -34.87L-29.94 -34.71L-29.85 -34.75L-30.01 -34.96L-30.53 -35.04L-30.61 -35.24L-30.62 -35.91L-30.39 -36.08L-30.18 -36.67L-30.42 -37.12L-31.02 -37.45L-31.56 -37.46L-31.70 -37.29L-31.83 -37.29L-32.27 -36.83L-32.74 -36.00L-32.97 -35.79L-33.17 -35.88L-33.84 -35.79L-34.32 -35.62L-34.79 -35.29L-35.13 -35.29L-35.67 -35.54L-35.77 -35.66L-35.73 -35.96L-36.34 -36.21L-36.51 -36.42L-36.31 -36.66L-36.51 -36.83L-36.41 -37.21L-36.00 -37.20L-35.39 -37.62L-33.98 -37.71L-33.85 -37.54L-33.75 -37.58L-33.92 -37.79L-34.92 -37.71L-35.57 -38.08L-35.50 -38.33L-34.69 -39.33L-34.62 -39.75L-34.42 -40.08L-34.49 -40.25L-34.35 -40.58L-34.35 -41.17L-34.22 -41.49L-34.35 -42.41L-34.28 -42.58L-34.96 -43.42L-34.96 -43.58L-34.49 -44.16L-34.49 -44.33L-35.06 -43.63L-35.66 -43.63L-36.47 -43.21L-36.88 -43.21L-37.01 -42.96L-37.42 -43.04L-37.68 -42.96L-38.05 -43.42L-38.46 -44.67L-39.00 -45.50L-39.27 -45.75L-39.33 -46.00L-40.51 -46.79L-40.85 -46.79L-41.12 -46.37L-41.52 -46.87L-42.66 -47.46L-44.14 -47.54L-44.81 -47.21L-44.99 -47.00L-44.92 -46.75L-45.15 -46.54L-45.89 -47.12L-46.50 -47.21L-46.77 -47.46L-47.64 -47.88L-48.15 -48.33L-48.14 -48.67L-48.01 -48.91L-48.08 -49.08L-48.01 -49.33L-48.42 -50.83L-48.65 -51.12L-48.92 -51.21L-49.09 -51.66L-49.22 -51.75L-49.63 -52.58L-49.63 -52.91L-49.90 -53.17L-50.37 -54.16L-50.37 -54.33L-50.97 -55.25L-51.78 -57.09L-51.85 -57.41L-51.78 -57.50L-51.78 -58.25L-51.98 -58.83L-51.82 -59.12L-51.47 -59.21L-51.21 -59.54L-50.74 -59.38L-50.40 -59.46L-49.56 -60.41L-49.39 -61.21L-48.65 -61.21L-48.25 -61.54L-47.91 -61.62L-47.24 -62.04L-46.50 -62.71L-45.96 -62.87L-44.95 -63.87L-44.01 -64.29L-43.51 -64.92L-43.37 -65.25L-43.37 -65.75L-43.51 -66.33L-44.51 -68.00L-44.45 -70.08L-44.04 -72.09L-44.04 -73.75L-44.21 -73.79L-44.31 -73.67L-44.52 -73.16L-44.58 -72.41L-45.05 -71.08L-45.05 -69.92L-45.12 -69.83L-45.12 -68.66L-44.92 -67.84L-44.92 -67.50L-44.31 -66.16L-44.38 -65.00L-44.88 -64.62L-45.83 -64.46L-46.63 -65.04L-47.17 -65.04L-47.71 -65.21L-48.15 -65.83L-48.42 -66.00L-48.42 -66.17L-48.75 -66.83L-48.82 -67.25L-49.02 -67.58L-49.35 -68.75L-49.70 -69.50L-49.69 -69.66L-50.84 -72.08L-51.04 -72.83L-51.78 -74.50L-53.53 -77.41L-54.24 -78.29L-54.77 -78.79L-55.48 -79.83L-56.12 -80.46L-56.73 -81.29L-59.42 -83.63L-59.96 -83.88L-60.90 -84.62L-61.50 -84.96L-62.44 -85.79L-63.32 -86.29L-63.86 -86.79L-64.40 -87.13L-65.08 -87.37L-65.67 -87.95L-66.55 -88.37L-67.03 -88.79L-68.03 -89.37L-68.37 -89.71L-69.45 -90.29L-70.32 -90.96L-70.72 -91.04L-71.06 -91.38L-71.20 -91.38L-72.20 -92.13L-73.08 -92.54L-73.96 -93.29L-74.56 -93.46L-76.81 -95.00L121.12 -95.00ZM-29.10 95.00L-29.00 94.80L-28.39 94.79L-28.23 95.00ZM-27.96 95.00L-27.96 94.59L-27.73 94.21L-26.58 93.63L-26.01 93.51L-26.45 93.46L-27.73 93.88L-28.19 94.46L-28.40 94.54L-28.70 94.42L-28.50 93.50L-28.03 92.50L-27.82 91.00L-27.62 90.75L-27.42 90.25L-27.23 89.42L-26.75 88.09L-26.55 87.08L-26.21 86.25L-26.21 86.09L-26.01 85.75L-25.54 84.17L-25.54 83.92L-25.07 82.75L-24.93 81.92L-24.73 81.59L-24.40 79.92L-23.79 78.17L-23.79 77.58L-23.52 76.59L-23.18 75.83L-23.18 75.34L-22.78 74.75L-22.58 74.00L-22.24 73.84L-22.04 73.25L-21.64 72.50L-21.50 72.16L-21.50 71.42L-21.37 71.09L-21.37 70.76L-21.10 70.42L-20.83 69.50L-20.16 68.67L-20.02 68.26L-19.68 68.00L-19.62 67.67L-19.31 67.62L-19.24 67.46L-19.11 67.46L-18.94 67.25L-18.68 65.75L-18.47 65.34L-18.41 64.92L-18.07 64.34L-17.93 63.67L-17.66 63.25L-17.60 62.76L-17.46 62.50L-17.46 61.92L-17.33 61.25L-16.99 60.25L-16.99 59.92L-16.59 58.17L-16.42 57.87L-15.92 57.59L-15.65 56.84L-15.31 56.33L-15.35 56.21L-15.65 56.59L-15.98 57.42L-16.15 57.63L-16.32 57.59L-16.45 57.34L-16.45 56.92L-16.05 56.09L-16.05 55.67L-15.92 55.34L-15.85 54.59L-15.45 53.51L-15.31 52.34L-14.91 51.17L-14.91 50.75L-14.64 50.01L-14.17 47.76L-13.09 44.09L-13.09 43.84L-12.96 43.59L-12.35 41.09L-12.02 40.34L-12.02 40.09L-11.68 39.09L-11.68 38.59L-11.41 37.84L-11.41 37.59L-11.08 36.84L-11.07 36.34L-10.77 35.79L-10.16 35.55L-9.15 34.71L-7.48 34.80L-6.80 35.04L-6.06 34.96L-5.52 35.21L-5.12 35.05L-4.71 35.12L-4.38 34.72L-4.24 34.71L-3.30 35.30L-2.36 35.21L-2.09 35.46L-1.08 35.79L-0.81 36.13L-0.34 36.05L-0.31 36.25L-0.44 36.42L-0.44 36.59L-0.20 36.88L0.47 37.13L0.94 37.04L2.42 36.21L3.53 34.75L3.67 34.33L3.66 33.75L3.53 33.59L3.53 33.17L3.63 32.96L4.43 32.96L4.64 32.80L4.91 32.88L5.11 32.79L5.38 32.55L5.78 32.46L6.02 32.09L6.05 31.79L6.19 31.80L6.33 31.96L7.06 31.88L7.46 31.63L7.53 31.71L7.74 31.46L8.20 31.38L8.47 31.04L9.21 31.13L10.22 31.79L10.96 31.88L11.30 32.13L11.71 32.04L12.17 31.71L12.72 31.63L13.25 31.29L13.85 31.29L14.46 31.63L15.07 31.63L15.47 31.88L15.54 31.79L15.95 31.80L17.09 31.29L17.49 30.96L18.03 30.88L18.77 30.04L18.98 30.04L19.17 30.46L19.37 30.38L20.32 29.54L20.66 29.38L21.73 27.88L22.80 27.04L23.05 26.75L23.04 26.59L23.21 26.29L23.75 26.21L24.09 25.96L24.73 25.17L24.86 24.41L25.16 23.96L25.70 24.13L26.38 23.63L26.58 23.29L26.85 23.38L27.25 23.29L27.82 23.58L27.89 24.17L28.06 24.29L28.53 24.21L28.80 23.79L29.27 24.04L29.67 24.05L29.94 23.87L30.81 23.71L31.32 23.17L31.62 22.62L31.82 22.62L32.19 23.09L32.06 23.50L32.43 23.87L32.83 23.87L33.71 23.13L34.31 23.13L34.38 23.04L34.78 23.13L35.19 23.38L35.39 23.63L36.06 23.96L36.57 24.92L36.94 25.29L37.27 25.37L37.74 25.12L38.08 25.13L38.35 25.29L38.62 25.79L38.82 25.88L39.43 25.79L40.00 25.17L40.00 24.84L40.10 24.71L40.84 24.29L41.24 24.38L41.45 24.79L41.82 24.83L41.82 25.08L41.61 25.50L41.38 25.54L41.11 25.87L40.77 26.04L40.37 26.04L40.03 26.29L39.36 26.54L39.16 26.54L38.89 26.29L38.56 26.29L38.28 26.46L37.98 26.92L37.68 27.13L37.27 27.04L36.94 27.21L36.64 27.67L36.50 28.25L36.30 28.67L36.23 29.42L36.10 29.75L35.69 30.25L35.83 31.08L35.83 32.91L35.96 33.50L35.96 34.75L36.03 34.83L35.96 35.42L36.10 35.75L36.16 36.67L36.23 36.75L36.16 37.17L36.44 37.42L36.44 37.58L36.30 37.75L36.37 37.84L36.36 38.41L36.50 38.83L36.50 39.33L36.83 41.08L36.83 41.75L37.04 42.25L37.04 42.67L37.31 43.50L37.31 43.83L37.51 44.67L37.72 45.00L38.19 46.25L38.42 46.54L38.89 46.54L38.96 46.63L39.42 46.62L39.70 46.46L39.97 46.46L40.44 46.12L40.98 46.12L41.32 46.29L41.92 46.21L42.16 46.41L42.09 46.75L41.41 47.58L41.42 47.75L41.21 48.17L41.75 50.75L41.95 51.16L42.15 52.00L42.29 52.92L42.43 53.25L42.42 53.59L42.32 53.62L42.19 53.46L41.65 53.46L41.61 53.91L41.95 54.16L41.92 54.29L41.58 54.29L41.45 54.13L40.97 54.13L40.88 54.33L41.04 54.21L41.38 54.21L41.52 54.38L42.42 54.42L42.39 54.54L42.12 54.63L42.12 54.71L42.39 54.71L42.59 54.46L42.83 54.66L42.90 55.25L43.77 57.25L43.97 58.08L44.24 58.42L44.58 59.42L44.81 59.79L45.08 60.04L45.35 60.04L45.62 59.79L46.09 59.87L46.26 60.25L46.83 61.04L47.17 61.04L47.77 60.71L48.24 60.88L48.58 61.29L49.32 61.21L49.45 61.38L49.72 61.37L50.06 61.54L50.36 62.00L50.36 62.17L50.67 62.62L51.17 63.08L51.58 63.75L51.71 64.17L52.01 64.54L52.69 65.12L53.76 65.62L53.96 65.87L54.17 65.96L54.71 66.63L54.98 66.79L55.11 67.04L55.31 67.21L55.65 67.21L55.88 67.50L56.69 69.41L56.96 69.75L57.09 70.25L57.56 70.91L57.77 71.42L57.63 72.25L57.06 72.54L57.06 72.62L57.60 72.46L57.77 72.25L57.77 71.83L57.93 71.79L58.58 73.17L58.98 73.66L59.14 74.04L59.48 74.29L59.96 74.38L60.15 74.54L60.49 74.46L60.83 74.54L61.63 74.96L62.10 74.88L62.44 74.62L63.05 74.71L63.28 75.00L63.56 75.66L64.06 76.12L64.46 76.71L64.60 76.71L65.41 77.71L66.41 78.29L66.68 78.54L67.56 79.79L68.43 80.54L68.80 81.00L69.00 81.42L69.14 82.08L69.38 82.29L69.57 82.29L70.32 83.21L70.45 83.21L70.99 83.62L71.26 83.62L72.67 84.46L72.94 84.46L74.08 84.88L74.96 84.71L75.66 85.33L76.84 87.04L77.45 87.54L78.12 88.38L78.52 88.71L78.86 88.88L79.20 89.21L80.07 89.38L80.20 89.54L80.68 89.71L81.21 90.38L81.55 90.63L81.82 91.04L82.56 91.37L82.97 91.38L84.18 92.21L84.38 92.46L84.72 92.54L84.78 92.46L84.85 92.54L84.92 92.46L85.53 92.46L86.53 93.12L87.54 93.38L87.81 93.54L88.08 93.54L88.35 93.79L88.76 93.96L89.16 93.96L89.49 94.12L89.76 94.37L90.44 94.38L90.64 94.21L91.04 94.21L91.44 93.71L91.78 93.71L91.92 93.87L92.12 93.54L92.65 93.54L92.83 94.08L93.63 94.92L93.63 95.00Z", "detail": "M28.23 9.38L28.21 9.37L28.20 9.38L28.18 9.39L28.16 9.41L28.15 9.43L28.13 9.44L28.10 9.45L28.07 9.46L28.04 9.46L28.01 9.46L27.98 9.47L27.96 9.49L27.95 9.51L27.92 9.53L27.90 9.54L27.87 9.54L27.84 9.54L27.81 9.55L27.78 9.56L27.76 9.57L27.74 9.59L27.72 9.61L27.70 9.62L27.67 9.62L27.63 9.62L27.60 9.63L27.56 9.65L27.53 9.69L27.50 9.73L27.47 9.76L27.44 9.78L27.42 9.79L27.41 9.79L27.38 9.80L27.36 9.83L27.33 9.86L27.30 9.90L27.22 9.93L27.10 9.95L26.94 9.96L26.74 9.96L26.59 9.96L26.48 9.95L26.41 9.93L26.39 9.91L26.38 9.89L26.36 9.88L26.35 9.88L26.33 9.88L26.31 9.87L26.30 9.86L26.28 9.85L26.26 9.83L26.23 9.81L26.19 9.80L26.13 9.79L26.07 9.79L26.01 9.78L25.97 9.77L25.94 9.76L25.93 9.74L25.89 9.72L25.84 9.71L25.78 9.71L25.69 9.71L25.62 9.70L25.57 9.69L25.54 9.68L25.52 9.66L25.51 9.64L25.49 9.63L25.47 9.63L25.45 9.63L25.44 9.62L25.42 9.61L25.40 9.59L25.39 9.57L25.37 9.56L25.35 9.56L25.33 9.57L25.32 9.59L25.30 9.61L25.27 9.62L25.24 9.62L25.21 9.62L25.18 9.63L25.16 9.64L25.13 9.65L25.12 9.68L25.10 9.69L25.08 9.70L25.07 9.71L25.05 9.71L25.03 9.72L25.02 9.73L25.00 9.74L24.98 9.76L24.96 9.78L24.95 9.79L24.93 9.79L24.92 9.79L24.90 9.80L24.88 9.81L24.87 9.83L24.85 9.85L24.83 9.86L24.81 9.87L24.80 9.88L24.78 9.87L24.77 9.88L24.75 9.89L24.73 9.91L24.71 9.93L24.70 9.94L24.68 9.95L24.66 9.96L24.64 9.96L24.62 9.97L24.60 9.99L24.57 10.02L24.54 10.06L24.51 10.09L24.48 10.11L24.46 10.12L24.44 10.12L24.42 10.13L24.40 10.15L24.37 10.19L24.33 10.23L24.31 10.26L24.28 10.28L24.26 10.29L24.24 10.29L24.23 10.30L24.21 10.31L24.19 10.32L24.18 10.34L24.16 10.36L24.14 10.37L24.13 10.38L24.11 10.38L24.08 10.40L24.04 10.44L23.98 10.50L23.91 10.58L23.86 10.65L23.82 10.69L23.79 10.71L23.77 10.71L23.76 10.71L23.74 10.72L23.72 10.74L23.70 10.76L23.68 10.78L23.66 10.79L23.63 10.79L23.60 10.79L23.57 10.80L23.54 10.81L23.52 10.82L23.50 10.85L23.49 10.86L23.47 10.87L23.45 10.88L23.44 10.88L23.42 10.88L23.40 10.89L23.39 10.91L23.37 10.93L23.35 10.94L23.34 10.95L23.32 10.96L23.30 10.96L23.29 10.96L23.27 10.97L23.25 10.99L23.24 11.01L23.22 11.02L23.20 11.03L23.19 11.04L23.17 11.04L23.15 11.05L23.13 11.06L23.12 11.08L23.10 11.10L23.08 11.11L23.06 11.12L23.05 11.13L23.03 11.13L23.02 11.13L23.00 11.14L22.98 11.16L22.96 11.18L22.95 11.19L22.93 11.20L22.91 11.21L22.90 11.21L22.88 11.21L22.86 11.22L22.85 11.24L22.83 11.26L22.81 11.28L22.78 11.29L22.75 11.29L22.72 11.29L22.69 11.30L22.67 11.31L22.65 11.33L22.63 11.35L22.60 11.36L22.57 11.37L22.53 11.38L22.48 11.38L22.43 11.38L22.40 11.39L22.38 11.41L22.36 11.43L22.33 11.44L22.29 11.45L22.23 11.46L22.16 11.46L22.11 11.46L22.07 11.47L22.04 11.49L22.02 11.51L22.00 11.53L21.97 11.54L21.94 11.54L21.91 11.54L21.88 11.55L21.86 11.56L21.84 11.57L21.82 11.59L21.79 11.61L21.76 11.62L21.72 11.62L21.67 11.62L21.63 11.63L21.59 11.64L21.57 11.66L21.55 11.68L21.53 11.69L21.51 11.70L21.48 11.71L21.44 11.71L21.41 11.72L21.39 11.73L21.37 11.74L21.35 11.76L21.33 11.78L21.30 11.79L21.28 11.79L21.24 11.79L21.21 11.80L21.18 11.82L21.14 11.86L21.11 11.90L21.07 11.93L21.04 11.95L21.00 11.96L20.97 11.96L20.94 11.97L20.90 11.99L20.87 12.02L20.84 12.06L20.80 12.10L20.76 12.12L20.71 12.13L20.66 12.13L20.62 12.13L20.59 12.14L20.56 12.16L20.54 12.18L20.53 12.19L20.51 12.20L20.49 12.21L20.48 12.21L20.46 12.22L20.44 12.23L20.43 12.24L20.41 12.26L20.39 12.28L20.36 12.29L20.33 12.30L20.30 12.30L20.27 12.31L20.23 12.33L20.20 12.36L20.16 12.40L20.13 12.43L20.11 12.45L20.09 12.46L20.07 12.46L20.05 12.47L20.02 12.49L20.00 12.52L19.96 12.56L19.93 12.59L19.91 12.62L19.89 12.63L19.87 12.63L19.85 12.63L19.84 12.64L19.82 12.66L19.80 12.68L19.79 12.69L19.77 12.70L19.75 12.71L19.74 12.71L19.72 12.72L19.70 12.73L19.68 12.74L19.67 12.76L19.65 12.78L19.64 12.79L19.62 12.79L19.60 12.79L19.58 12.80L19.55 12.83L19.52 12.86L19.49 12.90L19.45 12.93L19.41 12.95L19.36 12.96L19.31 12.96L19.27 12.96L19.24 12.97L19.21 12.99L19.20 13.01L19.18 13.03L19.16 13.04L19.15 13.04L19.13 13.04L19.11 13.05L19.10 13.06L19.08 13.07L19.06 13.09L19.04 13.11L19.02 13.12L18.99 13.13L18.95 13.13L18.92 13.13L18.90 13.14L18.88 13.16L18.86 13.18L18.84 13.19L18.82 13.20L18.79 13.21L18.75 13.21L18.72 13.22L18.70 13.23L18.67 13.24L18.66 13.26L18.64 13.28L18.62 13.29L18.61 13.29L18.59 13.29L18.57 13.30L18.56 13.31L18.54 13.32L18.52 13.35L18.50 13.36L18.48 13.37L18.45 13.38L18.41 13.38L18.38 13.38L18.36 13.39L18.34 13.41L18.32 13.43L18.29 13.44L18.25 13.45L18.20 13.46L18.13 13.46L18.08 13.47L18.03 13.48L18.00 13.49L17.99 13.51L17.97 13.53L17.94 13.54L17.91 13.54L17.88 13.54L17.85 13.55L17.82 13.56L17.80 13.58L17.78 13.60L17.75 13.61L17.71 13.62L17.66 13.63L17.59 13.63L17.53 13.63L17.49 13.64L17.46 13.66L17.45 13.68L17.42 13.70L17.39 13.71L17.35 13.71L17.30 13.71L17.25 13.72L17.22 13.73L17.19 13.74L17.18 13.76L17.13 13.78L17.05 13.79L16.95 13.79L16.82 13.79L16.71 13.79L16.64 13.81L16.59 13.82L16.57 13.84L16.51 13.86L16.41 13.87L16.27 13.88L16.08 13.88L15.94 13.88L15.84 13.88L15.79 13.89L15.78 13.90L15.78 13.91L15.77 13.93L15.77 13.95L15.77 13.97L15.77 13.99L15.78 14.00L15.79 14.02L15.79 14.03L15.81 14.04L15.82 14.04L15.83 14.05L15.85 14.05L15.87 14.05L15.88 14.05L15.89 14.06L15.90 14.07L15.90 14.08L15.89 14.10L15.87 14.13L15.84 14.16L15.82 14.18L15.79 14.20L15.76 14.21L15.72 14.21L15.69 14.22L15.66 14.23L15.63 14.26L15.61 14.29L15.59 14.32L15.58 14.34L15.57 14.37L15.57 14.39L15.57 14.41L15.58 14.43L15.59 14.45L15.61 14.47L15.63 14.50L15.63 14.54L15.64 14.60L15.64 14.66L15.63 14.72L15.61 14.78L15.58 14.83L15.53 14.88L15.49 14.92L15.43 14.95L15.37 14.96L15.30 14.96L15.25 14.96L15.20 14.95L15.17 14.93L15.16 14.91L15.14 14.89L15.12 14.88L15.11 14.88L15.09 14.88L15.08 14.88L15.07 14.87L15.06 14.86L15.05 14.85L15.04 14.84L15.03 14.82L15.03 14.80L15.03 14.78L15.03 14.76L15.02 14.74L15.01 14.72L14.99 14.70L14.98 14.67L14.97 14.64L14.97 14.61L14.97 14.56L14.97 14.53L14.99 14.49L15.00 14.45L15.03 14.42L15.05 14.40L15.07 14.38L15.09 14.38L15.11 14.38L15.13 14.36L15.16 14.34L15.20 14.30L15.24 14.25L15.27 14.19L15.29 14.14L15.30 14.08L15.30 14.02L15.29 13.96L15.28 13.91L15.25 13.86L15.22 13.82L15.19 13.78L15.18 13.75L15.17 13.72L15.17 13.70L15.16 13.67L15.14 13.64L15.12 13.61L15.08 13.56L15.06 13.53L15.04 13.50L15.03 13.47L15.03 13.45L15.02 13.42L14.99 13.38L14.96 13.32L14.91 13.26L14.87 13.21L14.84 13.17L14.83 13.14L14.83 13.11L14.81 13.07L14.77 13.01L14.71 12.93L14.62 12.82L14.56 12.74L14.51 12.68L14.49 12.64L14.49 12.62L14.49 12.59L14.47 12.56L14.45 12.53L14.41 12.48L14.39 12.45L14.37 12.41L14.36 12.39L14.36 12.37L14.30 12.27L14.18 12.11L14.00 11.88L13.75 11.58L13.56 11.35L13.43 11.20L13.36 11.13L13.34 11.13L13.33 11.12L13.32 11.12L13.31 11.11L13.30 11.10L13.29 11.08L13.29 11.07L13.28 11.05L13.29 11.03L13.28 11.00L13.26 10.97L13.22 10.92L13.18 10.87L13.14 10.83L13.11 10.81L13.09 10.79L13.07 10.79L13.05 10.79L13.03 10.77L13.01 10.75L12.99 10.72L12.97 10.69L12.95 10.66L12.95 10.64L12.95 10.62L12.95 10.60L12.94 10.58L12.93 10.57L12.93 10.56L12.92 10.55L12.90 10.54L12.89 10.54L12.87 10.54L12.85 10.53L12.81 10.50L12.77 10.45L12.72 10.39L12.68 10.34L12.64 10.31L12.62 10.29L12.60 10.29L12.57 10.27L12.53 10.23L12.47 10.17L12.41 10.08L12.35 10.02L12.31 9.98L12.28 9.96L12.27 9.96L12.24 9.95L12.22 9.93L12.19 9.90L12.16 9.85L12.13 9.82L12.10 9.80L12.08 9.79L12.07 9.79L12.05 9.79L12.03 9.78L12.02 9.76L12.00 9.74L11.98 9.72L11.95 9.71L11.92 9.71L11.89 9.71L11.86 9.71L11.83 9.70L11.81 9.68L11.79 9.66L11.77 9.64L11.75 9.63L11.72 9.63L11.69 9.63L11.66 9.62L11.63 9.61L11.61 9.60L11.59 9.57L11.58 9.56L11.56 9.55L11.54 9.54L11.53 9.54L11.51 9.54L11.49 9.53L11.48 9.51L11.46 9.49L11.43 9.48L11.40 9.47L11.36 9.46L11.31 9.46L11.26 9.46L11.23 9.44L11.21 9.43L11.19 9.41L11.15 9.39L11.08 9.38L10.99 9.38L10.87 9.38L10.78 9.37L10.71 9.36L10.67 9.35L10.65 9.33L10.64 9.31L10.62 9.30L10.60 9.29L10.59 9.29L10.57 9.29L10.55 9.28L10.53 9.26L10.52 9.24L10.50 9.23L10.48 9.22L10.46 9.21L10.45 9.21L10.43 9.21L10.41 9.20L10.40 9.18L10.38 9.16L10.36 9.15L10.35 9.13L10.33 9.13L10.31 9.13L10.29 9.12L10.27 9.10L10.24 9.06L10.21 9.02L10.18 8.99L10.15 8.97L10.13 8.96L10.11 8.96L10.10 8.95L10.08 8.94L10.06 8.93L10.05 8.91L10.03 8.89L10.01 8.88L9.99 8.88L9.98 8.88L9.96 8.87L9.94 8.86L9.93 8.85L9.91 8.83L9.89 8.81L9.87 8.80L9.84 8.79L9.80 8.79L9.77 8.79L9.75 8.78L9.73 8.76L9.71 8.74L9.69 8.72L9.68 8.71L9.66 8.71L9.64 8.71L9.62 8.70L9.61 8.69L9.59 8.68L9.57 8.66L9.55 8.64L9.53 8.63L9.50 8.63L9.47 8.63L9.44 8.62L9.41 8.61L9.39 8.60L9.37 8.58L9.35 8.56L9.32 8.55L9.30 8.54L9.26 8.54L9.23 8.54L9.21 8.53L9.19 8.51L9.17 8.49L9.15 8.47L9.13 8.46L9.12 8.46L9.10 8.46L9.08 8.46L9.07 8.45L9.05 8.43L9.03 8.41L9.01 8.39L8.99 8.38L8.96 8.38L8.93 8.38L8.90 8.37L8.87 8.36L8.85 8.35L8.84 8.33L8.80 8.31L8.75 8.30L8.68 8.30L8.60 8.30L8.53 8.30L8.48 8.31L8.45 8.33L8.43 8.35L8.41 8.36L8.40 8.37L8.38 8.38L8.36 8.38L8.35 8.38L8.33 8.39L8.31 8.41L8.30 8.43L8.28 8.45L8.26 8.46L8.25 8.46L8.23 8.46L8.19 8.48L8.14 8.54L8.08 8.61L7.99 8.72L7.93 8.80L7.88 8.85L7.84 8.88L7.83 8.88L7.81 8.88L7.79 8.89L7.77 8.91L7.76 8.93L7.74 8.94L7.72 8.95L7.71 8.96L7.69 8.96L7.67 8.96L7.66 8.97L7.64 8.99L7.62 9.01L7.57 9.03L7.48 9.04L7.35 9.04L7.18 9.04L7.04 9.04L6.95 9.03L6.90 9.01L6.88 8.99L6.83 8.97L6.74 8.96L6.61 8.96L6.44 8.96L6.31 8.96L6.21 8.95L6.16 8.93L6.14 8.91L6.12 8.90L6.11 8.89L6.09 8.88L6.07 8.88L6.06 8.87L6.04 8.86L6.02 8.85L6.01 8.83L5.99 8.81L5.96 8.80L5.93 8.79L5.90 8.79L5.87 8.78L5.83 8.76L5.80 8.73L5.77 8.69L5.74 8.66L5.71 8.64L5.69 8.63L5.67 8.63L5.66 8.62L5.64 8.61L5.62 8.59L5.60 8.57L5.59 8.56L5.57 8.55L5.55 8.54L5.53 8.54L5.51 8.53L5.49 8.51L5.46 8.48L5.43 8.44L5.39 8.41L5.34 8.39L5.28 8.38L5.21 8.38L5.15 8.37L5.11 8.36L5.08 8.35L5.06 8.33L5.05 8.31L5.03 8.30L5.01 8.29L5.00 8.29L4.98 8.29L4.96 8.28L4.95 8.26L4.93 8.24L4.91 8.23L4.87 8.22L4.83 8.21L4.78 8.21L4.74 8.21L4.71 8.20L4.68 8.18L4.66 8.16L4.64 8.14L4.62 8.13L4.58 8.13L4.55 8.13L4.52 8.12L4.50 8.11L4.47 8.09L4.46 8.07L4.43 8.06L4.39 8.05L4.33 8.04L4.26 8.04L4.21 8.04L4.17 8.03L4.14 8.01L4.12 7.99L4.10 7.98L4.08 7.97L4.05 7.96L4.02 7.96L3.99 7.96L3.96 7.95L3.94 7.93L3.92 7.91L3.91 7.90L3.89 7.88L3.87 7.88L3.85 7.88L3.84 7.87L3.82 7.86L3.80 7.85L3.79 7.83L3.77 7.81L3.75 7.80L3.74 7.80L3.72 7.80L3.70 7.79L3.68 7.78L3.67 7.76L3.65 7.74L3.64 7.73L3.62 7.72L3.60 7.71L3.59 7.71L3.57 7.70L3.55 7.69L3.52 7.67L3.50 7.63L3.48 7.61L3.47 7.58L3.46 7.56L3.46 7.54L3.44 7.50L3.40 7.44L3.35 7.36L3.27 7.27L3.21 7.20L3.16 7.15L3.13 7.13L3.11 7.13L3.09 7.12L3.07 7.10L3.04 7.07L3.00 7.03L2.97 6.99L2.95 6.97L2.93 6.96L2.91 6.96L2.89 6.95L2.86 6.93L2.84 6.90L2.80 6.86L2.77 6.83L2.75 6.81L2.73 6.80L2.71 6.80L2.70 6.79L2.68 6.78L2.66 6.77L2.64 6.74L2.62 6.73L2.61 6.72L2.59 6.71L2.58 6.71L2.56 6.71L2.54 6.70L2.53 6.68L2.51 6.66L2.49 6.64L2.47 6.63L2.46 6.63L2.44 6.63L2.42 6.62L2.39 6.60L2.36 6.57L2.33 6.52L2.30 6.49L2.28 6.47L2.26 6.46L2.24 6.46L2.22 6.46L2.21 6.45L2.19 6.43L2.17 6.41L2.15 6.39L2.13 6.38L2.10 6.38L2.06 6.38L2.04 6.37L2.01 6.36L1.99 6.35L1.97 6.32L1.92 6.31L1.83 6.30L1.70 6.29L1.53 6.29L1.39 6.30L1.30 6.32L1.23 6.34L1.21 6.37L1.19 6.40L1.18 6.43L1.17 6.45L1.17 6.47L1.16 6.50L1.14 6.53L1.12 6.57L1.09 6.61L1.06 6.64L1.05 6.67L1.04 6.70L1.04 6.72L1.03 6.75L1.01 6.79L0.98 6.83L0.93 6.88L0.90 6.92L0.87 6.95L0.84 6.96L0.83 6.96L0.81 6.97L0.78 6.99L0.75 7.03L0.72 7.07L0.69 7.10L0.65 7.12L0.62 7.13L0.58 7.13L0.55 7.13L0.53 7.14L0.51 7.16L0.49 7.18L0.46 7.20L0.41 7.21L0.34 7.21L0.26 7.21L0.18 7.20L0.11 7.17L0.05 7.12L0.00 7.06L-0.04 7.01L-0.08 6.98L-0.10 6.96L-0.12 6.96L-0.13 6.96L-0.14 6.95L-0.15 6.95L-0.16 6.94L-0.17 6.92L-0.17 6.91L-0.17 6.89L-0.17 6.87L-0.18 6.84L-0.18 6.82L-0.20 6.80L-0.21 6.78L-0.23 6.76L-0.24 6.74L-0.24 6.72L-0.24 6.70L-0.25 6.68L-0.27 6.64L-0.29 6.61L-0.33 6.57L-0.35 6.53L-0.37 6.50L-0.38 6.47L-0.38 6.45L-0.39 6.42L-0.42 6.37L-0.46 6.31L-0.52 6.24L-0.58 6.18L-0.64 6.15L-0.69 6.13L-0.74 6.13L-0.78 6.13L-0.81 6.14L-0.84 6.16L-0.86 6.18L-0.88 6.20L-0.91 6.21L-0.96 6.21L-1.01 6.21L-1.05 6.21L-1.07 6.20L-1.09 6.19L-1.10 6.18L-1.11 6.16L-1.11 6.11L-1.11 6.05L-1.11 5.96L-1.12 5.90L-1.13 5.84L-1.14 5.81L-1.16 5.79L-1.17 5.76L-1.18 5.73L-1.18 5.69L-1.18 5.65L-1.19 5.61L-1.19 5.58L-1.21 5.56L-1.22 5.53L-1.24 5.51L-1.25 5.49L-1.25 5.47L-1.25 5.45L-1.26 5.43L-1.26 5.41L-1.28 5.39L-1.29 5.37L-1.30 5.34L-1.31 5.32L-1.32 5.30L-1.32 5.28L-1.33 5.26L-1.35 5.22L-1.38 5.18L-1.42 5.13L-1.46 5.09L-1.49 5.06L-1.51 5.05L-1.53 5.05L-1.55 5.03L-1.58 5.01L-1.60 4.98L-1.64 4.94L-1.68 4.91L-1.73 4.89L-1.79 4.88L-1.86 4.88L-1.91 4.87L-1.95 4.86L-1.98 4.85L-2.00 4.83L-2.02 4.81L-2.03 4.80L-2.05 4.80L-2.07 4.80L-2.08 4.79L-2.09 4.79L-2.10 4.78L-2.11 4.77L-2.12 4.75L-2.12 4.72L-2.13 4.69L-2.13 4.65L-2.14 4.60L-2.16 4.55L-2.20 4.49L-2.25 4.43L-2.29 4.38L-2.31 4.33L-2.33 4.30L-2.33 4.28L-2.34 4.25L-2.38 4.20L-2.43 4.13L-2.50 4.04L-2.55 3.97L-2.58 3.92L-2.60 3.89L-2.60 3.86L-2.61 3.83L-2.63 3.79L-2.67 3.74L-2.72 3.68L-2.76 3.63L-2.78 3.59L-2.80 3.56L-2.80 3.54L-2.81 3.51L-2.83 3.46L-2.87 3.41L-2.92 3.35L-2.96 3.30L-2.99 3.25L-3.00 3.22L-3.00 3.20L-3.01 3.18L-3.03 3.14L-3.05 3.11L-3.08 3.06L-3.11 3.03L-3.13 3.00L-3.13 2.97L-3.14 2.95L-3.14 2.93L-3.15 2.91L-3.16 2.89L-3.18 2.87L-3.19 2.85L-3.20 2.83L-3.20 2.80L-3.20 2.78L-3.22 2.74L-3.27 2.68L-3.33 2.59L-3.41 2.49L-3.48 2.41L-3.52 2.34L-3.54 2.30L-3.54 2.28L-3.56 2.24L-3.60 2.18L-3.66 2.10L-3.75 1.99L-3.81 1.91L-3.85 1.85L-3.87 1.81L-3.87 1.78L-3.87 1.77L-3.88 1.75L-3.88 1.74L-3.89 1.72L-3.90 1.72L-3.92 1.71L-3.93 1.71L-3.95 1.71L-3.97 1.70L-3.99 1.69L-4.01 1.66L-4.04 1.63L-4.06 1.60L-4.07 1.58L-4.08 1.55L-4.08 1.53L-4.09 1.50L-4.11 1.47L-4.14 1.42L-4.18 1.37L-4.22 1.33L-4.25 1.31L-4.27 1.30L-4.29 1.30L-4.30 1.29L-4.31 1.29L-4.32 1.28L-4.33 1.27L-4.34 1.26L-4.34 1.24L-4.35 1.22L-4.34 1.20L-4.35 1.18L-4.35 1.17L-4.36 1.15L-4.36 1.14L-4.38 1.13L-4.39 1.13L-4.40 1.13L-4.42 1.13L-4.47 1.08L-4.56 0.98L-4.69 0.83L-4.85 0.63L-4.97 0.48L-5.05 0.37L-5.09 0.30L-5.09 0.28L-5.09 0.26L-5.09 0.25L-5.10 0.23L-5.11 0.22L-5.12 0.22L-5.13 0.21L-5.14 0.21L-5.16 0.21L-5.18 0.20L-5.21 0.18L-5.24 0.15L-5.27 0.11L-5.30 0.08L-5.33 0.06L-5.35 0.05L-5.36 0.05L-5.40 0.02L-5.46 -0.05L-5.54 -0.14L-5.64 -0.27L-5.72 -0.36L-5.78 -0.43L-5.82 -0.46L-5.84 -0.46L-5.87 -0.48L-5.92 -0.53L-5.99 -0.61L-6.07 -0.72L-6.14 -0.80L-6.19 -0.85L-6.22 -0.87L-6.24 -0.87L-6.26 -0.88L-6.27 -0.89L-6.29 -0.90L-6.31 -0.92L-6.32 -0.94L-6.34 -0.95L-6.36 -0.96L-6.37 -0.96L-6.39 -0.97L-6.42 -0.99L-6.45 -1.02L-6.48 -1.06L-6.51 -1.09L-6.53 -1.11L-6.56 -1.12L-6.57 -1.12L-6.59 -1.13L-6.62 -1.15L-6.65 -1.18L-6.68 -1.22L-6.71 -1.25L-6.74 -1.28L-6.76 -1.29L-6.77 -1.29L-6.79 -1.30L-6.82 -1.32L-6.85 -1.35L-6.88 -1.39L-6.91 -1.42L-6.94 -1.44L-6.96 -1.45L-6.98 -1.46L-6.99 -1.46L-7.01 -1.47L-7.03 -1.49L-7.05 -1.51L-7.06 -1.53L-7.08 -1.54L-7.10 -1.54L-7.12 -1.54L-7.13 -1.54L-7.15 -1.55L-7.17 -1.57L-7.18 -1.59L-7.20 -1.61L-7.21 -1.62L-7.23 -1.62L-7.25 -1.62L-7.27 -1.64L-7.30 -1.67L-7.35 -1.71L-7.40 -1.78L-7.45 -1.82L-7.49 -1.86L-7.53 -1.87L-7.56 -1.87L-7.59 -1.88L-7.62 -1.89L-7.64 -1.90L-7.65 -1.93L-7.67 -1.94L-7.69 -1.95L-7.70 -1.96L-7.72 -1.96L-7.74 -1.97L-7.76 -1.99L-7.79 -2.02L-7.83 -2.06L-7.86 -2.09L-7.88 -2.11L-7.90 -2.12L-7.92 -2.12L-7.96 -2.16L-8.03 -2.23L-8.12 -2.34L-8.24 -2.49L-8.33 -2.60L-8.41 -2.67L-8.46 -2.71L-8.50 -2.70L-8.53 -2.72L-8.57 -2.74L-8.61 -2.78L-8.66 -2.83L-8.69 -2.88L-8.71 -2.93L-8.72 -2.98L-8.72 -3.02L-8.72 -3.05L-8.71 -3.08L-8.71 -3.10L-8.70 -3.11L-8.69 -3.11L-8.68 -3.12L-8.66 -3.12L-8.64 -3.12L-8.63 -3.13L-8.61 -3.14L-8.59 -3.15L-8.57 -3.18L-8.56 -3.19L-8.54 -3.20L-8.53 -3.21L-8.51 -3.20L-8.49 -3.21L-8.48 -3.22L-8.46 -3.24L-8.44 -3.26L-8.42 -3.28L-8.41 -3.29L-8.39 -3.29L-8.37 -3.29L-8.36 -3.29L-8.35 -3.30L-8.34 -3.30L-8.33 -3.31L-8.32 -3.32L-8.32 -3.33L-8.32 -3.34L-8.33 -3.36L-8.35 -3.36L-8.37 -3.37L-8.40 -3.37L-8.43 -3.37L-8.46 -3.37L-8.49 -3.36L-8.51 -3.34L-8.53 -3.32L-8.54 -3.30L-8.56 -3.29L-8.58 -3.29L-8.59 -3.29L-8.61 -3.30L-8.63 -3.31L-8.64 -3.32L-8.66 -3.34L-8.67 -3.36L-8.69 -3.37L-8.71 -3.37L-8.73 -3.37L-8.75 -3.38L-8.77 -3.40L-8.80 -3.44L-8.84 -3.48L-8.87 -3.51L-8.89 -3.53L-8.91 -3.54L-8.93 -3.54L-8.95 -3.54L-8.96 -3.53L-8.97 -3.52L-8.98 -3.51L-8.97 -3.49L-8.95 -3.45L-8.91 -3.40L-8.86 -3.34L-8.83 -3.28L-8.80 -3.23L-8.79 -3.18L-8.79 -3.14L-8.79 -3.11L-8.79 -3.08L-8.80 -3.06L-8.81 -3.05L-8.82 -3.05L-8.84 -3.04L-8.87 -3.04L-8.90 -3.04L-8.94 -3.05L-8.97 -3.07L-9.00 -3.10L-9.04 -3.15L-9.07 -3.18L-9.11 -3.20L-9.14 -3.21L-9.17 -3.20L-9.20 -3.21L-9.23 -3.22L-9.25 -3.24L-9.27 -3.26L-9.28 -3.27L-9.30 -3.28L-9.32 -3.29L-9.33 -3.29L-9.35 -3.30L-9.38 -3.32L-9.41 -3.35L-9.44 -3.39L-9.48 -3.42L-9.52 -3.44L-9.57 -3.45L-9.62 -3.46L-9.66 -3.46L-9.70 -3.47L-9.72 -3.49L-9.74 -3.51L-9.79 -3.52L-9.89 -3.53L-10.02 -3.54L-10.18 -3.54L-10.31 -3.54L-10.40 -3.55L-10.46 -3.57L-10.48 -3.59L-10.51 -3.61L-10.55 -3.62L-10.60 -3.62L-10.67 -3.62L-10.72 -3.62L-10.77 -3.61L-10.80 -3.59L-10.81 -3.57L-10.85 -3.55L-10.90 -3.54L-10.96 -3.54L-11.05 -3.54L-11.11 -3.54L-11.16 -3.56L-11.20 -3.57L-11.22 -3.59L-11.23 -3.61L-11.25 -3.62L-11.27 -3.62L-11.28 -3.62L-11.30 -3.63L-11.32 -3.64L-11.33 -3.65L-11.35 -3.67L-11.38 -3.69L-11.42 -3.70L-11.48 -3.71L-11.55 -3.71L-11.60 -3.70L-11.64 -3.69L-11.67 -3.68L-11.69 -3.65L-11.70 -3.64L-11.72 -3.63L-11.74 -3.62L-11.75 -3.62L-11.77 -3.62L-11.79 -3.61L-11.81 -3.59L-11.83 -3.57L-11.84 -3.55L-11.86 -3.54L-11.88 -3.54L-11.89 -3.54L-11.91 -3.53L-11.94 -3.51L-11.97 -3.48L-12.00 -3.43L-12.03 -3.40L-12.06 -3.38L-12.08 -3.37L-12.10 -3.37L-12.11 -3.37L-12.13 -3.36L-12.15 -3.34L-12.16 -3.32L-12.19 -3.30L-12.22 -3.29L-12.26 -3.29L-12.31 -3.29L-12.35 -3.29L-12.39 -3.28L-12.41 -3.26L-12.43 -3.24L-12.46 -3.22L-12.49 -3.21L-12.53 -3.20L-12.58 -3.20L-12.62 -3.20L-12.66 -3.19L-12.68 -3.17L-12.70 -3.15L-12.73 -3.14L-12.78 -3.13L-12.85 -3.12L-12.93 -3.12L-13.00 -3.12L-13.05 -3.11L-13.08 -3.09L-13.10 -3.07L-13.12 -3.05L-13.13 -3.04L-13.15 -3.04L-13.17 -3.04L-13.18 -3.03L-13.20 -3.02L-13.22 -3.01L-13.23 -2.99L-13.26 -2.97L-13.29 -2.96L-13.34 -2.96L-13.39 -2.96L-13.43 -2.95L-13.46 -2.94L-13.49 -2.92L-13.51 -2.90L-13.53 -2.89L-13.55 -2.88L-13.58 -2.87L-13.62 -2.87L-13.65 -2.87L-13.67 -2.86L-13.69 -2.84L-13.71 -2.82L-13.73 -2.80L-13.75 -2.79L-13.78 -2.79L-13.82 -2.79L-13.85 -2.78L-13.87 -2.77L-13.89 -2.76L-13.91 -2.74L-13.94 -2.72L-13.97 -2.71L-14.01 -2.71L-14.06 -2.71L-14.10 -2.70L-14.14 -2.69L-14.16 -2.67L-14.18 -2.65L-14.23 -2.64L-14.34 -2.63L-14.48 -2.62L-14.66 -2.62L-14.81 -2.63L-14.91 -2.64L-14.97 -2.65L-14.99 -2.68L-15.01 -2.69L-15.05 -2.70L-15.09 -2.71L-15.14 -2.71L-15.18 -2.71L-15.21 -2.72L-15.24 -2.74L-15.26 -2.76L-15.27 -2.77L-15.29 -2.78L-15.31 -2.79L-15.32 -2.79L-15.34 -2.79L-15.35 -2.80L-15.37 -2.82L-15.39 -2.84L-15.43 -2.86L-15.50 -2.87L-15.59 -2.87L-15.71 -2.87L-15.80 -2.88L-15.87 -2.89L-15.91 -2.91L-15.93 -2.93L-15.95 -2.95L-15.99 -2.97L-16.03 -2.99L-16.08 -3.01L-16.14 -3.03L-16.21 -3.05L-16.30 -3.07L-16.40 -3.09L-16.49 -3.11L-16.57 -3.12L-16.63 -3.12L-16.68 -3.12L-16.72 -3.13L-16.76 -3.14L-16.78 -3.15L-16.80 -3.17L-16.82 -3.19L-16.83 -3.20L-16.85 -3.21L-16.87 -3.21L-16.88 -3.21L-16.90 -3.22L-16.92 -3.24L-16.93 -3.26L-16.95 -3.27L-16.98 -3.29L-17.01 -3.29L-17.04 -3.29L-17.07 -3.30L-17.10 -3.31L-17.12 -3.32L-17.14 -3.34L-17.16 -3.36L-17.19 -3.36L-17.24 -3.37L-17.29 -3.37L-17.33 -3.37L-17.36 -3.39L-17.39 -3.40L-17.41 -3.43L-17.48 -3.44L-17.60 -3.45L-17.79 -3.46L-18.02 -3.46L-18.21 -3.44L-18.36 -3.40L-18.47 -3.33L-18.54 -3.25L-18.62 -3.19L-18.71 -3.15L-18.82 -3.12L-18.94 -3.12L-19.03 -3.14L-19.12 -3.16L-19.18 -3.20L-19.22 -3.25L-19.25 -3.30L-19.27 -3.35L-19.28 -3.40L-19.28 -3.44L-19.29 -3.47L-19.29 -3.50L-19.30 -3.53L-19.32 -3.55L-19.33 -3.57L-19.34 -3.59L-19.34 -3.61L-19.34 -3.63L-19.35 -3.66L-19.36 -3.68L-19.37 -3.70L-19.39 -3.72L-19.40 -3.74L-19.41 -3.76L-19.42 -3.78L-19.42 -3.80L-19.42 -3.82L-19.44 -3.86L-19.46 -3.89L-19.50 -3.94L-19.52 -3.97L-19.54 -4.00L-19.55 -4.03L-19.55 -4.05L-19.56 -4.08L-19.57 -4.11L-19.60 -4.14L-19.63 -4.19L-19.66 -4.22L-19.67 -4.26L-19.68 -4.28L-19.68 -4.30L-19.71 -4.35L-19.75 -4.42L-19.82 -4.51L-19.92 -4.62L-19.99 -4.71L-20.04 -4.76L-20.08 -4.79L-20.10 -4.79L-20.11 -4.79L-20.13 -4.80L-20.15 -4.82L-20.16 -4.84L-20.18 -4.86L-20.20 -4.87L-20.21 -4.87L-20.23 -4.87L-20.26 -4.89L-20.29 -4.92L-20.33 -4.96L-20.38 -5.03L-20.43 -5.07L-20.46 -5.10L-20.48 -5.12L-20.50 -5.12L-20.53 -5.14L-20.56 -5.18L-20.61 -5.23L-20.67 -5.30L-20.71 -5.36L-20.74 -5.41L-20.76 -5.45L-20.76 -5.47L-20.78 -5.51L-20.82 -5.57L-20.89 -5.65L-20.97 -5.76L-21.03 -5.84L-21.08 -5.90L-21.10 -5.94L-21.10 -5.97L-21.10 -5.99L-21.11 -6.01L-21.12 -6.03L-21.14 -6.05L-21.15 -6.07L-21.16 -6.09L-21.17 -6.11L-21.17 -6.13L-21.17 -6.16L-21.18 -6.18L-21.19 -6.20L-21.21 -6.22L-21.22 -6.24L-21.23 -6.26L-21.23 -6.28L-21.23 -6.30L-21.24 -6.32L-21.24 -6.34L-21.26 -6.36L-21.27 -6.38L-21.29 -6.41L-21.30 -6.43L-21.30 -6.45L-21.30 -6.47L-21.31 -6.49L-21.31 -6.51L-21.33 -6.53L-21.34 -6.55L-21.35 -6.57L-21.36 -6.59L-21.37 -6.61L-21.37 -6.63L-21.38 -6.66L-21.39 -6.69L-21.42 -6.73L-21.45 -6.77L-21.48 -6.81L-21.49 -6.84L-21.50 -6.86L-21.50 -6.88L-21.51 -6.91L-21.53 -6.94L-21.55 -6.98L-21.58 -7.02L-21.61 -7.05L-21.62 -7.08L-21.63 -7.11L-21.63 -7.13L-21.64 -7.15L-21.65 -7.17L-21.66 -7.19L-21.68 -7.22L-21.69 -7.24L-21.70 -7.26L-21.70 -7.28L-21.70 -7.30L-21.71 -7.32L-21.72 -7.34L-21.73 -7.36L-21.75 -7.38L-21.76 -7.40L-21.77 -7.42L-21.77 -7.44L-21.77 -7.46L-21.78 -7.49L-21.79 -7.52L-21.82 -7.56L-21.85 -7.60L-21.88 -7.64L-21.90 -7.67L-21.90 -7.70L-21.90 -7.72L-21.92 -7.75L-21.95 -7.81L-22.00 -7.88L-22.07 -7.96L-22.12 -8.03L-22.16 -8.08L-22.17 -8.11L-22.18 -8.13L-22.20 -8.18L-22.25 -8.25L-22.33 -8.35L-22.43 -8.48L-22.50 -8.58L-22.55 -8.65L-22.58 -8.70L-22.58 -8.72L-22.58 -8.74L-22.59 -8.76L-22.60 -8.78L-22.62 -8.80L-22.63 -8.82L-22.64 -8.84L-22.64 -8.86L-22.64 -8.88L-22.66 -8.92L-22.69 -8.97L-22.74 -9.04L-22.81 -9.12L-22.86 -9.19L-22.90 -9.24L-22.91 -9.28L-22.92 -9.30L-22.92 -9.32L-22.93 -9.34L-22.94 -9.36L-22.96 -9.38L-22.97 -9.41L-22.98 -9.44L-22.98 -9.48L-22.98 -9.52L-22.99 -9.56L-23.00 -9.59L-23.01 -9.61L-23.02 -9.63L-23.04 -9.66L-23.04 -9.69L-23.05 -9.73L-23.05 -9.77L-23.05 -9.81L-23.06 -9.84L-23.07 -9.86L-23.09 -9.89L-23.10 -9.92L-23.11 -9.96L-23.12 -10.01L-23.11 -10.07L-23.12 -10.12L-23.13 -10.16L-23.14 -10.19L-23.15 -10.22L-23.17 -10.24L-23.18 -10.28L-23.18 -10.31L-23.18 -10.35L-23.19 -10.39L-23.20 -10.42L-23.21 -10.45L-23.23 -10.47L-23.24 -10.49L-23.25 -10.52L-23.25 -10.56L-23.25 -10.60L-23.26 -10.64L-23.28 -10.69L-23.30 -10.73L-23.34 -10.77L-23.36 -10.81L-23.38 -10.85L-23.39 -10.90L-23.39 -10.94L-23.39 -10.97L-23.40 -11.00L-23.41 -11.03L-23.43 -11.05L-23.44 -11.07L-23.45 -11.09L-23.45 -11.11L-23.45 -11.13L-23.46 -11.16L-23.48 -11.19L-23.50 -11.23L-23.54 -11.27L-23.56 -11.31L-23.58 -11.34L-23.59 -11.36L-23.59 -11.38L-23.60 -11.42L-23.64 -11.47L-23.69 -11.54L-23.75 -11.62L-23.80 -11.69L-23.84 -11.74L-23.85 -11.78L-23.86 -11.80L-23.87 -11.83L-23.89 -11.87L-23.93 -11.93L-23.98 -11.99L-24.02 -12.04L-24.05 -12.08L-24.06 -12.11L-24.06 -12.13L-24.06 -12.15L-24.07 -12.17L-24.08 -12.20L-24.10 -12.22L-24.11 -12.25L-24.12 -12.30L-24.12 -12.37L-24.12 -12.45L-24.13 -12.52L-24.13 -12.57L-24.14 -12.60L-24.15 -12.61L-24.16 -12.62L-24.17 -12.62L-24.18 -12.62L-24.20 -12.62L-24.23 -12.64L-24.27 -12.68L-24.33 -12.75L-24.39 -12.83L-24.45 -12.89L-24.49 -12.94L-24.52 -12.96L-24.54 -12.96L-24.56 -12.97L-24.58 -12.98L-24.60 -13.00L-24.63 -13.03L-24.65 -13.07L-24.66 -13.12L-24.66 -13.18L-24.66 -13.24L-24.67 -13.29L-24.67 -13.33L-24.69 -13.36L-24.70 -13.39L-24.72 -13.41L-24.72 -13.44L-24.73 -13.48L-24.73 -13.52L-24.73 -13.55L-24.74 -13.58L-24.74 -13.60L-24.75 -13.61L-24.76 -13.61L-24.78 -13.62L-24.79 -13.62L-24.81 -13.62L-24.82 -13.63L-24.84 -13.64L-24.86 -13.66L-24.87 -13.68L-24.90 -13.69L-24.92 -13.70L-24.95 -13.71L-24.98 -13.71L-25.03 -13.73L-25.08 -13.77L-25.13 -13.83L-25.20 -13.91L-25.26 -13.98L-25.31 -14.02L-25.35 -14.04L-25.39 -14.04L-25.42 -14.05L-25.44 -14.06L-25.47 -14.07L-25.48 -14.09L-25.50 -14.11L-25.53 -14.12L-25.56 -14.12L-25.59 -14.12L-25.62 -14.13L-25.65 -14.15L-25.68 -14.17L-25.70 -14.20L-25.72 -14.23L-25.74 -14.26L-25.74 -14.28L-25.74 -14.30L-25.74 -14.32L-25.75 -14.34L-25.75 -14.35L-25.76 -14.36L-25.77 -14.36L-25.80 -14.37L-25.82 -14.37L-25.86 -14.37L-25.89 -14.38L-25.91 -14.39L-25.94 -14.40L-25.95 -14.42L-25.99 -14.44L-26.05 -14.45L-26.13 -14.46L-26.23 -14.46L-26.31 -14.46L-26.36 -14.48L-26.40 -14.49L-26.42 -14.51L-26.44 -14.52L-26.45 -14.52L-26.47 -14.50L-26.49 -14.48L-26.52 -14.47L-26.57 -14.46L-26.64 -14.45L-26.72 -14.46L-26.79 -14.45L-26.84 -14.44L-26.88 -14.43L-26.89 -14.40L-26.92 -14.39L-26.95 -14.38L-27.00 -14.37L-27.05 -14.37L-27.09 -14.38L-27.12 -14.39L-27.14 -14.40L-27.16 -14.42L-27.18 -14.44L-27.19 -14.45L-27.21 -14.46L-27.23 -14.46L-27.25 -14.45L-27.26 -14.44L-27.28 -14.43L-27.30 -14.41L-27.31 -14.39L-27.33 -14.38L-27.35 -14.37L-27.36 -14.37L-27.38 -14.38L-27.40 -14.39L-27.41 -14.41L-27.43 -14.43L-27.45 -14.44L-27.49 -14.45L-27.53 -14.46L-27.58 -14.46L-27.63 -14.47L-27.68 -14.50L-27.72 -14.54L-27.76 -14.59L-27.79 -14.63L-27.81 -14.67L-27.82 -14.70L-27.82 -14.72L-27.84 -14.75L-27.86 -14.79L-27.90 -14.84L-27.95 -14.90L-27.99 -14.95L-28.01 -15.00L-28.03 -15.03L-28.03 -15.05L-28.05 -15.09L-28.09 -15.15L-28.16 -15.24L-28.24 -15.34L-28.30 -15.42L-28.34 -15.49L-28.36 -15.53L-28.36 -15.55L-28.37 -15.57L-28.37 -15.59L-28.38 -15.60L-28.38 -15.61L-28.39 -15.62L-28.41 -15.62L-28.42 -15.62L-28.44 -15.62L-28.46 -15.64L-28.49 -15.66L-28.53 -15.70L-28.57 -15.75L-28.60 -15.81L-28.62 -15.86L-28.63 -15.92L-28.63 -15.98L-28.64 -16.04L-28.65 -16.08L-28.66 -16.11L-28.67 -16.13L-28.69 -16.17L-28.70 -16.22L-28.70 -16.29L-28.70 -16.37L-28.70 -16.44L-28.71 -16.49L-28.73 -16.53L-28.74 -16.55L-28.76 -16.57L-28.76 -16.59L-28.77 -16.61L-28.77 -16.63L-28.77 -16.66L-28.78 -16.68L-28.80 -16.70L-28.81 -16.72L-28.82 -16.74L-28.83 -16.76L-28.84 -16.78L-28.84 -16.80L-28.84 -16.82L-28.85 -16.84L-28.86 -16.86L-28.88 -16.89L-28.89 -16.91L-28.90 -16.94L-28.90 -16.98L-28.90 -17.02L-28.90 -17.05L-28.91 -17.09L-28.93 -17.11L-28.94 -17.13L-28.96 -17.15L-28.96 -17.17L-28.97 -17.20L-28.97 -17.22L-28.97 -17.24L-28.98 -17.26L-29.00 -17.28L-29.01 -17.30L-29.03 -17.33L-29.03 -17.36L-29.04 -17.39L-29.04 -17.43L-29.04 -17.47L-29.05 -17.50L-29.06 -17.53L-29.08 -17.55L-29.09 -17.57L-29.10 -17.59L-29.11 -17.61L-29.11 -17.63L-29.11 -17.66L-29.13 -17.69L-29.16 -17.73L-29.19 -17.77L-29.21 -17.81L-29.23 -17.84L-29.24 -17.86L-29.24 -17.88L-29.25 -17.91L-29.26 -17.94L-29.29 -17.98L-29.32 -18.02L-29.35 -18.06L-29.37 -18.09L-29.37 -18.12L-29.37 -18.14L-29.38 -18.16L-29.39 -18.18L-29.40 -18.20L-29.42 -18.22L-29.43 -18.24L-29.44 -18.26L-29.44 -18.28L-29.44 -18.30L-29.45 -18.32L-29.45 -18.34L-29.47 -18.36L-29.48 -18.39L-29.50 -18.41L-29.50 -18.44L-29.51 -18.48L-29.51 -18.52L-29.51 -18.56L-29.52 -18.59L-29.53 -18.61L-29.55 -18.63L-29.56 -18.68L-29.57 -18.75L-29.58 -18.85L-29.58 -18.97L-29.58 -19.07L-29.59 -19.15L-29.60 -19.19L-29.62 -19.22L-29.63 -19.24L-29.64 -19.28L-29.64 -19.31L-29.64 -19.35L-29.65 -19.39L-29.66 -19.42L-29.67 -19.45L-29.69 -19.47L-29.70 -19.49L-29.71 -19.51L-29.71 -19.53L-29.71 -19.55L-29.73 -19.59L-29.76 -19.64L-29.81 -19.71L-29.88 -19.79L-29.93 -19.86L-29.96 -19.92L-29.98 -19.98L-29.98 -20.02L-29.98 -20.06L-29.99 -20.09L-30.00 -20.11L-30.02 -20.14L-30.03 -20.16L-30.04 -20.18L-30.05 -20.20L-30.05 -20.22L-30.05 -20.25L-30.07 -20.28L-30.10 -20.31L-30.13 -20.36L-30.16 -20.39L-30.17 -20.42L-30.18 -20.45L-30.18 -20.47L-30.19 -20.49L-30.21 -20.52L-30.24 -20.56L-30.27 -20.60L-30.29 -20.64L-30.31 -20.67L-30.32 -20.70L-30.31 -20.72L-30.32 -20.74L-30.34 -20.77L-30.37 -20.81L-30.40 -20.85L-30.42 -20.89L-30.44 -20.92L-30.45 -20.95L-30.45 -20.97L-30.45 -20.99L-30.46 -21.01L-30.47 -21.03L-30.49 -21.05L-30.50 -21.07L-30.51 -21.09L-30.52 -21.11L-30.52 -21.13L-30.53 -21.16L-30.54 -21.19L-30.57 -21.23L-30.60 -21.27L-30.63 -21.31L-30.64 -21.34L-30.65 -21.36L-30.65 -21.38L-30.67 -21.42L-30.71 -21.47L-30.76 -21.54L-30.82 -21.62L-30.87 -21.69L-30.91 -21.74L-30.92 -21.78L-30.92 -21.80L-30.93 -21.82L-30.95 -21.85L-30.97 -21.89L-31.00 -21.93L-31.03 -21.97L-31.05 -22.00L-31.06 -22.03L-31.06 -22.05L-31.06 -22.07L-31.08 -22.10L-31.09 -22.13L-31.12 -22.16L-31.14 -22.18L-31.16 -22.20L-31.18 -22.21L-31.20 -22.21L-31.22 -22.21L-31.23 -22.22L-31.25 -22.24L-31.27 -22.26L-31.28 -22.28L-31.30 -22.29L-31.32 -22.29L-31.33 -22.29L-31.35 -22.29L-31.37 -22.30L-31.38 -22.32L-31.40 -22.34L-31.42 -22.36L-31.45 -22.37L-31.48 -22.37L-31.51 -22.37L-31.54 -22.38L-31.56 -22.39L-31.58 -22.41L-31.60 -22.43L-31.63 -22.44L-31.66 -22.45L-31.70 -22.46L-31.75 -22.46L-31.80 -22.47L-31.84 -22.49L-31.88 -22.52L-31.91 -22.56L-31.95 -22.59L-31.98 -22.61L-32.01 -22.62L-32.05 -22.62L-32.08 -22.63L-32.10 -22.64L-32.12 -22.65L-32.14 -22.67L-32.16 -22.69L-32.17 -22.70L-32.19 -22.71L-32.21 -22.71L-32.23 -22.72L-32.25 -22.73L-32.27 -22.75L-32.30 -22.79L-32.31 -22.81L-32.33 -22.84L-32.33 -22.86L-32.33 -22.88L-32.34 -22.91L-32.35 -22.93L-32.36 -22.95L-32.38 -22.97L-32.39 -22.99L-32.40 -23.01L-32.40 -23.03L-32.40 -23.05L-32.41 -23.08L-32.44 -23.12L-32.47 -23.16L-32.51 -23.21L-32.54 -23.25L-32.57 -23.28L-32.60 -23.29L-32.61 -23.29L-32.63 -23.30L-32.65 -23.31L-32.66 -23.32L-32.68 -23.34L-32.70 -23.36L-32.73 -23.37L-32.76 -23.37L-32.79 -23.37L-32.83 -23.39L-32.88 -23.43L-32.93 -23.48L-32.99 -23.55L-33.03 -23.64L-33.06 -23.74L-33.08 -23.85L-33.08 -23.98L-33.08 -24.08L-33.09 -24.15L-33.10 -24.20L-33.12 -24.22L-33.13 -24.25L-33.14 -24.29L-33.14 -24.34L-33.14 -24.40L-33.14 -24.45L-33.14 -24.49L-33.13 -24.51L-33.12 -24.53L-33.10 -24.53L-33.08 -24.54L-33.06 -24.54L-33.02 -24.54L-32.99 -24.54L-32.97 -24.53L-32.95 -24.51L-32.93 -24.49L-32.91 -24.47L-32.90 -24.46L-32.88 -24.46L-32.86 -24.46L-32.85 -24.47L-32.82 -24.48L-32.80 -24.51L-32.78 -24.54L-32.76 -24.56L-32.74 -24.59L-32.74 -24.61L-32.74 -24.63L-32.74 -24.65L-32.76 -24.68L-32.78 -24.71L-32.80 -24.74L-32.83 -24.77L-32.85 -24.78L-32.87 -24.79L-32.88 -24.79L-32.89 -24.79L-32.91 -24.80L-32.92 -24.80L-32.93 -24.82L-32.93 -24.83L-32.94 -24.85L-32.94 -24.86L-32.94 -24.88L-32.93 -24.91L-32.92 -24.93L-32.90 -24.96L-32.88 -24.99L-32.85 -25.02L-32.83 -25.03L-32.81 -25.04L-32.80 -25.04L-32.78 -25.04L-32.77 -25.05L-32.76 -25.06L-32.75 -25.07L-32.75 -25.10L-32.74 -25.15L-32.74 -25.21L-32.74 -25.29L-32.74 -25.36L-32.73 -25.40L-32.73 -25.43L-32.72 -25.44L-32.69 -25.45L-32.65 -25.45L-32.60 -25.46L-32.53 -25.46L-32.48 -25.46L-32.44 -25.47L-32.41 -25.49L-32.39 -25.51L-32.38 -25.52L-32.36 -25.53L-32.34 -25.54L-32.32 -25.54L-32.31 -25.54L-32.29 -25.52L-32.27 -25.51L-32.26 -25.49L-32.24 -25.47L-32.21 -25.46L-32.18 -25.45L-32.15 -25.45L-32.12 -25.45L-32.09 -25.44L-32.07 -25.43L-32.06 -25.41L-32.04 -25.39L-32.03 -25.39L-32.02 -25.39L-32.01 -25.40L-32.01 -25.41L-32.00 -25.43L-32.00 -25.45L-32.00 -25.47L-32.00 -25.49L-32.01 -25.51L-32.02 -25.53L-32.04 -25.55L-32.05 -25.57L-32.06 -25.59L-32.06 -25.61L-32.06 -25.63L-32.06 -25.65L-32.07 -25.67L-32.07 -25.68L-32.08 -25.69L-32.11 -25.70L-32.16 -25.71L-32.23 -25.71L-32.31 -25.71L-32.38 -25.71L-32.42 -25.71L-32.45 -25.72L-32.46 -25.73L-32.47 -25.75L-32.47 -25.78L-32.47 -25.81L-32.47 -25.85L-32.47 -25.89L-32.47 -25.92L-32.48 -25.93L-32.49 -25.94L-32.50 -25.95L-32.51 -25.95L-32.52 -25.96L-32.54 -25.96L-32.56 -25.95L-32.57 -25.95L-32.58 -25.94L-32.59 -25.93L-32.60 -25.91L-32.60 -25.88L-32.60 -25.85L-32.60 -25.81L-32.61 -25.77L-32.62 -25.74L-32.64 -25.70L-32.67 -25.67L-32.70 -25.65L-32.73 -25.63L-32.78 -25.62L-32.83 -25.62L-32.88 -25.63L-32.92 -25.65L-32.96 -25.68L-32.99 -25.72L-33.02 -25.76L-33.04 -25.78L-33.07 -25.79L-33.08 -25.79L-33.10 -25.80L-33.13 -25.83L-33.17 -25.87L-33.21 -25.92L-33.24 -25.97L-33.26 -26.00L-33.28 -26.03L-33.28 -26.05L-33.28 -26.07L-33.29 -26.09L-33.30 -26.11L-33.32 -26.13L-33.33 -26.16L-33.34 -26.19L-33.35 -26.23L-33.35 -26.27L-33.35 -26.31L-33.36 -26.34L-33.37 -26.36L-33.39 -26.39L-33.39 -26.41L-33.39 -26.43L-33.37 -26.46L-33.35 -26.49L-33.33 -26.52L-33.30 -26.53L-33.29 -26.54L-33.27 -26.54L-33.25 -26.54L-33.23 -26.53L-33.22 -26.51L-33.20 -26.49L-33.17 -26.47L-33.12 -26.46L-33.05 -26.46L-32.97 -26.46L-32.90 -26.46L-32.85 -26.46L-32.83 -26.47L-32.82 -26.48L-32.81 -26.49L-32.81 -26.50L-32.82 -26.51L-32.82 -26.52L-32.84 -26.53L-32.87 -26.53L-32.91 -26.54L-32.97 -26.54L-33.01 -26.55L-33.04 -26.56L-33.07 -26.57L-33.08 -26.59L-33.10 -26.61L-33.12 -26.62L-33.13 -26.62L-33.15 -26.62L-33.17 -26.63L-33.19 -26.64L-33.20 -26.66L-33.22 -26.68L-33.24 -26.69L-33.25 -26.70L-33.27 -26.71L-33.29 -26.71L-33.30 -26.71L-33.31 -26.71L-33.33 -26.72L-33.33 -26.73L-33.34 -26.76L-33.34 -26.79L-33.35 -26.84L-33.35 -26.90L-33.34 -26.96L-33.33 -27.00L-33.32 -27.03L-33.30 -27.05L-33.29 -27.09L-33.28 -27.15L-33.27 -27.24L-33.28 -27.34L-33.27 -27.43L-33.25 -27.51L-33.23 -27.56L-33.19 -27.60L-33.17 -27.64L-33.15 -27.67L-33.14 -27.70L-33.14 -27.72L-33.14 -27.74L-33.13 -27.76L-33.12 -27.78L-33.10 -27.80L-33.09 -27.83L-33.08 -27.86L-33.07 -27.89L-33.07 -27.94L-33.07 -27.97L-33.06 -28.00L-33.05 -28.03L-33.03 -28.05L-33.02 -28.07L-33.01 -28.09L-33.01 -28.11L-33.01 -28.13L-33.00 -28.16L-33.00 -28.18L-32.98 -28.20L-32.97 -28.22L-32.95 -28.24L-32.95 -28.28L-32.94 -28.31L-32.94 -28.35L-32.94 -28.39L-32.93 -28.42L-32.92 -28.45L-32.90 -28.47L-32.88 -28.49L-32.88 -28.51L-32.87 -28.53L-32.87 -28.55L-32.87 -28.57L-32.86 -28.59L-32.84 -28.61L-32.83 -28.63L-32.82 -28.65L-32.81 -28.67L-32.81 -28.70L-32.81 -28.72L-32.80 -28.75L-32.78 -28.78L-32.74 -28.83L-32.70 -28.88L-32.64 -28.92L-32.56 -28.94L-32.46 -28.96L-32.34 -28.96L-32.25 -28.95L-32.18 -28.94L-32.14 -28.92L-32.12 -28.90L-32.11 -28.89L-32.09 -28.88L-32.07 -28.87L-32.06 -28.87L-32.04 -28.87L-32.02 -28.86L-32.01 -28.84L-31.99 -28.82L-31.97 -28.81L-31.96 -28.79L-31.94 -28.79L-31.92 -28.79L-31.90 -28.78L-31.88 -28.76L-31.85 -28.73L-31.81 -28.69L-31.79 -28.65L-31.76 -28.63L-31.74 -28.62L-31.72 -28.62L-31.71 -28.63L-31.69 -28.63L-31.68 -28.64L-31.67 -28.65L-31.70 -28.70L-31.76 -28.78L-31.85 -28.90L-31.97 -29.06L-32.09 -29.17L-32.18 -29.25L-32.27 -29.29L-32.33 -29.29L-32.39 -29.29L-32.43 -29.30L-32.45 -29.31L-32.46 -29.32L-32.46 -29.33L-32.47 -29.35L-32.47 -29.37L-32.47 -29.39L-32.47 -29.41L-32.48 -29.43L-32.49 -29.45L-32.51 -29.47L-32.52 -29.49L-32.53 -29.51L-32.54 -29.53L-32.54 -29.55L-32.53 -29.57L-32.52 -29.59L-32.51 -29.61L-32.50 -29.64L-32.48 -29.67L-32.48 -29.71L-32.47 -29.76L-32.47 -29.82L-32.47 -29.87L-32.48 -29.91L-32.48 -29.94L-32.49 -29.95L-32.50 -29.95L-32.51 -29.95L-32.52 -29.94L-32.53 -29.93L-32.53 -29.91L-32.54 -29.89L-32.54 -29.85L-32.54 -29.81L-32.54 -29.78L-32.55 -29.74L-32.56 -29.72L-32.58 -29.70L-32.59 -29.68L-32.60 -29.66L-32.60 -29.63L-32.60 -29.61L-32.62 -29.58L-32.65 -29.52L-32.70 -29.46L-32.77 -29.37L-32.82 -29.31L-32.86 -29.25L-32.87 -29.22L-32.87 -29.20L-32.88 -29.17L-32.89 -29.14L-32.92 -29.10L-32.95 -29.06L-32.98 -29.01L-33.00 -28.96L-33.01 -28.90L-33.01 -28.84L-33.01 -28.79L-33.02 -28.75L-33.03 -28.72L-33.05 -28.70L-33.06 -28.67L-33.07 -28.64L-33.07 -28.60L-33.07 -28.56L-33.08 -28.53L-33.09 -28.49L-33.10 -28.47L-33.12 -28.45L-33.13 -28.43L-33.14 -28.41L-33.14 -28.38L-33.14 -28.36L-33.15 -28.34L-33.16 -28.32L-33.17 -28.30L-33.19 -28.28L-33.20 -28.26L-33.21 -28.24L-33.21 -28.22L-33.21 -28.20L-33.21 -28.18L-33.22 -28.16L-33.23 -28.14L-33.25 -28.11L-33.27 -28.09L-33.27 -28.06L-33.28 -28.02L-33.28 -27.98L-33.29 -27.93L-33.31 -27.89L-33.34 -27.84L-33.38 -27.78L-33.42 -27.74L-33.46 -27.72L-33.49 -27.70L-33.53 -27.71L-33.56 -27.72L-33.60 -27.74L-33.63 -27.77L-33.66 -27.81L-33.69 -27.84L-33.72 -27.86L-33.74 -27.87L-33.76 -27.87L-33.78 -27.88L-33.80 -27.91L-33.83 -27.94L-33.87 -27.98L-33.89 -28.01L-33.92 -28.03L-33.94 -28.04L-33.96 -28.04L-33.98 -28.05L-34.00 -28.07L-34.03 -28.10L-34.07 -28.14L-34.10 -28.17L-34.12 -28.19L-34.14 -28.20L-34.16 -28.20L-34.17 -28.20L-34.19 -28.20L-34.20 -28.19L-34.21 -28.18L-34.21 -28.17L-34.20 -28.15L-34.19 -28.13L-34.18 -28.11L-34.17 -28.09L-34.16 -28.07L-34.15 -28.05L-34.15 -28.03L-34.15 -28.01L-34.14 -28.00L-34.14 -27.98L-34.13 -27.97L-34.12 -27.97L-34.11 -27.96L-34.09 -27.96L-34.07 -27.96L-34.06 -27.95L-34.04 -27.94L-34.02 -27.93L-34.01 -27.91L-33.99 -27.89L-33.97 -27.88L-33.96 -27.87L-33.94 -27.87L-33.92 -27.87L-33.91 -27.86L-33.89 -27.84L-33.87 -27.82L-33.86 -27.80L-33.84 -27.80L-33.82 -27.79L-33.80 -27.79L-33.78 -27.78L-33.75 -27.75L-33.72 -27.72L-33.68 -27.66L-33.65 -27.62L-33.64 -27.58L-33.64 -27.55L-33.66 -27.53L-33.67 -27.51L-33.67 -27.50L-33.67 -27.48L-33.66 -27.47L-33.65 -27.47L-33.64 -27.46L-33.62 -27.46L-33.61 -27.46L-33.59 -27.45L-33.58 -27.45L-33.57 -27.44L-33.56 -27.43L-33.55 -27.41L-33.55 -27.39L-33.55 -27.35L-33.54 -27.31L-33.55 -27.28L-33.56 -27.24L-33.57 -27.22L-33.59 -27.20L-33.60 -27.12L-33.61 -27.00L-33.61 -26.82L-33.61 -26.59L-33.61 -26.42L-33.60 -26.29L-33.59 -26.22L-33.57 -26.19L-33.56 -26.17L-33.55 -26.14L-33.55 -26.10L-33.54 -26.06L-33.54 -26.02L-33.52 -25.98L-33.49 -25.94L-33.46 -25.90L-33.44 -25.86L-33.42 -25.83L-33.41 -25.80L-33.41 -25.78L-33.41 -25.76L-33.40 -25.74L-33.38 -25.72L-33.37 -25.70L-33.35 -25.67L-33.35 -25.65L-33.34 -25.63L-33.34 -25.61L-33.34 -25.59L-33.33 -25.57L-33.32 -25.55L-33.30 -25.53L-33.29 -25.46L-33.28 -25.33L-33.28 -25.15L-33.28 -24.92L-33.28 -24.75L-33.29 -24.62L-33.30 -24.55L-33.32 -24.53L-33.33 -24.49L-33.34 -24.43L-33.34 -24.34L-33.34 -24.24L-33.34 -24.16L-33.35 -24.10L-33.36 -24.06L-33.36 -24.05L-33.39 -24.05L-33.44 -24.04L-33.50 -24.04L-33.59 -24.04L-33.65 -24.04L-33.70 -24.05L-33.73 -24.06L-33.74 -24.07L-33.74 -24.08L-33.75 -24.10L-33.75 -24.11L-33.75 -24.13L-33.75 -24.16L-33.77 -24.19L-33.80 -24.23L-33.83 -24.27L-33.86 -24.34L-33.88 -24.45L-33.88 -24.58L-33.88 -24.75L-33.89 -24.88L-33.89 -24.97L-33.91 -25.03L-33.92 -25.05L-33.94 -25.08L-33.94 -25.12L-33.95 -25.18L-33.95 -25.24L-33.96 -25.29L-33.96 -25.33L-33.98 -25.36L-33.99 -25.38L-34.01 -25.41L-34.02 -25.44L-34.02 -25.48L-34.02 -25.52L-34.02 -25.56L-34.03 -25.59L-34.04 -25.61L-34.06 -25.63L-34.07 -25.65L-34.08 -25.67L-34.08 -25.69L-34.08 -25.72L-34.09 -25.74L-34.10 -25.76L-34.11 -25.78L-34.12 -25.80L-34.14 -25.83L-34.15 -25.86L-34.15 -25.90L-34.15 -25.94L-34.15 -25.98L-34.16 -26.01L-34.18 -26.03L-34.19 -26.05L-34.21 -26.07L-34.22 -26.11L-34.22 -26.14L-34.22 -26.19L-34.22 -26.22L-34.23 -26.25L-34.24 -26.28L-34.26 -26.30L-34.27 -26.32L-34.28 -26.34L-34.29 -26.36L-34.29 -26.38L-34.29 -26.41L-34.30 -26.43L-34.31 -26.45L-34.33 -26.47L-34.34 -26.49L-34.35 -26.51L-34.35 -26.53L-34.35 -26.55L-34.36 -26.57L-34.36 -26.59L-34.38 -26.61L-34.39 -26.63L-34.40 -26.66L-34.41 -26.68L-34.42 -26.70L-34.42 -26.72L-34.42 -26.74L-34.43 -26.76L-34.45 -26.78L-34.46 -26.80L-34.47 -26.82L-34.48 -26.85L-34.49 -26.87L-34.49 -26.89L-34.51 -26.92L-34.54 -26.97L-34.59 -27.04L-34.66 -27.13L-34.71 -27.19L-34.74 -27.24L-34.76 -27.28L-34.76 -27.30L-34.77 -27.33L-34.78 -27.36L-34.81 -27.39L-34.84 -27.44L-34.86 -27.47L-34.88 -27.51L-34.89 -27.53L-34.89 -27.55L-34.89 -27.57L-34.90 -27.59L-34.91 -27.61L-34.93 -27.63L-34.95 -27.67L-34.95 -27.72L-34.96 -27.79L-34.96 -27.87L-34.96 -27.94L-34.97 -27.99L-34.98 -28.03L-35.00 -28.05L-35.01 -28.08L-35.02 -28.11L-35.03 -28.14L-35.03 -28.18L-35.03 -28.22L-35.04 -28.25L-35.05 -28.28L-35.07 -28.30L-35.08 -28.32L-35.09 -28.34L-35.09 -28.36L-35.09 -28.38L-35.10 -28.41L-35.11 -28.43L-35.12 -28.45L-35.13 -28.47L-35.15 -28.49L-35.16 -28.51L-35.16 -28.53L-35.16 -28.55L-35.17 -28.57L-35.18 -28.59L-35.19 -28.61L-35.20 -28.64L-35.22 -28.66L-35.22 -28.68L-35.23 -28.70L-35.23 -28.72L-35.25 -28.76L-35.28 -28.81L-35.34 -28.89L-35.42 -28.98L-35.48 -29.05L-35.52 -29.10L-35.56 -29.12L-35.57 -29.12L-35.59 -29.13L-35.62 -29.15L-35.65 -29.19L-35.68 -29.23L-35.71 -29.26L-35.75 -29.28L-35.78 -29.29L-35.82 -29.29L-35.86 -29.31L-35.90 -29.34L-35.96 -29.40L-36.01 -29.47L-36.06 -29.53L-36.09 -29.58L-36.10 -29.61L-36.10 -29.63L-36.11 -29.66L-36.12 -29.68L-36.14 -29.71L-36.17 -29.74L-36.19 -29.77L-36.21 -29.78L-36.23 -29.79L-36.25 -29.79L-36.26 -29.79L-36.27 -29.80L-36.28 -29.80L-36.29 -29.81L-36.30 -29.83L-36.31 -29.84L-36.31 -29.86L-36.31 -29.88L-36.31 -29.90L-36.32 -29.92L-36.33 -29.95L-36.35 -29.97L-36.36 -29.99L-36.37 -30.01L-36.37 -30.03L-36.37 -30.05L-36.38 -30.08L-36.40 -30.11L-36.42 -30.14L-36.46 -30.19L-36.48 -30.22L-36.50 -30.25L-36.51 -30.28L-36.51 -30.30L-36.51 -30.32L-36.52 -30.34L-36.53 -30.36L-36.55 -30.38L-36.56 -30.41L-36.57 -30.44L-36.58 -30.48L-36.58 -30.52L-36.58 -30.55L-36.59 -30.59L-36.60 -30.61L-36.62 -30.63L-36.63 -30.66L-36.64 -30.69L-36.64 -30.73L-36.64 -30.77L-36.65 -30.81L-36.65 -30.84L-36.67 -30.87L-36.68 -30.89L-36.70 -30.91L-36.70 -30.93L-36.71 -30.95L-36.71 -30.97L-36.71 -30.99L-36.72 -31.01L-36.73 -31.03L-36.75 -31.05L-36.76 -31.07L-36.77 -31.09L-36.77 -31.11L-36.78 -31.13L-36.78 -31.16L-36.80 -31.19L-36.83 -31.23L-36.86 -31.27L-36.88 -31.31L-36.90 -31.34L-36.91 -31.36L-36.91 -31.38L-36.91 -31.40L-36.92 -31.42L-36.93 -31.45L-36.95 -31.47L-36.96 -31.49L-36.97 -31.51L-36.98 -31.53L-36.98 -31.55L-36.98 -31.57L-36.99 -31.59L-37.00 -31.61L-37.02 -31.63L-37.03 -31.65L-37.04 -31.68L-37.05 -31.70L-37.05 -31.72L-37.05 -31.74L-37.06 -31.76L-37.07 -31.78L-37.09 -31.80L-37.10 -31.82L-37.11 -31.84L-37.11 -31.86L-37.11 -31.88L-37.12 -31.90L-37.12 -31.92L-37.14 -31.94L-37.16 -31.97L-37.17 -31.99L-37.18 -32.01L-37.18 -32.03L-37.18 -32.05L-37.18 -32.07L-37.19 -32.09L-37.20 -32.11L-37.22 -32.13L-37.23 -32.16L-37.24 -32.18L-37.24 -32.20L-37.24 -32.22L-37.25 -32.24L-37.27 -32.27L-37.29 -32.31L-37.33 -32.35L-37.36 -32.39L-37.37 -32.42L-37.38 -32.45L-37.38 -32.47L-37.39 -32.49L-37.41 -32.52L-37.43 -32.56L-37.47 -32.60L-37.49 -32.64L-37.51 -32.67L-37.52 -32.69L-37.51 -32.71L-37.52 -32.74L-37.54 -32.77L-37.57 -32.81L-37.60 -32.85L-37.63 -32.90L-37.64 -32.94L-37.65 -32.98L-37.65 -33.02L-37.66 -33.06L-37.67 -33.10L-37.70 -33.14L-37.73 -33.19L-37.76 -33.22L-37.77 -33.25L-37.78 -33.28L-37.78 -33.30L-37.79 -33.32L-37.80 -33.34L-37.81 -33.36L-37.83 -33.39L-37.84 -33.41L-37.85 -33.43L-37.85 -33.45L-37.85 -33.47L-37.86 -33.49L-37.87 -33.51L-37.88 -33.53L-37.90 -33.55L-37.91 -33.57L-37.92 -33.59L-37.92 -33.61L-37.92 -33.63L-37.92 -33.65L-37.93 -33.68L-37.94 -33.70L-37.96 -33.72L-37.97 -33.74L-37.98 -33.76L-37.99 -33.78L-37.99 -33.80L-38.00 -33.83L-38.01 -33.86L-38.04 -33.89L-38.07 -33.94L-38.09 -33.97L-38.11 -34.00L-38.12 -34.03L-38.12 -34.05L-38.12 -34.07L-38.13 -34.09L-38.14 -34.11L-38.16 -34.13L-38.18 -34.15L-38.18 -34.17L-38.19 -34.20L-38.19 -34.22L-38.19 -34.24L-38.20 -34.26L-38.21 -34.28L-38.23 -34.30L-38.24 -34.32L-38.25 -34.34L-38.26 -34.36L-38.26 -34.38L-38.26 -34.41L-38.27 -34.43L-38.28 -34.45L-38.30 -34.47L-38.31 -34.49L-38.32 -34.51L-38.32 -34.53L-38.32 -34.55L-38.33 -34.57L-38.33 -34.60L-38.35 -34.61L-38.37 -34.63L-38.38 -34.65L-38.39 -34.67L-38.39 -34.69L-38.39 -34.71L-38.40 -34.74L-38.41 -34.76L-38.42 -34.78L-38.43 -34.80L-38.45 -34.82L-38.45 -34.84L-38.46 -34.86L-38.46 -34.88L-38.46 -34.90L-38.46 -34.92L-38.47 -34.93L-38.47 -34.94L-38.49 -34.95L-38.50 -34.95L-38.51 -34.96L-38.53 -34.96L-38.55 -34.96L-38.56 -34.97L-38.57 -34.97L-38.58 -34.98L-38.58 -35.00L-38.59 -35.01L-38.59 -35.03L-38.59 -35.05L-38.61 -35.08L-38.63 -35.12L-38.67 -35.17L-38.72 -35.24L-38.76 -35.29L-38.78 -35.33L-38.80 -35.36L-38.80 -35.38L-38.80 -35.41L-38.81 -35.43L-38.82 -35.45L-38.84 -35.47L-38.85 -35.49L-38.86 -35.51L-38.86 -35.53L-38.86 -35.55L-38.87 -35.58L-38.89 -35.61L-38.91 -35.64L-38.95 -35.69L-38.97 -35.72L-38.99 -35.75L-39.00 -35.78L-39.00 -35.80L-39.01 -35.83L-39.03 -35.87L-39.07 -35.92L-39.12 -35.99L-39.16 -36.04L-39.18 -36.09L-39.20 -36.12L-39.20 -36.14L-39.21 -36.16L-39.22 -36.19L-39.25 -36.23L-39.29 -36.27L-39.31 -36.31L-39.33 -36.35L-39.34 -36.40L-39.33 -36.44L-39.34 -36.48L-39.36 -36.52L-39.38 -36.56L-39.42 -36.61L-39.44 -36.64L-39.46 -36.67L-39.47 -36.70L-39.47 -36.72L-39.47 -36.74L-39.48 -36.76L-39.49 -36.78L-39.51 -36.80L-39.52 -36.83L-39.53 -36.86L-39.54 -36.90L-39.54 -36.94L-39.46 -36.97L-39.30 -36.99L-39.06 -37.00L-38.74 -37.00L-38.50 -36.99L-38.34 -36.97L-38.26 -36.94L-38.26 -36.90L-38.25 -36.86L-38.24 -36.83L-38.23 -36.80L-38.22 -36.78L-38.20 -36.75L-38.20 -36.72L-38.19 -36.69L-38.19 -36.64L-38.19 -36.61L-38.18 -36.57L-38.16 -36.55L-38.15 -36.53L-38.13 -36.51L-38.12 -36.49L-38.12 -36.47L-38.12 -36.45L-38.10 -36.41L-38.07 -36.36L-38.02 -36.29L-37.95 -36.21L-37.90 -36.14L-37.87 -36.07L-37.85 -36.02L-37.85 -35.98L-37.85 -35.94L-37.84 -35.90L-37.82 -35.87L-37.79 -35.84L-37.75 -35.81L-37.70 -35.80L-37.63 -35.79L-37.54 -35.79L-37.48 -35.79L-37.43 -35.78L-37.40 -35.77L-37.40 -35.76L-37.39 -35.75L-37.38 -35.74L-37.38 -35.72L-37.38 -35.70L-37.38 -35.67L-37.37 -35.65L-37.35 -35.63L-37.34 -35.61L-37.33 -35.59L-37.32 -35.57L-37.32 -35.55L-37.32 -35.53L-37.32 -35.51L-37.33 -35.49L-37.34 -35.47L-37.36 -35.45L-37.37 -35.43L-37.38 -35.41L-37.38 -35.38L-37.38 -35.36L-37.38 -35.34L-37.37 -35.32L-37.35 -35.30L-37.34 -35.28L-37.32 -35.25L-37.32 -35.22L-37.31 -35.19L-37.31 -35.15L-37.31 -35.11L-37.32 -35.09L-37.32 -35.07L-37.33 -35.06L-37.34 -35.05L-37.36 -35.04L-37.37 -35.04L-37.39 -35.04L-37.40 -35.04L-37.42 -35.03L-37.43 -35.02L-37.44 -35.01L-37.44 -35.00L-37.45 -34.98L-37.45 -34.96L-37.45 -34.94L-37.45 -34.92L-37.47 -34.90L-37.48 -34.87L-37.51 -34.84L-37.53 -34.81L-37.55 -34.80L-37.57 -34.79L-37.59 -34.79L-37.61 -34.78L-37.63 -34.77L-37.66 -34.74L-37.68 -34.71L-37.70 -34.68L-37.71 -34.64L-37.72 -34.60L-37.72 -34.56L-37.71 -34.53L-37.70 -34.49L-37.69 -34.47L-37.68 -34.45L-37.66 -34.43L-37.65 -34.41L-37.65 -34.38L-37.65 -34.36L-37.64 -34.34L-37.63 -34.32L-37.62 -34.30L-37.61 -34.28L-37.59 -34.26L-37.59 -34.24L-37.58 -34.22L-37.58 -34.20L-37.58 -34.17L-37.57 -34.15L-37.56 -34.13L-37.54 -34.11L-37.53 -34.09L-37.52 -34.07L-37.52 -34.05L-37.51 -34.03L-37.51 -34.01L-37.50 -33.99L-37.49 -33.97L-37.47 -33.95L-37.46 -33.92L-37.45 -33.89L-37.45 -33.85L-37.45 -33.81L-37.45 -33.77L-37.44 -33.74L-37.42 -33.72L-37.41 -33.70L-37.39 -33.68L-37.38 -33.66L-37.38 -33.63L-37.38 -33.61L-37.37 -33.59L-37.36 -33.56L-37.33 -33.52L-37.30 -33.48L-37.27 -33.44L-37.25 -33.41L-37.25 -33.39L-37.25 -33.37L-37.24 -33.34L-37.22 -33.31L-37.20 -33.27L-37.16 -33.23L-37.14 -33.19L-37.12 -33.16L-37.11 -33.13L-37.11 -33.11L-37.11 -33.09L-37.10 -33.07L-37.09 -33.05L-37.07 -33.03L-37.06 -33.01L-37.05 -32.99L-37.05 -32.97L-37.05 -32.95L-37.04 -32.93L-37.03 -32.91L-37.02 -32.88L-37.01 -32.86L-36.99 -32.84L-36.98 -32.82L-36.98 -32.80L-36.98 -32.78L-36.97 -32.75L-36.95 -32.72L-36.93 -32.69L-36.89 -32.65L-36.87 -32.61L-36.85 -32.58L-36.84 -32.55L-36.84 -32.53L-36.84 -32.51L-36.83 -32.49L-36.82 -32.47L-36.80 -32.44L-36.79 -32.42L-36.78 -32.40L-36.77 -32.38L-36.78 -32.36L-36.77 -32.34L-36.75 -32.31L-36.72 -32.27L-36.69 -32.23L-36.67 -32.19L-36.65 -32.16L-36.64 -32.14L-36.64 -32.11L-36.64 -32.09L-36.63 -32.07L-36.62 -32.05L-36.60 -32.03L-36.59 -32.01L-36.58 -31.99L-36.58 -31.97L-36.58 -31.95L-36.57 -31.92L-36.56 -31.90L-36.54 -31.87L-36.51 -31.84L-36.49 -31.81L-36.47 -31.80L-36.45 -31.79L-36.43 -31.79L-36.41 -31.77L-36.37 -31.74L-36.33 -31.69L-36.28 -31.63L-36.21 -31.58L-36.12 -31.55L-36.00 -31.54L-35.87 -31.54L-35.76 -31.53L-35.69 -31.52L-35.64 -31.51L-35.63 -31.49L-35.59 -31.47L-35.53 -31.46L-35.45 -31.46L-35.35 -31.46L-35.27 -31.45L-35.21 -31.44L-35.17 -31.43L-35.15 -31.40L-35.12 -31.39L-35.08 -31.38L-35.03 -31.37L-34.96 -31.37L-34.90 -31.38L-34.86 -31.39L-34.83 -31.40L-34.81 -31.42L-34.80 -31.44L-34.78 -31.45L-34.77 -31.46L-34.75 -31.46L-34.74 -31.46L-34.72 -31.47L-34.71 -31.48L-34.70 -31.49L-34.70 -31.51L-34.69 -31.54L-34.69 -31.59L-34.69 -31.66L-34.69 -31.71L-34.68 -31.74L-34.68 -31.77L-34.67 -31.78L-34.66 -31.78L-34.65 -31.79L-34.63 -31.79L-34.62 -31.79L-34.60 -31.78L-34.58 -31.77L-34.56 -31.76L-34.55 -31.74L-34.50 -31.72L-34.43 -31.71L-34.32 -31.71L-34.19 -31.71L-34.08 -31.71L-34.00 -31.72L-33.96 -31.74L-33.94 -31.76L-33.92 -31.77L-33.89 -31.78L-33.87 -31.79L-33.83 -31.79L-33.80 -31.80L-33.78 -31.81L-33.76 -31.82L-33.74 -31.84L-33.72 -31.86L-33.70 -31.87L-33.69 -31.87L-33.67 -31.87L-33.65 -31.89L-33.61 -31.93L-33.56 -31.98L-33.50 -32.06L-33.46 -32.12L-33.43 -32.16L-33.41 -32.20L-33.41 -32.22L-33.41 -32.24L-33.40 -32.26L-33.39 -32.28L-33.37 -32.30L-33.36 -32.34L-33.35 -32.40L-33.35 -32.49L-33.35 -32.59L-33.35 -32.67L-33.36 -32.74L-33.37 -32.78L-33.39 -32.80L-33.40 -32.82L-33.41 -32.84L-33.41 -32.86L-33.41 -32.88L-33.42 -32.91L-33.43 -32.93L-33.44 -32.95L-33.45 -32.97L-33.47 -32.99L-33.47 -33.01L-33.48 -33.03L-33.48 -33.05L-33.47 -33.07L-33.46 -33.10L-33.44 -33.13L-33.41 -33.16L-33.39 -33.18L-33.37 -33.18L-33.35 -33.18L-33.33 -33.16L-33.30 -33.14L-33.25 -33.13L-33.18 -33.13L-33.10 -33.13L-33.03 -33.14L-32.97 -33.16L-32.92 -33.19L-32.89 -33.23L-32.86 -33.26L-32.83 -33.28L-32.81 -33.29L-32.80 -33.29L-32.77 -33.31L-32.73 -33.35L-32.67 -33.42L-32.60 -33.50L-32.53 -33.56L-32.44 -33.60L-32.35 -33.62L-32.25 -33.62L-32.17 -33.63L-32.10 -33.65L-32.05 -33.68L-32.01 -33.73L-31.98 -33.76L-31.96 -33.78L-31.94 -33.79L-31.92 -33.79L-31.91 -33.79L-31.90 -33.80L-31.89 -33.81L-31.88 -33.82L-31.87 -33.84L-31.87 -33.88L-31.86 -33.93L-31.86 -33.99L-31.86 -34.04L-31.86 -34.07L-31.85 -34.10L-31.84 -34.11L-31.83 -34.12L-31.81 -34.12L-31.78 -34.12L-31.75 -34.12L-31.72 -34.13L-31.70 -34.13L-31.68 -34.14L-31.67 -34.15L-31.67 -34.17L-31.66 -34.19L-31.66 -34.23L-31.66 -34.27L-31.66 -34.30L-31.67 -34.33L-31.67 -34.35L-31.68 -34.36L-31.70 -34.37L-31.73 -34.37L-31.77 -34.38L-31.82 -34.37L-31.87 -34.38L-31.90 -34.40L-31.94 -34.42L-31.96 -34.45L-31.98 -34.48L-31.99 -34.50L-32.00 -34.53L-32.00 -34.55L-32.00 -34.57L-32.01 -34.59L-32.02 -34.61L-32.04 -34.63L-32.06 -34.65L-32.07 -34.68L-32.07 -34.70L-32.07 -34.72L-32.07 -34.74L-32.09 -34.77L-32.10 -34.80L-32.13 -34.83L-32.15 -34.85L-32.17 -34.86L-32.19 -34.87L-32.21 -34.87L-32.22 -34.88L-32.24 -34.88L-32.25 -34.89L-32.25 -34.90L-32.26 -34.92L-32.26 -34.96L-32.27 -35.01L-32.27 -35.07L-32.26 -35.12L-32.26 -35.16L-32.25 -35.18L-32.24 -35.19L-32.23 -35.20L-32.20 -35.20L-32.16 -35.21L-32.11 -35.21L-32.06 -35.20L-32.03 -35.19L-32.01 -35.17L-31.99 -35.15L-31.97 -35.14L-31.96 -35.13L-31.94 -35.12L-31.92 -35.12L-31.90 -35.11L-31.88 -35.09L-31.85 -35.06L-31.81 -35.02L-31.78 -34.99L-31.76 -34.97L-31.74 -34.96L-31.72 -34.96L-31.70 -34.95L-31.67 -34.93L-31.64 -34.89L-31.61 -34.85L-31.58 -34.82L-31.56 -34.80L-31.54 -34.79L-31.52 -34.79L-31.50 -34.78L-31.49 -34.77L-31.47 -34.76L-31.45 -34.74L-31.43 -34.72L-31.41 -34.71L-31.38 -34.71L-31.34 -34.71L-31.31 -34.70L-31.29 -34.69L-31.27 -34.68L-31.25 -34.65L-31.23 -34.64L-31.20 -34.63L-31.17 -34.62L-31.14 -34.62L-31.11 -34.61L-31.07 -34.58L-31.03 -34.54L-30.98 -34.49L-30.95 -34.45L-30.93 -34.41L-30.92 -34.38L-30.92 -34.36L-30.92 -34.34L-30.91 -34.32L-30.89 -34.30L-30.88 -34.28L-30.86 -34.26L-30.85 -34.24L-30.85 -34.22L-30.85 -34.20L-30.85 -34.17L-30.84 -34.15L-30.83 -34.13L-30.81 -34.11L-30.80 -34.09L-30.79 -34.07L-30.79 -34.05L-30.79 -34.03L-30.79 -34.01L-30.78 -33.99L-30.78 -33.98L-30.77 -33.97L-30.75 -33.96L-30.74 -33.96L-30.73 -33.96L-30.71 -33.96L-30.70 -33.96L-30.69 -33.97L-30.68 -33.97L-30.67 -33.98L-30.66 -34.00L-30.65 -34.03L-30.65 -34.06L-30.65 -34.10L-30.67 -34.15L-30.69 -34.20L-30.73 -34.26L-30.78 -34.32L-30.82 -34.37L-30.84 -34.42L-30.86 -34.45L-30.86 -34.47L-30.86 -34.49L-30.88 -34.52L-30.90 -34.56L-30.94 -34.60L-30.96 -34.64L-30.98 -34.67L-30.99 -34.70L-30.99 -34.72L-30.99 -34.74L-30.98 -34.75L-30.98 -34.77L-30.97 -34.78L-30.96 -34.78L-30.94 -34.79L-30.93 -34.79L-30.91 -34.79L-30.90 -34.80L-30.88 -34.81L-30.86 -34.82L-30.85 -34.84L-30.79 -34.86L-30.69 -34.87L-30.54 -34.87L-30.36 -34.87L-30.21 -34.86L-30.10 -34.84L-30.03 -34.81L-29.99 -34.77L-29.96 -34.74L-29.94 -34.72L-29.92 -34.71L-29.90 -34.71L-29.89 -34.71L-29.87 -34.72L-29.86 -34.73L-29.86 -34.74L-29.86 -34.76L-29.88 -34.79L-29.91 -34.83L-29.95 -34.88L-30.01 -34.92L-30.08 -34.95L-30.16 -34.96L-30.27 -34.96L-30.34 -34.96L-30.40 -34.97L-30.43 -34.99L-30.44 -35.01L-30.45 -35.02L-30.47 -35.03L-30.48 -35.04L-30.50 -35.04L-30.52 -35.04L-30.53 -35.05L-30.54 -35.06L-30.54 -35.07L-30.55 -35.08L-30.55 -35.10L-30.55 -35.12L-30.55 -35.14L-30.55 -35.16L-30.56 -35.18L-30.57 -35.20L-30.59 -35.21L-30.60 -35.27L-30.61 -35.36L-30.61 -35.49L-30.62 -35.66L-30.61 -35.79L-30.61 -35.88L-30.61 -35.93L-30.60 -35.94L-30.58 -35.95L-30.57 -35.95L-30.55 -35.96L-30.52 -35.96L-30.50 -35.96L-30.47 -35.98L-30.45 -36.00L-30.42 -36.03L-30.40 -36.06L-30.39 -36.09L-30.39 -36.11L-30.39 -36.13L-30.38 -36.16L-30.36 -36.19L-30.34 -36.23L-30.30 -36.27L-30.28 -36.31L-30.26 -36.34L-30.25 -36.36L-30.25 -36.39L-30.25 -36.41L-30.24 -36.43L-30.23 -36.45L-30.21 -36.47L-30.20 -36.49L-30.19 -36.52L-30.18 -36.56L-30.18 -36.60L-30.18 -36.64L-30.19 -36.67L-30.20 -36.70L-30.22 -36.72L-30.23 -36.74L-30.24 -36.78L-30.25 -36.81L-30.25 -36.85L-30.25 -36.89L-30.26 -36.92L-30.28 -36.95L-30.29 -36.97L-26.64 -36.98L-19.33 -36.99L-8.35 -37.00L6.29 -37.00L17.28 -34.10L24.60 -28.30L28.26 -19.61L28.26 -8.01L28.25 0.68L28.24 6.48ZM-32.27 -36.80L-32.27 -36.78L-32.28 -36.74L-32.32 -36.69L-32.37 -36.62L-32.44 -36.54L-32.49 -36.47L-32.52 -36.42L-32.54 -36.38L-32.54 -36.36L-32.55 -36.33L-32.57 -36.29L-32.61 -36.24L-32.66 -36.17L-32.70 -36.12L-32.73 -36.08L-32.74 -36.05L-32.74 -36.03L-32.75 -36.01L-32.76 -35.98L-32.78 -35.95L-32.80 -35.92L-32.83 -35.90L-32.85 -35.88L-32.87 -35.87L-32.88 -35.87L-32.90 -35.87L-32.92 -35.86L-32.93 -35.84L-32.95 -35.82L-32.97 -35.80L-32.99 -35.79L-33.02 -35.79L-33.06 -35.79L-33.09 -35.80L-33.11 -35.81L-33.13 -35.82L-33.15 -35.84L-33.17 -35.86L-33.21 -35.87L-33.25 -35.88L-33.30 -35.88L-33.35 -35.87L-33.38 -35.86L-33.40 -35.84L-33.42 -35.82L-33.46 -35.81L-33.52 -35.79L-33.59 -35.79L-33.69 -35.79L-33.77 -35.79L-33.83 -35.78L-33.87 -35.76L-33.89 -35.74L-33.92 -35.72L-33.95 -35.71L-33.99 -35.71L-34.04 -35.71L-34.08 -35.70L-34.12 -35.69L-34.14 -35.67L-34.16 -35.65L-34.18 -35.64L-34.21 -35.63L-34.24 -35.62L-34.27 -35.62L-34.30 -35.62L-34.32 -35.61L-34.34 -35.59L-34.36 -35.57L-34.38 -35.56L-34.39 -35.55L-34.41 -35.54L-34.43 -35.54L-34.45 -35.53L-34.47 -35.51L-34.50 -35.48L-34.54 -35.43L-34.57 -35.40L-34.61 -35.38L-34.64 -35.37L-34.68 -35.37L-34.71 -35.37L-34.73 -35.36L-34.75 -35.34L-34.76 -35.32L-34.80 -35.31L-34.85 -35.30L-34.91 -35.29L-35.00 -35.29L-35.07 -35.29L-35.12 -35.30L-35.15 -35.32L-35.17 -35.34L-35.20 -35.36L-35.23 -35.37L-35.27 -35.37L-35.32 -35.38L-35.36 -35.38L-35.40 -35.39L-35.42 -35.41L-35.44 -35.42L-35.46 -35.44L-35.47 -35.45L-35.49 -35.45L-35.51 -35.45L-35.52 -35.46L-35.54 -35.47L-35.56 -35.49L-35.57 -35.51L-35.59 -35.52L-35.61 -35.53L-35.62 -35.54L-35.64 -35.54L-35.66 -35.55L-35.68 -35.56L-35.70 -35.59L-35.73 -35.62L-35.75 -35.65L-35.76 -35.67L-35.77 -35.70L-35.77 -35.72L-35.76 -35.74L-35.75 -35.76L-35.74 -35.78L-35.72 -35.80L-35.71 -35.82L-35.70 -35.84L-35.70 -35.86L-35.70 -35.89L-35.70 -35.90L-35.70 -35.92L-35.71 -35.93L-35.72 -35.94L-35.73 -35.95L-35.75 -35.96L-35.78 -35.96L-35.82 -35.96L-35.85 -35.96L-35.87 -35.97L-35.89 -35.99L-35.91 -36.01L-35.93 -36.02L-35.94 -36.03L-35.96 -36.04L-35.98 -36.04L-35.99 -36.05L-36.01 -36.06L-36.03 -36.07L-36.04 -36.09L-36.06 -36.11L-36.08 -36.12L-36.09 -36.12L-36.11 -36.12L-36.13 -36.13L-36.15 -36.14L-36.16 -36.16L-36.18 -36.18L-36.20 -36.19L-36.23 -36.20L-36.26 -36.21L-36.29 -36.21L-36.33 -36.22L-36.36 -36.25L-36.40 -36.29L-36.44 -36.34L-36.48 -36.38L-36.50 -36.42L-36.51 -36.45L-36.51 -36.47L-36.50 -36.49L-36.49 -36.52L-36.47 -36.54L-36.45 -36.58L-36.42 -36.60L-36.40 -36.62L-36.38 -36.62L-36.37 -36.62L-36.35 -36.63L-36.34 -36.63L-36.33 -36.64L-36.32 -36.65L-36.32 -36.66L-36.31 -36.67L-36.32 -36.68L-36.33 -36.69L-36.34 -36.70L-36.35 -36.71L-36.36 -36.71L-36.38 -36.71L-36.40 -36.72L-36.42 -36.73L-36.44 -36.76L-36.47 -36.79L-36.49 -36.82L-36.50 -36.84L-36.51 -36.86L-36.51 -36.88L-36.50 -36.90L-36.50 -36.92L-36.48 -36.95L-36.46 -36.97L-36.18 -36.98L-35.64 -36.99L-34.82 -37.00L-33.75 -37.00L-32.95 -36.99L-32.43 -36.97L-32.19 -36.94L-32.22 -36.89L-32.25 -36.86L-32.26 -36.83ZM24.79 24.91L24.79 24.85L24.79 24.80L24.80 24.75L24.81 24.72L24.83 24.70L24.84 24.67L24.85 24.62L24.86 24.57L24.86 24.51L24.88 24.44L24.91 24.37L24.96 24.29L25.03 24.21L25.08 24.14L25.11 24.09L25.13 24.05L25.13 24.03L25.13 24.01L25.13 24.00L25.14 23.99L25.15 23.98L25.16 23.97L25.17 23.96L25.19 23.96L25.21 23.96L25.22 23.96L25.24 23.97L25.26 23.99L25.27 24.01L25.30 24.03L25.34 24.04L25.40 24.04L25.47 24.04L25.52 24.05L25.56 24.06L25.59 24.07L25.61 24.09L25.62 24.11L25.64 24.12L25.66 24.13L25.67 24.13L25.69 24.12L25.71 24.11L25.72 24.10L25.74 24.08L25.76 24.06L25.77 24.05L25.79 24.04L25.81 24.04L25.83 24.04L25.84 24.03L25.86 24.01L25.88 23.99L25.89 23.97L25.91 23.96L25.93 23.96L25.94 23.96L25.97 23.95L25.99 23.93L26.02 23.90L26.06 23.85L26.09 23.82L26.11 23.80L26.13 23.79L26.15 23.79L26.17 23.78L26.20 23.76L26.23 23.73L26.26 23.69L26.29 23.66L26.31 23.64L26.33 23.63L26.35 23.63L26.37 23.62L26.39 23.60L26.41 23.58L26.44 23.55L26.46 23.52L26.47 23.49L26.47 23.47L26.47 23.45L26.48 23.42L26.49 23.40L26.51 23.37L26.54 23.34L26.57 23.31L26.61 23.30L26.65 23.29L26.70 23.29L26.74 23.30L26.78 23.31L26.80 23.33L26.82 23.35L26.85 23.36L26.88 23.37L26.92 23.38L26.97 23.38L27.01 23.37L27.05 23.36L27.07 23.34L27.09 23.32L27.11 23.31L27.14 23.30L27.17 23.29L27.20 23.29L27.23 23.29L27.25 23.30L27.27 23.32L27.29 23.34L27.31 23.36L27.33 23.37L27.36 23.37L27.40 23.37L27.43 23.38L27.45 23.39L27.48 23.41L27.49 23.43L27.52 23.44L27.55 23.45L27.59 23.46L27.64 23.46L27.69 23.47L27.73 23.48L27.76 23.51L27.78 23.54L27.80 23.58L27.82 23.64L27.82 23.71L27.82 23.79L27.82 23.86L27.83 23.92L27.85 23.95L27.86 23.97L27.88 24.00L27.89 24.03L27.89 24.07L27.89 24.11L27.89 24.14L27.90 24.16L27.90 24.18L27.91 24.19L27.92 24.20L27.93 24.21L27.95 24.21L27.97 24.21L27.98 24.21L28.00 24.22L28.02 24.24L28.03 24.26L28.06 24.28L28.09 24.29L28.13 24.29L28.19 24.29L28.22 24.34L28.25 24.42L28.26 24.56L28.26 24.73L28.04 24.87L27.61 24.96L26.96 25.00L26.09 25.00L25.44 24.98L25.01 24.95Z", "img": "assets/terrain.jpg", "box": [-92.85967163074513, -80.00000000000043, 181.6496672178271, 149.9199999996506]};
+const SP={"palmar": [-6.0747, 36.2316, -6.1004, 36.2144], "canos": [-6.02, 36.1846, -6.034, 36.1571], "zahara": [-5.8479, 36.1325, -5.8687, 36.1112], "bolonia": [-5.7734, 36.0862, -5.7758, 36.0539], "valde": [-5.6967, 36.0662, -5.7017, 36.034], "balneario": [-5.6163, 36.0192, -5.6465, 36.0075], "sancti": [-6.205, 36.3837, -6.2374, 36.3715], "lances": [-5.6443, 36.0471, -5.6622, 36.0264]};
+const C0=Math.cos(36.15*Math.PI/180);
+const P=(lon,lat)=>[(lon+5.8)*C0*100,-(lat-36.15)*100];
+const NS="http://www.w3.org/2000/svg";
+const el=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);parent&&parent.append(e);return e};
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+if(reduce)document.querySelectorAll("animateTransform,animateMotion,#deco animate").forEach(a=>a.remove());
+
+/* ---------- geography ---------- */
+document.getElementById("es").setAttribute("d",GEO.coast);
+document.getElementById("esd").setAttribute("d",GEO.detail);document.getElementById("d-coast").setAttribute("d",GEO.detail);
+const LAND=new Path2D(GEO.coast),hit=document.createElement("canvas").getContext("2d");
+const onLand=(x,y)=>hit.isPointInPath(LAND,x,y,"evenodd");
+for(const id of ["terrain","d-terrain"]){const t=document.getElementById(id),[x,y,w,h]=GEO.box;t.setAttribute("href",GEO.img);t.setAttribute("x",x);t.setAttribute("y",y);t.setAttribute("width",w);t.setAttribute("height",h)}
+function smoothOpen(ll){const p=ll.map(a=>P(...a)),n=p.length,f=v=>v.toFixed(2);let d=`M${f(p[0][0])} ${f(p[0][1])}`;
+  for(let i=0;i<n-1;i++){const p0=p[Math.max(0,i-1)],p1=p[i],p2=p[i+1],p3=p[Math.min(n-1,i+2)];
+    d+=`C${f(p1[0]+(p2[0]-p0[0])/6)} ${f(p1[1]+(p2[1]-p0[1])/6)} ${f(p2[0]-(p3[0]-p1[0])/6)} ${f(p2[1]-(p3[1]-p1[1])/6)} ${f(p2[0])} ${f(p2[1])}`}return d}
+// salt pans in the Bay of Cádiz marshes
+{const g=document.getElementById("salinas");for(let i=0;i<5;i++)for(let j=0;j<3;j++){const [x,y]=P(-6.205+i*.009,36.452-j*.007);el("rect",{x,y,width:.62,height:.5,fill:i%2?"#9fd0c4":"#c9e3d6",stroke:"#f6ecd6","stroke-width":.08},g)}}
+// what grows and stands inland
+const FLORA=[["turbine",[[-5.66,36.09],[-5.645,36.083],[-5.628,36.072],[-5.70,36.118],[-5.716,36.13],[-5.585,36.058],[-5.682,36.104],[-5.735,36.142],[-5.61,36.064]],1.3],
+ ["pine",[[-5.995,36.203],[-5.975,36.207],[-5.958,36.199],[-6.008,36.196],[-5.945,36.21],[-5.985,36.212]],1.1],
+ ["cork",[[-5.62,36.30],[-5.55,36.38],[-5.66,36.42],[-5.58,36.25],[-5.50,36.32],[-5.70,36.36],[-5.60,36.47],[-5.64,36.20],[-5.53,36.24],[-5.67,36.28],[-5.47,36.38],[-5.57,36.43]],1.25],
+ ["bull",[[-5.82,36.27],[-5.875,36.305],[-5.78,36.245],[-5.85,36.33]],.9],
+ ["cork",[[-5.47,35.80],[-5.60,35.78],[-5.38,35.83]],1.1]];
+function plant(group,scale=1){FLORA.forEach(([sym,pts,s])=>pts.forEach(([lo,la])=>{const [x,y]=P(lo,la),S=s*scale,w=sym==="turbine"?S*.4:S;el("use",{href:"#sym-"+sym,x:x-w/2,y:y-S,width:w,height:S},group)}))}
+plant(document.getElementById("flora"));
+{const g=document.getElementById("sealabels");[["Océano Atlántico",-6.42,36.05,2.2],["Estrecho de Gibraltar",-5.72,35.935,1.15],["Mar Mediterráneo",-5.28,35.99,1.35]].forEach(([t,lo,la,s])=>{const [x,y]=P(lo,la);el("text",{x,y,"font-size":s},g).textContent=t})}
+
+/* ---------- spots ---------- */
+const SPOTS=[
+ {id:"sancti",name:"Sancti Petri",sym:"islet",lm:[-6.2245,36.3775],pal:{sea:"#2c6f7d",ring:"#4a8d97",shallow:"#9cd1c6",land:"#f2e8d2",ink:"#1b2f33"}},
+ {id:"palmar",name:"El Palmar",sym:"tower",pal:{sea:"#1d6a73",ring:"#3d8c8f",shallow:"#5fae9f",land:"#f1e3c2",ink:"#18302f"}},
+ {id:"canos",name:"Caños de Meca",sym:"lighthouse",pal:{sea:"#3a4b78",ring:"#56679a",shallow:"#7f8cb8",land:"#f0dcc6",ink:"#1f2440"}},
+ {id:"zahara",name:"Zahara",sym:"tuna",pal:{sea:"#204d6c",ring:"#3a6a8a",shallow:"#6a9bb3",land:"#efe4cf",ink:"#14283a"}},
+ {id:"bolonia",name:"Bolonia",sym:"columns",pal:{sea:"#2a7a83",ring:"#4b979b",shallow:"#86c2b7",land:"#f5eee0",ink:"#21312f"}},
+ {id:"valde",name:"Valdevaqueros",sym:"dune",pal:{sea:"#23827f",ring:"#46a099",shallow:"#8fcfbc",land:"#f0d7a2",ink:"#2c2a1d"}},
+ {id:"lances",name:"Los Lances",sym:"lifeguard",lm:[-5.6395,36.0500],pal:{sea:"#1f7a8c",ring:"#3f97a6",shallow:"#8ecfd0",land:"#f3e3bd",ink:"#173037"}},
+ {id:"balneario",name:"Balneario",sym:"castle",pal:{sea:"#245f86",ring:"#437ea3",shallow:"#7eb0cb",land:"#fbf7ee",ink:"#162637"}}
+].map(s=>{const v=SP[s.id];return{...s,lon:v[0],lat:v[1],fc:[v[2],v[3]]}});
+const LANDMARKS=[{sym:"islet",lon:-6.226,lat:36.378,s:2.8},{sym:"lifeguard",lon:-5.654,lat:36.053,s:2.6},{sym:"tower",lon:-6.066,lat:36.243,s:3.0},{sym:"lighthouse",lon:-6.034,lat:36.19,s:3.2},
+ {sym:"columns",lon:-5.772,lat:36.097,s:2.8},{sym:"dune",lon:-5.706,lat:36.078,s:3.6},{sym:"castle",lon:-5.603,lat:36.023,s:3.0},
+ {sym:"village",lon:-5.966,lat:36.262,s:3.8},{sym:"ape",lon:-5.3475,lat:36.111,s:2.9},{sym:"atlas",lon:-5.43,lat:35.87,s:5.2}];
+LANDMARKS.forEach(l=>{const [x,y]=P(l.lon,l.lat);el("use",{href:"#sym-"+l.sym,x:x-l.s/2,y:y-l.s,width:l.s,height:l.s},document.getElementById("marks"))});
+SPOTS.forEach(s=>{const [a,b]=P(s.lon,s.lat),[c,d]=P(...s.fc),g=el("g",{opacity:.6},document.getElementById("buoys"));
+  el("line",{x1:a,y1:b,x2:c,y2:d,stroke:"#fbf5e6","stroke-width":1.2,"stroke-dasharray":"2 4","stroke-linecap":"round","vector-effect":"non-scaling-stroke"},g);
+  el("circle",{cx:c,cy:d,r:.22,fill:"#fbf5e6",stroke:"#23312f","stroke-width":1,"vector-effect":"non-scaling-stroke"},g)});
+
+/* ---------- little things at sea and on land ---------- */
+const WHALE={pos:[0,0],down:false},SHIPS={ferry:null,cargo:null,cool:performance.now()+20000};
+{const g=document.getElementById("deco");
+  const anim=(tag,attrs,parent)=>reduce?null:el(tag,attrs,parent);
+  const put=(sym,lo,la,w,h,extra={})=>{const [x,y]=P(lo,la);return el("use",{href:"#sym-"+sym,x:x-w/2,y:y-h,width:w,height:h,...extra},g)};
+  const sp=".45 0 .55 1";
+  // gulls: each bird loops lazily on the wind, flapping a few beats then gliding
+  const WING=["M-1 .1Q-.5 -.45 0 .05Q.5 -.45 1 .1","M-1 -.05Q-.5 .25 0 .05Q.5 .25 1 -.05","M-1 -.02Q-.5 -.12 0 .05Q.5 -.12 1 -.02"];
+  const flock=(parent,cx,cy,n,rx,ry,dur,size=.32,seed=1)=>{let s=seed;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;
+    for(let i=0;i<n;i++){const k=.7+rnd()*.6,ex=rx*k,ey=ry*k,ox=(rnd()-.5)*rx*.5,oy=(rnd()-.5)*ry*.6,d=dur*(.85+rnd()*.3),dir=rnd()<.5?1:0;
+      const b=el("g",{},parent),w=el("g",{transform:`scale(${size*(.8+rnd()*.35)})`},b);
+      const p=el("path",{d:WING[0],fill:"none",stroke:"#fbf5e6","stroke-width":1.5,"stroke-linecap":"round","stroke-linejoin":"round","vector-effect":"non-scaling-stroke"},w);
+      if(reduce){b.setAttribute("transform",`translate(${cx+ox+ex} ${cy+oy})`);continue}
+      anim("animateMotion",{path:`M${cx+ox-ex} ${cy+oy}a${ex} ${ey} 0 1 ${dir} ${2*ex} 0a${ex} ${ey} 0 1 ${dir} ${-2*ex} 0`,dur:d+"s",begin:-rnd()*d+"s",repeatCount:"indefinite"},b);
+      const fl=1.6+rnd()*1.2;anim("animate",{attributeName:"d",values:[WING[0],WING[1],WING[0],WING[1],WING[0],WING[2],WING[2],WING[0]].join(";"),keyTimes:"0;.1;.2;.3;.4;.5;.9;1",dur:fl*2.4+"s",begin:-rnd()*5+"s",repeatCount:"indefinite"},p)}};
+  // ferry Tarifa ⇄ Tánger: turns around well before each harbour
+  const rd=`M${P(-5.622,35.982)} C${P(-5.665,35.93)} ${P(-5.74,35.86)} ${P(-5.778,35.826)}`;
+  {const m=el("g",{},g),s=el("g",{class:"ship"},m),f=el("g",{},s),fw=2.3,fh=1.01;SHIPS.ferry=s;
+   el("use",{href:"#sym-ferry",x:-fw/2,y:-fh*.8,width:fw,height:fh},f);
+   flock(s,.2,-1.3,2,.7,.35,9,.24,31);
+   anim("animateMotion",{dur:"150s",repeatCount:"indefinite",path:rd,keyPoints:"0;1;1;0;0",keyTimes:"0;.46;.5;.96;1",calcMode:"spline",keySplines:`${sp};0 0 1 1;${sp};0 0 1 1`},m);
+   anim("animateTransform",{attributeName:"transform",type:"scale",values:"1 1;1 1;-1 1;-1 1;1 1;1 1",keyTimes:"0;.463;.497;.963;.997;1",dur:"150s",repeatCount:"indefinite",calcMode:"spline",keySplines:`0 0 1 1;${sp};0 0 1 1;${sp};0 0 1 1`},f)}
+  // a cargo ship working west through the Strait
+  {const m=el("g",{},g),s=el("g",{class:"ship"},m),cw=3.9,ch=1.3;SHIPS.cargo=s;
+   el("use",{href:"#sym-cargo",x:-cw/2,y:-ch*.9,width:cw,height:ch},s);
+   anim("animateMotion",{dur:"170s",repeatCount:"indefinite",path:`M${P(-5.18,35.982)} L${P(-5.98,35.902)}`},m)}
+  // a splash ring left behind where ships go down
+  el("ellipse",{class:"splash",id:"splash",cx:0,cy:0,rx:1.2,ry:.4,fill:"none",stroke:"#fbf5e6","stroke-width":1.2,"vector-effect":"non-scaling-stroke"},g);
+  // sperm whale fluke: slips under the surface when you come close, blows and resurfaces when you pull back
+  {const [x,y]=P(-5.50,35.958),w=3.4,h=w*.52,wg=el("g",{id:"whale"},g),cid="wclip";
+   const cp=el("clipPath",{id:cid,clipPathUnits:"userSpaceOnUse"},wg);el("rect",{x:x-w,y:y-h*2,width:w*2,height:h*2},cp);
+   el("ellipse",{class:"slick",cx:x,cy:y+.05,rx:w*.5,ry:w*.13,fill:"#a9d8d0"},wg);
+   const b=el("g",{class:"bob"},wg),c=el("g",{"clip-path":`url(#${cid})`},b),fl=el("g",{class:"fluke"},c);
+   el("use",{href:"#sym-fluke",x:x-w/2,y:y-h,width:w,height:h},fl);
+   [[-.42,.62,0],[-.3,.66,.25],[.38,.62,.12],[.46,.64,.35]].forEach(([dx,dy,d])=>el("circle",{class:"drop",cx:x+dx*w,cy:y-h*dy,r:.05,fill:"#fbf5e6",style:`animation-delay:${.5+d}s`},wg));
+   el("path",{d:`M${x-w*.36} ${y} q${w*.09} -.12 ${w*.18} 0 t${w*.18} 0 t${w*.18} 0 t${w*.18} 0`,fill:"none",stroke:"#fbf5e6","stroke-width":1.4,"stroke-linecap":"round","vector-effect":"non-scaling-stroke",opacity:.9},b);
+   [0,.9].forEach(d=>el("ellipse",{class:"ring",cx:x,cy:y,rx:w*.34,ry:w*.09,fill:"none",stroke:"#fbf5e6","stroke-width":1.1,"vector-effect":"non-scaling-stroke",style:`animation-delay:${1.4+d}s`},wg));
+   const so=el("g",{class:"spout"},wg);[[0,-.55,.13,.28],[-.12,-.42,.1,.18],[.13,-.44,.1,.2]].forEach(([dx,dy,rx,ry])=>el("ellipse",{cx:x+dx+w*.08,cy:y+dy*w*.6,rx,ry,fill:"#fbf5e6",opacity:.85},so));
+   WHALE.pos=[x,y-h*.4]}
+  // dolphins: a small pod arcing out of the water now and then, drifting along the coast
+  const pod=(lo,la,dir,size,dur,delay,drift)=>{const [x,y]=P(lo,la),o=el("g",{},g);
+    anim("animateTransform",{attributeName:"transform",type:"translate",values:`0 0;${drift} ${drift*.25};0 0`,dur:dur*4+"s",repeatCount:"indefinite",calcMode:"spline",keyTimes:"0;.5;1",keySplines:`${sp};${sp}`},o);
+    [[0,0,1],[-.55*size,.16*size,.86],[.35*size,.3*size,.78]].forEach(([ox,oy,k],n)=>{const L=1.5*size*k*dir,Hh=.62*size*k,x0=x+ox,y0=y+oy,b=delay+n*.32;
+      const d=el("g",{opacity:0},o);el("use",{href:"#sym-dolphin",x:-size*k/2,y:-size*k*.18,width:size*k,height:size*k*.37,transform:dir<0?"scale(1 -1)":""},d);
+      anim("animateMotion",{path:`M${x0} ${y0} Q${x0+L/2} ${y0-Hh*2} ${x0+L} ${y0}`,rotate:"auto",dur:dur+"s",begin:b+"s",repeatCount:"indefinite",keyPoints:"0;0;1;1",keyTimes:"0;.7;.86;1",calcMode:"spline",keySplines:`0 0 1 1;.3 .2 .7 .8;0 0 1 1`},d);
+      anim("animate",{attributeName:"opacity",values:"0;0;1;1;0;0",keyTimes:"0;.695;.71;.85;.865;1",dur:dur+"s",begin:b+"s",repeatCount:"indefinite"},d);
+      [[0,.7],[L,.86]].forEach(([sx,kt])=>{const r=el("ellipse",{cx:x0+sx,cy:y0,rx:.12*size,ry:.04*size,fill:"none",stroke:"#fbf5e6","stroke-width":1,"vector-effect":"non-scaling-stroke",opacity:0},o);
+        anim("animate",{attributeName:"opacity",values:`0;0;.9;0;0`,keyTimes:`0;${kt};${kt+.01};${kt+.09};1`,dur:dur+"s",begin:b+"s",repeatCount:"indefinite"},r);
+        anim("animate",{attributeName:"rx",values:`${.12*size};${.12*size};${.12*size};${.42*size};${.42*size}`,keyTimes:`0;${kt};${kt+.01};${kt+.09};1`,dur:dur+"s",begin:b+"s",repeatCount:"indefinite"},r)})})};
+  pod(-5.99,36.05,1,1.25,9,0,1.4);pod(-6.25,36.29,-1,1.0,11,4,-1.1);
+  // bluefin tuna off Zahara
+  put("tuna",-5.885,36.112,3.2,3.2);
+  // Tarifa lighthouse at Isla de las Palomas: a soft flash every 15 s
+  {const [x,y]=P(-5.6095,36.0012),g2=el("g",{id:"faro"},g),s=1.5;el("use",{href:"#sym-lighthouse",x:x-s/2,y:y-s,width:s,height:s},g2);
+   const ly=y-s*.79;el("circle",{cx:x,cy:ly,r:.18,fill:"#fff4c8",opacity:.9},g2);
+   const glow=el("circle",{cx:x,cy:ly,r:.3,fill:"#ffe9a0",opacity:0},g2),ring=el("circle",{cx:x,cy:ly,r:.3,fill:"none",stroke:"#fff4c8","stroke-width":1.2,"vector-effect":"non-scaling-stroke",opacity:0},g2);
+   anim("animate",{attributeName:"opacity",values:"0;.75;0;0",keyTimes:"0;.03;.14;1",dur:"15s",repeatCount:"indefinite"},glow);
+   anim("animate",{attributeName:"r",values:".3;1.1;.3;.3",keyTimes:"0;.04;.14;1",dur:"15s",repeatCount:"indefinite"},glow);
+   anim("animate",{attributeName:"opacity",values:"0;.9;0;0",keyTimes:"0;.01;.2;1",dur:"15s",repeatCount:"indefinite"},ring);
+   anim("animate",{attributeName:"r",values:".3;.3;4.5;4.5",keyTimes:"0;.01;.2;1",dur:"15s",repeatCount:"indefinite"},ring)}
+  put("sail",-6.16,36.17,1.9,2.2);put("sail",-5.24,36.05,1.6,1.85);
+  put("fishing",-5.96,36.16,2.1,1.4);put("fishing",-6.33,36.56,1.8,1.2);
+  {const at=(lo,la)=>P(lo,la);let [x,y]=at(-6.34,36.43);flock(g,x,y,4,1.6,.9,26,.34,3);[x,y]=at(-5.73,36.03);flock(g,x,y,3,1.1,.6,20,.3,7);
+   [x,y]=at(-5.39,36.06);flock(g,x,y,3,1.3,.7,24,.3,11);[x,y]=at(-6.06,36.215);flock(g,x,y,2,.9,.5,18,.28,19);[x,y]=at(-5.60,35.995);flock(g,x,y,2,.8,.45,16,.26,23)}
+  put("flamingos",-6.185,36.485,2,2);
+  put("dome",-6.296,36.531,2.3,2.3);put("minaret",-5.815,35.784,2.4,2.4);
+  put("compass",-6.30,35.86,7,7)}
+// if the ferry and the cargo ship ever touch, both go down — and come back a while later
+function shipCheck(now){if(reduce||!SHIPS.ferry||now<SHIPS.cool||selected)return;
+  const a=SHIPS.ferry.getBoundingClientRect(),b=SHIPS.cargo.getBoundingClientRect(),sh=r=>({l:r.left+r.width*.22,r:r.right-r.width*.22,t:r.top+r.height*.3,b:r.bottom-r.height*.2});
+  const A=sh(a),Bb=sh(b);if(!a.width||!b.width||A.r<Bb.l||Bb.r<A.l||A.b<Bb.t||Bb.b<A.t)return;
+  SHIPS.cool=now+70000;const [wx,wy]=toWorld((a.left+a.right+b.left+b.right)/4,(a.bottom+b.bottom)/2),sp=document.getElementById("splash");
+  sp.setAttribute("cx",wx);sp.setAttribute("cy",wy);sp.classList.remove("go");void sp.getBBox();sp.classList.add("go");
+  for(const s of [SHIPS.ferry,SHIPS.cargo]){s.classList.remove("back");s.classList.add("sink")}
+  setTimeout(()=>{for(const s of [SHIPS.ferry,SHIPS.cargo]){s.classList.add("back");s.classList.remove("sink")}},30000)}
+
+/* ---------- towns ---------- */
+const TOWNS=[["Cádiz",-6.288,36.527,1],["Tarifa",-5.604,36.014,1],["Algeciras",-5.454,36.131,1],["Gibraltar",-5.353,36.140,1],["Tánger",-5.813,35.759,1,1],["Ceuta",-5.316,35.889,1,1],["Jerez",-6.137,36.686,1],["Estepona",-5.146,36.426,1],
+ ["Rota",-6.357,36.62],["El Puerto",-6.233,36.594],["San Fernando",-6.198,36.462],["Chiclana",-6.149,36.419],["Conil",-6.088,36.277],["Vejer",-5.966,36.252],["Barbate",-5.922,36.192],["Zahara",-5.846,36.137],
+ ["Facinas",-5.698,36.142],["Medina Sidonia",-5.927,36.457],["Benalup",-5.814,36.344],["Alcalá de los Gazules",-5.723,36.461],["Los Barrios",-5.493,36.184],["San Roque",-5.383,36.211],["Jimena",-5.452,36.435],
+ ["Ksar es-Seghir",-5.556,35.843,0,1],["Fnideq",-5.357,35.849,0,1]];
+const signLayer=document.getElementById("signs");
+const signs=TOWNS.map(([n,lo,la,maj,af])=>{const d=document.createElement("div");d.className="sign"+(maj?" major":"")+(af?" af":"");d.innerHTML=`<i></i>${n}`;signLayer.append(d);return{d,w:P(lo,la),maj}});
+
+/* ---------- camera ---------- */
+const svg=document.getElementById("map"),dsv=document.getElementById("detail"),cv=document.getElementById("wind"),ctx=cv.getContext("2d");
+let W=0,H=0,dpr=1,cam={x:0,y:0,z:8},fitZ=8,zMin=8,selected=null,mode="levante",layer="wind",diving=false;
+const B={x0:P(-6.42,0)[0],x1:P(-5.22,0)[0],y0:P(0,36.64)[1],y1:P(0,35.74)[1]};
+const D={x0:GEO.box[0],y0:GEO.box[1],x1:GEO.box[0]+GEO.box[2],y1:GEO.box[1]+GEO.box[3]};
+function fit(){zMin=Math.max(W/(D.x1-D.x0),H/(D.y1-D.y0));fitZ=Math.max(Math.min(W/(B.x1-B.x0),H/(B.y1-B.y0)),H/120,zMin);return{x:(B.x0+B.x1)/2,y:(B.y0+B.y1)/2,z:fitZ}}
+const toScreen=(x,y)=>[(x-cam.x)*cam.z+W/2,(y-cam.y)*cam.z+H/2];
+const toWorld=(sx,sy)=>[(sx-W/2)/cam.z+cam.x,(sy-H/2)/cam.z+cam.y];
+function clampCam(){cam.z=Math.max(fitZ,Math.min(fitZ*14,cam.z));
+  const hx=W/2/cam.z,hy=H/2/cam.z;let lo=Math.max(B.x0,D.x0+hx),hi=Math.min(B.x1,D.x1-hx);cam.x=lo>hi?(D.x0+D.x1)/2:Math.max(lo,Math.min(hi,cam.x));
+  lo=Math.max(B.y0,D.y0+hy);hi=Math.min(B.y1,D.y1-hy);cam.y=lo>hi?(D.y0+D.y1)/2:Math.max(lo,Math.min(hi,cam.y))}
+let lastCam="";
+function whaleCheck(){const [sx,sy]=toScreen(...WHALE.pos),near=sx>-60&&sx<W+60&&sy>-60&&sy<H+60;
+  const down=cam.z>fitZ*2.1&&near;if(down===WHALE.down)return;WHALE.down=down;const w=document.getElementById("whale");
+  w.classList.remove("up");void w.getBBox();w.classList.toggle("dove",down);if(!down)w.classList.add("up")}
+function applyCam(){
+  const vb=`${cam.x-W/2/cam.z} ${cam.y-H/2/cam.z} ${W/cam.z} ${H/cam.z}`;svg.setAttribute("viewBox",vb);dsv.setAttribute("viewBox",vb);
+  markersEls.forEach(({s,e})=>{const [x,y]=toScreen(...P(s.lon,s.lat));e.style.transform=`translate(${x}px,${y}px)`});
+  const showMinor=cam.z>fitZ*1.15||W>1100;
+  signs.forEach(o=>{const [x,y]=toScreen(...o.w);o.d.style.transform=`translate(${x}px,${y}px) translateY(-50%)`;o.d.hidden=!o.maj&&!showMinor});
+  whaleCheck();if(parts.length&&Math.abs(Math.log(cam.z/partZ))>.3){partZ=cam.z;for(const p of parts)spawn(p)}const key=cam.x.toFixed(3)+cam.y.toFixed(3)+cam.z.toFixed(3);if(key!==lastCam){lastCam=key;ctx.clearRect(0,0,W,H);drawHeat();if(reduce)drawStatic()}}
+const ease=k=>k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
+let anim=null;
+function tween(ms,frame,done){if(anim)cancelAnimationFrame(anim);if(reduce){frame(1);done&&done();return}
+  const t0=performance.now();const step=now=>{const k=Math.min(1,(now-t0)/ms);frame(ease(k),k);if(k<1)anim=requestAnimationFrame(step);else{anim=null;done&&done()}};anim=requestAnimationFrame(step)}
+function flyTo(t,ms=950,done,arc=true){const s={...cam},lz0=Math.log(s.z),lz1=Math.log(t.z);
+  tween(ms,e=>{cam.x=s.x+(t.x-s.x)*e;cam.y=s.y+(t.y-s.y)*e;cam.z=Math.exp(lz0+(lz1-lz0)*e-(arc?0.35*Math.sin(Math.PI*e):0));applyCam()},done)}
+
+/* ---------- markers ---------- */
+const markersEls=SPOTS.map(s=>{const b=document.createElement("button");b.type="button";b.className="mk";b.id="mk-"+s.id;b.setAttribute("aria-label",s.name);b.title=s.name;
+  b.innerHTML=`<span class="dot"></span>`;b.onclick=e=>{e.stopPropagation();openSpot(s)};document.getElementById("markers").append(b);return{s,e:b}});
+
+/* ---------- forecast time ----------
+   Hourly steps from 00:00 today to the last hour of the latest model run (HARMONIE reaches ~48 h past its run). */
+const T0=new Date(2026,10,4),N=60,NOW=17,NDAYS=Math.ceil(N/24);
+const DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const dayDate=d=>new Date(T0.getFullYear(),T0.getMonth(),T0.getDate()+d);
+const dayName=d=>{const x=dayDate(d);return `${DOW[x.getDay()]} ${x.getDate()}`};
+let curT=NOW,playing=false;
+const lerpDays=(arr,t)=>{const d=Math.max(0,Math.min(arr.length-1,t/24)),i=Math.floor(d),k=d-i;return arr[i]*(1-k)+arr[Math.min(arr.length-1,i+1)]*k};
+const windMul=t=>{const h=((t%24)+24)%24;return (0.82+0.24*Math.max(0,Math.sin((h-8)/14*Math.PI)))*lerpDays(mode==="levante"?[1,.92,.7]:[.78,1,1.12],t)};
+const waveMul=t=>lerpDays(mode==="levante"?[1,.95,.8]:[.85,1.05,1.2],t)*(1+0.06*Math.sin(t/7));
+
+/* ---------- wind field (sample) ---------- */
+const AX=P(-5.9,35.95),AX2=P(-5.35,35.98);
+function field(x,y,t=curT,land){const lev=mode==="levante",sgn=lev?-1:1;
+  const axY=AX[1]+(AX2[1]-AX[1])*Math.max(0,Math.min(1,(x-AX[0])/(AX2[0]-AX[0])));
+  const inX=1/(1+Math.exp(-(x-AX[0]-4)/4))/(1+Math.exp((x-AX2[0]-2)/4)),core=Math.exp(-(((y-axY)/11)**2));
+  let kn=(lev?13:11)+inX*core*(lev?29:18),vx=sgn,vy=sgn*(AX2[1]-AX[1])/(AX2[0]-AX[0]);
+  if(lev&&x<AX[0]+8){const k=Math.min(1,(AX[0]+8-x)/25);vy+=(y-axY)*0.025*k;kn-=k*3}
+  if(!lev&&x>AX2[0]-6){const k=Math.min(1,(x-AX2[0]+6)/25);vy+=(y-axY)*0.025*k}
+  if(!lev&&x<AX[0])vy+=0.12;
+  vx+=0.06*Math.sin(y*0.12+x*0.04);vy+=0.06*Math.sin(x*0.1-y*0.05);if(land===undefined?onLand(x,y):land)kn*=0.8;kn*=windMul(t);
+  const m=Math.hypot(vx,vy);return{vx:vx/m,vy:vy/m,kn}}
+const KN=[10,15,20,25,30,35,40];
+const SEA=["251,245,230","244,227,181","243,194,90","240,151,62","238,106,57","217,67,58","176,44,74","125,42,110"];
+const LND=["35,49,47","92,88,52","176,112,30","196,86,31","201,64,36","176,42,42","142,31,63","94,31,90"];
+const kstep=kn=>{let i=0;while(i<KN.length&&kn>=KN[i])i++;return i};
+const colFor=(kn,land)=>(land?LND:SEA)[kstep(kn)];
+const barCol=kn=>kn<10?"#e9dfc6":`rgb(${SEA[kstep(kn)]})`;
+
+/* ---------- wave field (sample) ---------- */
+const sig=v=>1/(1+Math.exp(-v));
+const G={st:0.8};G.x0=D.x0;G.y0=D.y0;G.nx=Math.ceil((D.x1-D.x0)/G.st)+1;G.ny=Math.ceil((D.y1-D.y0)/G.st)+1;
+const GL=new Uint8Array(G.nx*G.ny),GD=new Float32Array(G.nx*G.ny).fill(99),GH=new Float32Array(G.nx*G.ny),GX=new Float32Array(G.nx*G.ny),GY=new Float32Array(G.nx*G.ny);
+{const q=[];for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i;if(onLand(G.x0+i*G.st,G.y0+j*G.st)){GL[k]=1;GD[k]=0;q.push(k)}}
+  for(let h=0;h<q.length;h++){const k=q[h],i=k%G.nx,j=(k/G.nx)|0;for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1]]){const a=i+di,b=j+dj;if(a<0||b<0||a>=G.nx||b>=G.ny)continue;const n=b*G.nx+a;if(GD[n]>GD[k]+1){GD[n]=GD[k]+1;q.push(n)}}}}
+let waveT=-9;
+function buildWaves(){waveT=curT;const lev=mode==="levante";
+  for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,x=G.x0+i*G.st,y=G.y0+j*G.st,t=sig((x-AX[0])/5),t2=sig((x-AX2[0])/5);let h,dx,dy;
+    if(lev){h=1.0*(1-t)+1.5*(t-t2)+1.3*t2;dx=(1-t)-t;dy=.45*(1-t)+.05*t}else{h=2.3*(1-t)+1.25*(t-t2)+.7*t2;dx=1;dy=.35*(1-t)-.05*(t-t2)+.1*t2}
+    h*=(0.35+0.65*Math.min(1,GD[k]/4))*(1+0.12*Math.sin(x*.25+y*.17))*waveMul(curT);const m=Math.hypot(dx,dy)||1;GH[k]=GL[k]?0:h;GX[k]=dx/m;GY[k]=dy/m}
+  paintHeatSrc();paintWindSrc()}
+function waveAt(x,y){const fi=(x-G.x0)/G.st,fj=(y-G.y0)/G.st,i=Math.max(0,Math.min(G.nx-2,fi|0)),j=Math.max(0,Math.min(G.ny-2,fj|0)),u=Math.min(1,Math.max(0,fi-i)),v=Math.min(1,Math.max(0,fj-j));
+  const L=A=>{const k=j*G.nx+i;return A[k]*(1-u)*(1-v)+A[k+1]*u*(1-v)+A[k+G.nx]*(1-u)*v+A[k+G.nx+1]*u*v};return{h:L(GH),dx:L(GX),dy:L(GY)}}
+const RAMP=[[0,[33,95,104]],[.8,[63,152,150]],[1.5,[120,196,175]],[2.2,[243,194,90]],[3,[238,106,57]]];
+const ramp=h=>{for(let i=0;i<RAMP.length-1;i++){const [a,ca]=RAMP[i],[b,cb]=RAMP[i+1];if(h<=b){const k=Math.max(0,(h-a)/(b-a));return ca.map((c,n)=>Math.round(c+(cb[n]-c)*k))}}return RAMP.at(-1)[1]};
+const heatSrc=document.createElement("canvas");heatSrc.width=G.nx;heatSrc.height=G.ny;
+function paintHeatSrc(){const c=heatSrc.getContext("2d"),id=c.createImageData(G.nx,G.ny);for(let k=0;k<GH.length;k++){const [r,g,b]=ramp(GH[k]);id.data.set([r,g,b,GL[k]?0:235],k*4)}c.putImageData(id,0,0)}
+const hv=document.getElementById("heat"),hctx=hv.getContext("2d");
+// wind strength as a light wash: calm stays clear, stronger wind warms the map
+const windSrc=document.createElement("canvas");windSrc.width=G.nx;windSrc.height=G.ny;
+const WRAMP=[[8,[255,240,200,0]],[15,[255,226,150,.42]],[20,[255,200,95,.6]],[25,[255,160,70,.72]],[30,[255,115,60,.82]],[35,[240,70,60,.9]],[40,[200,50,90,.95]],[46,[150,50,130,1]]];
+function wcol(kn){if(kn<=WRAMP[0][0])return WRAMP[0][1];for(let i=0;i<WRAMP.length-1;i++){const [a,ca]=WRAMP[i],[b,cb]=WRAMP[i+1];if(kn<=b){const k=(kn-a)/(b-a);return ca.map((c,n)=>c+(cb[n]-c)*k)}}return WRAMP.at(-1)[1]}
+function paintWindSrc(){const c=windSrc.getContext("2d"),id=c.createImageData(G.nx,G.ny);
+  for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,[r,g,b,a]=wcol(field(G.x0+i*G.st,G.y0+j*G.st,curT,!!GL[k]).kn);id.data.set([r,g,b,a*255],k*4)}c.putImageData(id,0,0)}
+function drawHeat(){hctx.setTransform(1,0,0,1,0,0);hctx.clearRect(0,0,hv.width,hv.height);
+  if(layer!=="waves"){hv.style.opacity=selected?.35:.55;hv.style.mixBlendMode="screen";hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
+    hctx.drawImage(windSrc,G.x0-G.st/2,G.y0-G.st/2,G.nx*G.st,G.ny*G.st);return}
+  hv.style.opacity=.8;hv.style.mixBlendMode="normal";
+  hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
+  hctx.drawImage(heatSrc,G.x0-G.st/2,G.y0-G.st/2,G.nx*G.st,G.ny*G.st);hctx.globalCompositeOperation="destination-out";hctx.fill(LAND,"evenodd");hctx.globalCompositeOperation="source-over"}
+
+/* ---------- particles ---------- */
+let parts=[],partZ=1;
+function spawn(p){const [ax,ay]=toWorld(0,0),[bx,by]=toWorld(W,H);for(let t=0;t<10;t++){p.x=ax+Math.random()*(bx-ax);p.y=ay+Math.random()*(by-ay);if(layer!=="waves"||!onLand(p.x,p.y))break}p.age=0;p.life=140+Math.random()*140;return p}
+function resetParts(){partZ=cam.z;parts=Array.from({length:Math.round(Math.min(900,W*H/1500))},()=>spawn({}));ctx.clearRect(0,0,W,H)}
+function fadeTrails(a){ctx.save();ctx.globalCompositeOperation="destination-out";ctx.fillStyle=`rgba(0,0,0,${a})`;ctx.fillRect(0,0,W,H);ctx.restore()}
+function tick(){
+  const zf=cam.z/fitZ;ctx.lineCap="round";
+  if(layer==="waves"){fadeTrails(.12);const sp=0.22/cam.z,Lz=Math.min(1.3,Math.pow(zf,0.2)),n=parts.length*.5|0;
+    for(let i=0;i<n;i++){const p=parts[i];if(onLand(p.x,p.y)){spawn(p);continue}const w=waveAt(p.x,p.y),v=sp*(0.6+0.25*w.h);p.x+=w.dx*v;p.y+=w.dy*v;p.age++;
+      const [a,b]=toScreen(p.x,p.y),L=(3+3*w.h)*Lz,fade=Math.min(1,p.age/40,(p.life-p.age)/40);
+      ctx.strokeStyle=`rgba(251,245,230,${.6*fade})`;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(a-w.dy*L,b+w.dx*L);ctx.quadraticCurveTo(a+w.dx*L*.45,b+w.dy*L*.45,a+w.dy*L,b-w.dx*L);ctx.stroke();
+      if(p.age>p.life||a<-20||a>W+20||b<-20||b>H+20)spawn(p)}}
+  else{const dv=selected&&!diving;fadeTrails(.045);const am=dv?.7:1;
+    for(const p of parts){const f=field(p.x,p.y),v=f.kn*0.045/cam.z,nx=p.x+f.vx*v,ny=p.y+f.vy*v,[a,b]=toScreen(p.x,p.y),[c,d]=toScreen(nx,ny),land=onLand(p.x,p.y),
+      fade=Math.min(1,p.age/40,(p.life-p.age)/40);
+      ctx.strokeStyle=`rgba(${colFor(f.kn,land)},${(land?.38:.6)*fade*am})`;ctx.lineWidth=f.kn>35?1.6:f.kn>25?1.3:1;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();
+      p.x=nx;p.y=ny;p.age++;if(p.age>p.life||c<-20||c>W+20||d<-20||d>H+20)spawn(p)}}
+  requestAnimationFrame(tick)}
+function drawStatic(){ctx.clearRect(0,0,W,H);if(layer==="waves")return;const step=46;ctx.lineCap="round";
+  for(let sx=step/2;sx<W;sx+=step)for(let sy=step/2;sy<H;sy+=step){const [x,y]=toWorld(sx,sy),f=field(x,y),L=8+f.kn*.6,l=onLand(x,y);
+    ctx.strokeStyle=`rgba(${colFor(f.kn,l)},${l?.55:.85})`;ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(sx-f.vx*L/2,sy-f.vy*L/2);ctx.lineTo(sx+f.vx*L/2,sy+f.vy*L/2);ctx.stroke()}}
+
+/* ---------- spot detail ---------- */
+function seeded(n){let s=n;return()=>{s=(s*16807)%2147483647;return s/2147483647}}
+function hours(s,day){const [x,y]=P(...s.fc),lev=mode==="levante",r=seeded([...s.id+mode].reduce((a,c)=>a+c.charCodeAt(0),11)*97+day*7),w=waveAt(x,y),base=w.h/waveMul(curT),tt=sig((x-AX[0])/5);
+  const p0=lev?11*(1-tt)+5*tt:8*(1-tt)+6*tt; // swell on the Atlantic side, short wind-sea in the Strait
+  return Array.from({length:12},(_,i)=>{const h=9+i,T=day*24+h,j1=r()-.5,j2=r()-.5,j3=r()-.5,j4=r();if(T>N-1)return{h,na:true};
+    const kk=Math.max(4,Math.round(field(x,y,T).kn+j1*3)),wh=Math.max(.2,base*waveMul(T)*(1+0.08*Math.sin((h-6)/12*Math.PI))+j2*.1);
+    const pd=Math.max(4,Math.round(p0+(lev?-1.5:1.5)*(T/N)+0.7*Math.sin(T/6)+j3*.6)); // the period drifts hour by hour
+    return{h,kn:kk,g:Math.round(kk*(1.22+j4*.18)),wh:Math.round(wh*10)/10,pd,wd:Math.atan2(w.dy,w.dx)*180/Math.PI-90}})}
+function dayWx(s,d){const [x]=P(...s.fc),inl=Math.round(2*sig((x-AX[0])/6));
+  const L=[{hi:24,sky:"sun",word:"Sunny",rain:0},{hi:24,sky:"sun",word:"Sunny",rain:0},{hi:22,sky:"cloud",word:"Cloudy spells",rain:20}],
+        Pn=[{hi:21,sky:"cloud",word:"Bright spells",rain:20},{hi:19,sky:"rain",word:"Showers",rain:60},{hi:20,sky:"cloud",word:"Cloudy spells",rain:10}];
+  const o=(mode==="levante"?L:Pn)[Math.min(d,2)];return{...o,hi:o.hi+inl}}
+const SKY={sun:'<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="3" fill="currentColor"/><g stroke="currentColor" stroke-width="1.1" stroke-linecap="round"><path d="M7 .8v1.6M7 11.6v1.6M.8 7h1.6M11.6 7h1.6M2.6 2.6l1.1 1.1M10.3 10.3l1.1 1.1M2.6 11.4l1.1-1.1M10.3 3.7l1.1-1.1"/></g></svg>',
+  cloud:'<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="5" cy="5" r="2.2" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M4 12h6.5a2.3 2.3 0 0 0 0-4.6 3.2 3.2 0 0 0-6.1.7A2 2 0 0 0 4 12Z" fill="currentColor"/></svg>',
+  rain:'<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3.5 8h7a2.3 2.3 0 0 0 0-4.6 3.2 3.2 0 0 0-6.1.7A2 2 0 0 0 3.5 8Z" fill="currentColor"/><path d="M5 10l-.8 2.4M8 10l-.8 2.4M11 10l-.8 2.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>'};
+const arrow=deg=>`<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M7 1v12M3 9l4 4 4-4" stroke="currentColor" stroke-width="1.8" fill="none" transform="rotate(${deg} 7 7)"/></svg>`;
+function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.round(curT)%24,dir=mode==="levante"?90:-90;
+  const all=Array.from({length:NDAYS},(_,k)=>hours(s,k)),ok=all.flat().filter(h=>!h.na);
+  const gx=Math.max(30,...ok.map(h=>h.g)),wm=Math.max(2.5,...ok.map(h=>h.wh));
+  document.getElementById("i-name").textContent=s.name;
+  const hd=`<div class="row hd"><div></div><div class="hrs">${all[0].map(h=>`<span class="${h.h===hr?"cur":""}">${h.h}</span>`).join("")}</div></div>`;
+  const na='<div class="na"><span class="kn">·</span></div>';
+  const rows=(cells,withWx)=>all.map((hs,k)=>{const now=k===day,x=dayWx(s,k);
+    return `<div class="row ${now?"now":"dim"}"><div class="dlab"><em>${dayName(k)}</em>${withWx?`<span role="img" aria-label="${x.word}, ${x.hi} degrees${x.rain?`, ${x.rain}% chance of rain`:""}">${SKY[x.sky]}${x.hi}°${x.rain?` ${SKY.rain}${x.rain}%`:""}</span>`:""}</div>
+      <div class="strip">${hs.map(h=>h.na?na:cells(h,now)).join("")}</div></div>`}).join("");
+  document.getElementById("i-wind").innerHTML=hd+rows((h,now)=>{const s2=now?62:30;
+    return `<div class="${now&&h.h===hr?"cur":""}"><span class="gu">${h.g}</span><span class="kn">${h.kn}</span><span class="stack" style="height:${Math.round(h.g/gx*s2)}px"><span class="gbar"></span><span class="bar" style="height:${Math.round(h.kn/h.g*100)}%;background:${barCol(h.kn)}"></span></span>${now?arrow(dir):""}</div>`},true);
+  document.getElementById("i-wave").innerHTML=hd+rows((h,now)=>`<div class="${now&&h.h===hr?"cur":""}"><span class="kn">${h.wh.toFixed(1)}</span><span class="bar" style="height:${Math.round(h.wh/wm*(now?52:24))}px;background:rgb(${ramp(h.wh)})"></span>${now?arrow(h.wd):""}<span class="pd">${h.pd}s</span></div>`,false)}
+function buildDetail(s){const p=s.pal,[x,y]=P(s.lon,s.lat),[fx,fy]=P(...s.fc);
+  document.documentElement.style.setProperty("--spot",p.sea);
+  document.getElementById("d-bg").setAttribute("fill",p.sea);
+  const rg=document.getElementById("d-rings");rg.innerHTML="";
+  [2.2,1.7,1.25,.85,.5].forEach(r=>{el("use",{href:"#esd",stroke:p.ring,"stroke-width":r*2},rg);el("use",{href:"#esd",stroke:p.sea,"stroke-width":r*2-.05},rg)});
+  el("use",{href:"#esd",stroke:p.shallow,"stroke-width":.36,opacity:.9},rg);el("use",{href:"#esd",stroke:"#fbf5e6","stroke-width":.08},rg);
+  document.getElementById("d-land").setAttribute("fill",p.land);
+  document.getElementById("d-coast").setAttribute("stroke",p.ink);
+  const fl=document.getElementById("d-flora");fl.innerHTML="";plant(fl,.55);
+  const m=document.getElementById("d-mark");m.innerHTML="";
+  const dx=x-fx,dy=y-fy,dl=Math.hypot(dx,dy),S=2.1;let bx=x+dx/dl*1.25,by=y+dy/dl*1.25;if(s.lm){[bx,by]=P(...s.lm);by+=S*.3}
+  el("use",{href:"#sym-"+s.sym,x:bx-S/2,y:by-S*.92,width:S,height:S},m);
+  const b=document.getElementById("d-buoy");b.innerHTML="";
+  el("line",{x1:x,y1:y,x2:fx,y2:fy,stroke:"#fbf5e6","stroke-width":1.6,"stroke-dasharray":"3 6","stroke-linecap":"round","vector-effect":"non-scaling-stroke"},b);
+  const ring=el("circle",{cx:fx,cy:fy,r:.12,fill:"none",stroke:"#fbf5e6","stroke-width":1.4,"vector-effect":"non-scaling-stroke"},b);
+  if(!reduce){el("animate",{attributeName:"r",from:.12,to:.6,dur:"2.2s",repeatCount:"indefinite"},ring);el("animate",{attributeName:"opacity",from:1,to:0,dur:"2.2s",repeatCount:"indefinite"},ring)}
+  el("circle",{cx:fx,cy:fy,r:.13,fill:"#fbf5e6",stroke:p.ink,"stroke-width":1.4,"vector-effect":"non-scaling-stroke"},b);
+  el("circle",{cx:fx,cy:fy,r:.055,fill:"#ee6a39"},b)}
+function setReveal(r,blur){const [sx,sy]=selected?toScreen(...P(selected.lon,selected.lat)):[W/2,H/2];
+  dsv.style.clipPath=`circle(${r}px at ${sx}px ${sy}px)`;dsv.style.visibility=r>0?"visible":"hidden";
+  svg.style.filter=blur>0.01?`blur(${blur}px) saturate(${1-blur*.08})`:"";}
+function openSpot(s){if(diving)return;diving=true;selected=s;buildDetail(s);fillInfo(s);
+  document.body.classList.add("dive");document.getElementById("signs").style.opacity=.0;document.getElementById("markers").style.opacity=0;document.getElementById("markers").style.pointerEvents="none";
+  const [x,y]=P(s.lon,s.lat),z1=Math.max(fitZ*3.2,cam.z),narrow=W<=760,zD=narrow?Math.min(fitZ*10.5,H*.15/Math.max(.5,Math.hypot(x-P(...s.fc)[0],y-P(...s.fc)[1]))):fitZ*10.5;
+  const ty=(narrow?(y+P(...s.fc)[1])/2:Math.max(y,P(...s.fc)[1]))+(H/2-H*(narrow?.2:.43))/zD,tx=narrow?x:Math.min(x,P(...s.fc)[0])+W*.04/zD;
+  flyTo({x,y,z:z1},850,()=>{const s0={...cam},R=Math.hypot(W,H);
+    tween(1150,(e,k)=>{cam.x=s0.x+(tx-s0.x)*e;cam.y=s0.y+(ty-s0.y)*e;cam.z=Math.exp(Math.log(s0.z)+(Math.log(zD)-Math.log(s0.z))*e);applyCam();
+      setReveal(R*Math.pow(k,1.6),4*Math.sin(Math.PI*Math.min(1,k*1.4))*(1-k))},
+      ()=>{setReveal(Math.hypot(W,H)*1.2,0);document.body.classList.add("ready");document.getElementById("info").setAttribute("aria-hidden","false");document.getElementById("back").focus({preventScroll:true});diving=false})});}
+function closeSpot(){if(!selected||diving)return;diving=true;const s=selected;document.body.classList.remove("ready");document.getElementById("info").setAttribute("aria-hidden","true");
+  const s0={...cam},[x,y]=P(s.lon,s.lat),z1=fitZ*3.2,R=Math.hypot(W,H);
+  tween(800,(e,k)=>{cam.x=s0.x+(x-s0.x)*e;cam.y=s0.y+(y-s0.y)*e;cam.z=Math.exp(Math.log(s0.z)+(Math.log(z1)-Math.log(s0.z))*e);applyCam();setReveal(R*Math.pow(1-k,1.4),3*Math.sin(Math.PI*k)*k)},
+    ()=>{setReveal(0,0);selected=null;document.body.classList.remove("dive");
+      for(const id of ["signs","markers"]){const n=document.getElementById(id);n.style.opacity=1;n.style.pointerEvents=""}
+      flyTo(fit(),850,()=>{diving=false;document.getElementById("mk-"+s.id).focus({preventScroll:true})})})}
+document.getElementById("back").onclick=closeSpot;
+addEventListener("keydown",e=>{if(e.key==="Escape")closeSpot()});
+
+/* ---------- timeline ---------- */
+const tlRange=document.getElementById("tl-range"),tlPlay=document.getElementById("tl-play");tlRange.max=N-1;
+const pct=v=>v/(N-1)*100+"%";
+document.getElementById("tl-days").innerHTML=Array.from({length:NDAYS},(_,d)=>{const a=d*24/(N-1)*100,b=Math.min(100,(d+1)*24/(N-1)*100);return `<span class="tl-day" style="left:${a}%;width:${b-a}%">${dayName(d)}</span>`}).join("");
+document.getElementById("tl-ticks").innerHTML=Array.from({length:Math.floor((N-1)/6)},(_,i)=>(i+1)*6).filter(v=>v%24).map(v=>`<span class="tl-tick" style="left:${pct(v)}"></span>`).join("");
+document.getElementById("tl-now").style.left=pct(NOW);
+const PLAY='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1l8 5-8 5Z" fill="currentColor"/></svg>',PAUSE='<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1h2.6v10H2.5ZM6.9 1h2.6v10H6.9Z" fill="currentColor"/></svg>';
+let lastHour=-1;
+function onTime(){const p=pct(curT);document.getElementById("tl-thumb").style.left=p;document.getElementById("tl-fill").style.width=p;
+  const h=Math.round(curT),d=Math.floor(h/24);tlRange.value=h;tlRange.setAttribute("aria-valuetext",`${dayName(d)}, ${String(h%24).padStart(2,"0")}:00`);
+  document.getElementById("tl-chip").textContent=`${dayName(d)} · ${String(h%24).padStart(2,"0")}:00`;
+  document.querySelectorAll(".tl-day").forEach((e,i)=>e.classList.toggle("on",i===d));
+  if(Math.abs(curT-waveT)>=0.25){buildWaves();drawHeat()}
+  if(h!==lastHour){lastHour=h;if(selected)fillInfo(selected);if(reduce)drawStatic()}}
+function setTime(v){curT=Math.max(0,Math.min(N-1,v));onTime()}
+function setPlaying(p){playing=p;tlPlay.innerHTML=p?PAUSE:PLAY;tlPlay.setAttribute("aria-pressed",p);tlPlay.setAttribute("aria-label",p?"Pause forecast":"Play forecast");lastFrame=performance.now()}
+tlRange.addEventListener("input",()=>{setPlaying(false);setTime(+tlRange.value)});
+tlPlay.onclick=()=>{if(!playing&&curT>=N-1)setTime(0);setPlaying(!playing)};
+let lastFrame=performance.now();
+let shipTick=0;
+function clock(now){if(++shipTick%12===0)shipCheck(now);if(playing){curT+=(now-lastFrame)/650;if(curT>N-1)curT=0;onTime()}lastFrame=now;requestAnimationFrame(clock)}
+
+/* ---------- toggles ---------- */
+function setLayer(l){layer=l;document.getElementById("l-wind").setAttribute("aria-pressed",l==="wind");document.getElementById("l-wave").setAttribute("aria-pressed",l==="waves");
+  document.getElementById("lg-wind").hidden=l!=="wind";document.getElementById("lg-wave").hidden=l!=="waves";try{localStorage.setItem("syv-layer",l)}catch(e){};resetParts();drawHeat();if(reduce)drawStatic()}
+function setMode(m){mode=m;buildWaves();drawHeat();document.getElementById("w-lev").setAttribute("aria-pressed",m==="levante");document.getElementById("w-pon").setAttribute("aria-pressed",m==="poniente");
+  try{localStorage.setItem("syv-mode",m)}catch(e){};ctx.clearRect(0,0,W,H);if(reduce)drawStatic();if(selected)fillInfo(selected)}
+document.getElementById("l-wind").onclick=()=>setLayer("wind");document.getElementById("l-wave").onclick=()=>setLayer("waves");
+document.getElementById("w-lev").onclick=()=>setMode("levante");document.getElementById("w-pon").onclick=()=>setMode("poniente");
+try{if(localStorage.getItem("syv-layer")==="waves")layer="waves";if(localStorage.getItem("syv-mode")==="poniente")mode="poniente"}catch(e){}
+
+/* ---------- pan & zoom (overview only) ---------- */
+let drag=null;const pts=new Map();
+svg.addEventListener("pointerdown",e=>{if(selected||diving)return;svg.setPointerCapture(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);drag={d:null};if(anim){cancelAnimationFrame(anim);anim=null}svg.classList.add("drag")});
+svg.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId))return;const prev=pts.get(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);
+  if(pts.size===2){const [a,b]=[...pts.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(drag.d){const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,[wx,wy]=toWorld(mx,my);cam.z*=d/drag.d;clampCam();const [nx,ny]=toWorld(mx,my);cam.x+=wx-nx;cam.y+=wy-ny;clampCam()}drag.d=d;applyCam();return}
+  cam.x-=(e.clientX-prev[0])/cam.z;cam.y-=(e.clientY-prev[1])/cam.z;clampCam();applyCam()});
+const up=e=>{pts.delete(e.pointerId);if(pts.size<2&&drag)drag.d=null;if(!pts.size){svg.classList.remove("drag");drag=null}};
+svg.addEventListener("pointerup",up);svg.addEventListener("pointercancel",up);
+svg.addEventListener("wheel",e=>{e.preventDefault();if(selected||diving)return;const [wx,wy]=toWorld(e.clientX,e.clientY);cam.z*=Math.exp(-e.deltaY*0.0015);clampCam();const [nx,ny]=toWorld(e.clientX,e.clientY);cam.x+=wx-nx;cam.y+=wy-ny;clampCam();applyCam()},{passive:false});
+const zoomBy=k=>{const t={x:cam.x,y:cam.y,z:Math.max(fitZ,Math.min(fitZ*14,cam.z*k))};flyTo(t,350,null,false)};
+document.getElementById("z-in").onclick=()=>zoomBy(1.6);document.getElementById("z-out").onclick=()=>zoomBy(1/1.6);
+
+/* ---------- grain ---------- */
+{const g=document.createElement("canvas");g.width=g.height=180;const c=g.getContext("2d"),id=c.createImageData(180,180);
+  for(let i=0;i<id.data.length;i+=4){const v=150+Math.random()*105;id.data.set([v,v*.97,v*.9,255],i)}c.putImageData(id,0,0);document.getElementById("grain").style.background=`url(${g.toDataURL()})`}
+
+/* ---------- boot ---------- */
+function resize(){W=innerWidth;H=innerHeight;dpr=Math.min(2,devicePixelRatio||1);cv.width=hv.width=W*dpr;cv.height=hv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+  const f=fit();if(!selected)cam=f;clampCam();lastCam="";applyCam();if(selected)setReveal(Math.hypot(W,H)*1.2,0);resetParts()}
+addEventListener("resize",resize);
+setMode(mode);resize();setLayer(layer);setPlaying(false);onTime();requestAnimationFrame(clock);
+if(!reduce)requestAnimationFrame(tick);
+</script>
+
+</body>
+</html>

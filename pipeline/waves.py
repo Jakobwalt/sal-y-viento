@@ -67,7 +67,7 @@ def fetch(now: dt.datetime) -> WaveRun:
     name, base, y, m = latest_file(now)
     params = [("var", v) for v in VARS] + [
         ("north", C.LAT_MAX + 0.1), ("south", C.LAT_MIN - 0.1), ("west", C.LON_MIN - 0.1), ("east", C.LON_MAX + 0.1),
-        ("horizStride", 1), ("temporal", "all"), ("accept", "netcdf4"),
+        ("horizStride", 1), ("temporal", "all"), ("accept", "netcdf"),
     ]
     blob = _get(C.WAVES_NCSS.format(y=y, m=m, name=name), params=params, timeout=300).content
     nc = Dataset("waves", memory=blob)

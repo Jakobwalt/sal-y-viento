@@ -35,7 +35,7 @@ ECMWF_POINTS = _BASE + [s["point"] for s in SPOTS.values()] + _STRAIT
 AEMET_URL = "https://www.aemet.es/es/api-eltiempo/modelos/download/harmonie/PB"
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 WAVES_CATALOG = "https://opendap.puertos.es/thredds/catalog/wave_regional_gib/{y:04d}/{m:02d}/catalog.xml"
-WAVES_NCSS = "https://opendap.puertos.es/thredds/ncss/wave_regional_gib/{y:04d}/{m:02d}/{name}"
+WAVES_NCSS = "https://opendap.puertos.es/thredds/ncss/grid/wave_regional_gib/{y:04d}/{m:02d}/{name}"
 
 TIMEZONE = "Europe/Madrid"
 KMH_TO_KN = 1 / 1.852

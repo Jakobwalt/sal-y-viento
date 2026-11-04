@@ -279,7 +279,9 @@ def main(argv=None):
         "credit": "Forecast data: AEMET, ECMWF (CC BY 4.0), Puertos del Estado. Direction via Open-Meteo.",
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=1))
-    report["spot_sample"] = {sid: {k: v[:3] for k, v in o.items()} for sid, o in list(spots_out.items())[:2]}
+    first = next((i for i, x in enumerate(src_wind) if x), 0)
+    report["spot_sample"] = {"from_hour": first, **{sid: {k: v[first:first + 3] for k, v in o.items()}
+                                                   for sid, o in spots_out.items() if sid in ("valde", "palmar")}}
     (out / "report.json").write_text(json.dumps(report, indent=1, default=str))
     log(f"wrote {T} hours from {t0.isoformat()} to {out}  "
         f"(wind new {src_wind.count('new')}, prev {src_wind.count('prev')}; waves new {src_wave.count('new')}, prev {src_wave.count('prev')})")

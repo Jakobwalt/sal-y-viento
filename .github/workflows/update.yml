@@ -12,6 +12,10 @@ on:
         description: "Fetch even if no source has a new run"
         type: boolean
         default: false
+      republish:
+        description: "Only republish the site with the live data (no API calls)"
+        type: boolean
+        default: false
   push:
     branches: ["main"]
     paths: ["site/**", "pipeline/**", ".github/workflows/update.yml"]
@@ -51,6 +55,7 @@ jobs:
           extra=""
           [ "${{ github.event_name }}" = "push" ] && extra="--reuse-only"
           [ "${{ inputs.force }}" = "true" ] && extra="--force"
+          [ "${{ inputs.republish }}" = "true" ] && extra="--reuse-only"
           python -m pipeline.build --out site/data --previous "https://jakobwalt.github.io/sal-y-viento" $extra
 
       # a fresh query string per deploy, so browsers load the new script instead of a cached one

@@ -508,7 +508,7 @@ function fillPanel() {
       const T = d * 24 + h; if (T >= N || o.kn[T] == null) return '<span class="na">·</span>';
       const kn = Math.round(o.kn[T]), gu = Math.round(Math.max(o.gust[T] ?? kn, kn)), ec = FC.model[T] === "ecmwf", wh = o.wh[T];
       return `<button type="button" data-t="${T}" class="${T === cur ? "cur" : ""}${ec ? " ec" : ""}" aria-label="${dayName(d)} ${h}:00, ${kn} knots">` +
-        `<i class="g">${gu}</i><b>${kn}</b><em style="height:${Math.round(2 + kn / gx * 11)}px;background:${barCol(kn)}"></em>` +
+        `<i class="g">${gu}</i><b>${kn}</b><em style="height:${Math.round(2 + kn / gx * 11)}px;background:${barCol(gu)}"></em>` +
         `${o.dir[T] != null ? arrow(o.dir[T]) : ""}<i class="w">${wh != null ? wh.toFixed(1) : ""}</i></button>`;
     }).join("");
     html += `<div class="bf-row${d === Math.floor(cur / 24) ? " now" : ""}" data-d="${d}"><span class="bf-day">${dayName(d)}</span>${cells}</div>`;

@@ -569,7 +569,7 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
     <button id="l-wind" type="button" aria-pressed="true">Wind</button>
     <button id="l-wave" type="button" aria-pressed="false">Waves</button>
   </div>
-  <div class="legend" id="lg-wind"><span class="kscale" aria-label="Wind in knots: calm under 5, white 5 to 10, greens 10 to 20, then yellow to purple up to 40 and over"><span class="ksw"></span><span class="ktk"><b>5</b><b>10</b><b>20</b><b>30</b><b>40</b></span></span><span>kn</span></div>
+  <div class="legend" id="lg-wind"><span class="kscale" aria-label="Colour shows gusts in knots: calm under 5, white 5 to 10, greens 10 to 20, then yellow to purple up to 40 and over"><span class="ksw"></span><span class="ktk"><b>5</b><b>10</b><b>20</b><b>30</b><b>40</b></span></span><span>gusts<br>kn</span></div>
   <div class="legend" id="lg-wave" hidden><span>0</span><i class="ramp"></i><span>3 m</span></div>
   <div class="sample" id="status" aria-live="polite"></div>
   <button class="srcbtn" id="srcbtn" type="button" aria-expanded="false" aria-controls="srcpanel">Sources</button>
@@ -830,9 +830,10 @@ function gridSample(lon,lat,t,read){const g=FC.g,fi=(lon-g.lon0)/g.step,fj=(g.la
   return wsum>0?acc.map(x=>x/wsum):null}
 const readWind=k=>FC.wi[k]===-128?null:[FC.wi[k]/2,FC.wi[k+1]/2,FC.wu[k+2]];
 const readWave=k=>{const w=FC.wv;if(k>=w.length||w[k]===255)return null;const d=w[k+2]*Math.PI/128;return[w[k]*.05,w[k+1]*.1,Math.sin(d),Math.cos(d)]};
-function field(x,y,t=curT){if(!FC)return{vx:1,vy:0,kn:0};
-  const s=gridSample(lonOf(x),latOf(y),t,readWind);if(!s)return{vx:1,vy:0,kn:0};
-  const m=Math.hypot(s[0],s[1]);return m<.05?{vx:1,vy:0,kn:0}:{vx:s[0]/m,vy:-s[1]/m,kn:m}}
+function field(x,y,t=curT){if(!FC)return{vx:1,vy:0,kn:0,g:0};
+  const s=gridSample(lonOf(x),latOf(y),t,readWind);if(!s)return{vx:1,vy:0,kn:0,g:0};
+  // kn = mean wind (drives the motion), g = gusts (drive the colour)
+  const m=Math.hypot(s[0],s[1]),g=Math.max(m,s[2]||0);return m<.05?{vx:1,vy:0,kn:0,g}:{vx:s[0]/m,vy:-s[1]/m,kn:m,g}}
 // <5 calm (no colour) · 5–10 white · 10–15 / 15–20 greens · 20 yellow → 40+ plum
 const KN=[5,10,15,20,25,30,35,40];
 const SEA=["200,214,212","251,245,230","196,230,160","118,194,112","243,194,90","240,151,62","238,106,57","200,52,68","125,42,110"];
@@ -868,7 +869,7 @@ const windSrc=document.createElement("canvas");windSrc.width=G.nx;windSrc.height
 const WRAMP=[[5,[255,255,255,0]],[7,[255,250,235,.16]],[10,[255,250,235,.26]],[12.5,[205,238,170,.42]],[17.5,[125,205,115,.52]],[22.5,[255,205,95,.62]],[27.5,[255,150,65,.75]],[32.5,[255,110,60,.85]],[37.5,[225,60,75,.92]],[44,[150,50,130,1]]];
 function wcol(kn){if(kn<=WRAMP[0][0])return WRAMP[0][1];for(let i=0;i<WRAMP.length-1;i++){const [a,ca]=WRAMP[i],[b,cb]=WRAMP[i+1];if(kn<=b){const k=(kn-a)/(b-a);return ca.map((c,n)=>c+(cb[n]-c)*k)}}return WRAMP.at(-1)[1]}
 function paintWindSrc(){const c=windSrc.getContext("2d"),id=c.createImageData(G.nx,G.ny);
-  for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,[r,g,b,a]=wcol(field(G.x0+i*G.st,G.y0+j*G.st,curT).kn);id.data.set([r,g,b,a*255],k*4)}c.putImageData(id,0,0)}
+  for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,[r,g,b,a]=wcol(field(G.x0+i*G.st,G.y0+j*G.st,curT).g);id.data.set([r,g,b,a*255],k*4)}c.putImageData(id,0,0)}
 function drawHeat(){hctx.setTransform(1,0,0,1,0,0);hctx.clearRect(0,0,hv.width,hv.height);
   if(layer!=="waves"){hv.style.opacity=(selected?.35:.55)*(isEc(curT)?.6:1);hv.style.mixBlendMode="screen";hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
     hctx.drawImage(windSrc,G.x0-G.st/2,G.y0-G.st/2,G.nx*G.st,G.ny*G.st);return}
@@ -892,12 +893,12 @@ function tick(){
   else{const dv=selected&&!diving;fadeTrails(.045);const am=(dv?.7:1)*(isEc(curT)?.55:1);
     for(const p of parts){const f=field(p.x,p.y),v=f.kn*0.045/cam.z,nx=p.x+f.vx*v,ny=p.y+f.vy*v,[a,b]=toScreen(p.x,p.y),[c,d]=toScreen(nx,ny),land=onLand(p.x,p.y),
       fade=Math.min(1,p.age/40,(p.life-p.age)/40);
-      ctx.strokeStyle=`rgba(${colFor(f.kn,land)},${(land?.38:.6)*fade*am*(f.kn<5?.35:1)})`;ctx.lineWidth=f.kn>35?1.6:f.kn>25?1.3:1;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();
+      ctx.strokeStyle=`rgba(${colFor(f.g,land)},${(land?.38:.6)*fade*am*(f.g<5?.35:1)})`;ctx.lineWidth=f.g>35?1.6:f.g>25?1.3:1;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();
       p.x=nx;p.y=ny;p.age++;if(p.age>p.life||c<-20||c>W+20||d<-20||d>H+20)spawn(p)}}
   requestAnimationFrame(tick)}
 function drawStatic(){ctx.clearRect(0,0,W,H);if(layer==="waves")return;const step=46;ctx.lineCap="round";
   for(let sx=step/2;sx<W;sx+=step)for(let sy=step/2;sy<H;sy+=step){const [x,y]=toWorld(sx,sy),f=field(x,y),L=8+f.kn*.6,l=onLand(x,y);
-    ctx.strokeStyle=`rgba(${colFor(f.kn,l)},${l?.55:.85})`;ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(sx-f.vx*L/2,sy-f.vy*L/2);ctx.lineTo(sx+f.vx*L/2,sy+f.vy*L/2);ctx.stroke()}}
+    ctx.strokeStyle=`rgba(${colFor(f.g,l)},${l?.55:.85})`;ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(sx-f.vx*L/2,sy-f.vy*L/2);ctx.lineTo(sx+f.vx*L/2,sy+f.vy*L/2);ctx.stroke()}}
 
 /* ---------- spot detail ---------- */
 function hours(s,day){const o=FC&&FC.spots[s.id];
@@ -927,7 +928,7 @@ function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.rou
     return `${sep}<div class="row ${now?"now":"dim"}${k>=3?" late":""}" data-day="${k}" title="Show ${dayName(k)} on the map"><div class="dlab"><em>${dayName(k)}${withWx&&k<3&&hs.some(h=>h.ec)?'<b class="ectag" title="ECMWF outlook, beyond AEMET\'s 48 hours">ECMWF</b>':""}</em>${withWx&&x?`<span role="img" aria-label="${x.word}, ${x.hi} degrees${x.rain>=.5?`, ${mm(x.rain)} mm of rain`:""}">${SKY[x.sky]}${x.hi}°${x.rain>=.5?` ${x.sky==="rain"?"":SKY.rain}${mm(x.rain)} mm`:""}</span>`:""}</div>
       <div class="strip">${hs.map(h=>h.na?na:cells(h,now)).join("")}</div></div>`}).join("")};
   const windCell=(h,now)=>{const s2=now?62:30;
-    return `<div class="${now&&h.h===hr?"cur":""}${h.ec?" ec":""}"><span class="gu">${h.g}</span><span class="kn">${h.kn}</span><span class="stack" style="height:${Math.round(h.g/gx*s2)}px"><span class="gbar"></span><span class="bar" style="height:${Math.round(h.kn/h.g*100)}%;background:${barCol(h.kn)}"></span></span>${h.dir!=null?arrow(h.dir):""}</div>`};
+    return `<div class="${now&&h.h===hr?"cur":""}${h.ec?" ec":""}"><span class="gu">${h.g}</span><span class="kn">${h.kn}</span><span class="stack" style="height:${Math.round(h.g/gx*s2)}px"><span class="gbar"></span><span class="bar" style="height:${Math.round(h.kn/h.g*100)}%;background:${barCol(h.g)}"></span></span>${h.dir!=null?arrow(h.dir):""}</div>`};
   document.getElementById("i-wind").innerHTML=hd+rows(windCell,true,h=>!h.na);
   // the outlook days sit in their own block: under the wind on wide screens, after the waves on phones
   document.getElementById("i-later").innerHTML=rows(windCell,true,h=>!h.na,3,NDAYS);

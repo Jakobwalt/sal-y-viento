@@ -105,7 +105,7 @@ button{font:inherit;color:inherit}
 .sample{font-family:var(--f-mono);font-size:.64rem;color:var(--foam);opacity:.85;text-transform:uppercase;letter-spacing:.08em}
 .zoomers{bottom:calc(env(safe-area-inset-bottom,0px) + 84px);right:max(18px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:6px;transition:opacity .3s}
 .zoomers button,.back{width:38px;height:38px;border:0;border-radius:4px;background:rgba(251,245,230,.5);backdrop-filter:blur(10px);color:var(--ink);box-shadow:0 8px 24px -16px rgba(20,40,40,.5);font-family:var(--f-mono);font-size:1rem;cursor:pointer}
-.back{top:calc(env(safe-area-inset-top,0px) + 18px);left:max(18px,env(safe-area-inset-left,0px));opacity:0;pointer-events:none;transform:translateX(-8px);transition:opacity .35s,transform .35s}
+.back{z-index:8;top:calc(env(safe-area-inset-top,0px) + 18px);left:max(18px,env(safe-area-inset-left,0px));opacity:0;pointer-events:none;transform:translateX(-8px);transition:opacity .35s,transform .35s}
 body.dive .back{opacity:1;pointer-events:auto;transform:none}
 body.dive .zoomers{opacity:0;pointer-events:none}
 
@@ -131,6 +131,7 @@ body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
 .strip .gbar{position:absolute;inset:0;border:1px solid rgba(251,245,230,.45);border-bottom:0;border-radius:2px 2px 0 0}
 .rlab i{display:inline-block;width:9px;height:9px;border:1px solid rgba(251,245,230,.6);border-bottom:0;margin:0 5px 0 10px;vertical-align:-1px}
 .strip svg{width:12px;height:12px}
+.tbl .row.dim .strip svg{width:9px;height:9px;opacity:.8}
 .strip .h{opacity:.65}
 .foot{display:flex;gap:8px;align-items:center;margin-top:16px;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;opacity:.8}
 /* timeline */
@@ -228,11 +229,11 @@ body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
 @media (max-width:760px){.rows{grid-template-columns:minmax(0,1fr)}#info{padding-top:60px}.legend{display:none}}
 @media (prefers-reduced-motion:reduce){#info,.back{transition:opacity .2s}}
 /* beach view */
-.bv{position:absolute;top:96px;right:max(24px,env(safe-area-inset-right,0px));background:none;border:0;border-bottom:1px solid rgba(251,245,230,.35);padding:3px 0;color:var(--foam);cursor:pointer;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;opacity:.7;transition:opacity .2s}
+.rhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.bv{background:none;border:0;border-bottom:1px solid rgba(251,245,230,.35);padding:3px 0;color:var(--foam);cursor:pointer;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;opacity:.7;transition:opacity .2s}
 .bv:hover{opacity:1}.bv[hidden]{display:none}
-#beach{position:fixed;inset:0;z-index:5;opacity:0;pointer-events:none;transform-origin:50% 100%;transform:perspective(900px) rotateX(64deg) scale(1.12);filter:blur(8px);
-  transition:opacity .8s ease .2s,transform 1.2s cubic-bezier(.2,.75,.2,1) .05s,filter 1s ease .1s}
-#beach.on{opacity:1;transform:none;filter:none;pointer-events:auto}
+#beach{position:fixed;inset:0;z-index:5;opacity:0;pointer-events:none;transform-origin:50% 100%;visibility:hidden}
+#beach.on{pointer-events:auto;visibility:visible}
 #beach canvas{display:block}
 body.beach #info,body.beach.dive.ready #info{opacity:0;pointer-events:none;transform:translateY(40px)}
 body.beach .ctrl,body.beach .zoomers{opacity:0;pointer-events:none}
@@ -267,7 +268,6 @@ body.beach #beach-fc{opacity:1;transform:none;pointer-events:auto}
 .bf-row svg{width:8px;height:8px;opacity:.85}
 .bf-key{margin:4px 0 0;font-family:var(--f-mono);font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;opacity:.5}
 @media (max-width:760px){
-  .bv{top:64px}
   #beach-hud h2{font-size:1.9rem}
   #bh-now{gap:2px 12px;font-size:.6rem}
   #beach-fc{bottom:calc(env(safe-area-inset-bottom,0px) + 72px);left:8px;right:8px;padding:6px 8px 4px}
@@ -276,7 +276,7 @@ body.beach #beach-fc{opacity:1;transform:none;pointer-events:auto}
   .bf-row{grid-template-columns:3.4rem repeat(24,minmax(0,1fr))}
   .bf-day{font-size:.9rem}
 }
-@media (prefers-reduced-motion:reduce){#beach{transition:opacity .3s;transform:none;filter:none}}
+
 
 </style>
 </head>
@@ -602,9 +602,8 @@ body.beach #beach-fc{opacity:1;transform:none;pointer-events:auto}
 
 <section id="info" aria-live="polite" aria-hidden="true">
   <h2 id="i-name">Spot</h2>
-  <button class="bv" id="i-beach" type="button" hidden>Beach view <span aria-hidden="true">↗</span></button>
   <div class="fc">
-    <div class="blk"><div class="rlab">Wind · knots</div><div class="tbl" id="i-wind"></div></div>
+    <div class="blk"><div class="rlab rhead"><span>Wind · knots</span><button class="bv" id="i-beach" type="button" hidden>Beach view <span aria-hidden="true">↗</span></button></div><div class="tbl" id="i-wind"></div></div>
     <div class="blk"><div class="rlab">Waves · metres · period</div><div class="tbl" id="i-wave"></div></div>
     <div class="blk"><div class="tbl" id="i-later"></div></div>
   </div>
@@ -927,7 +926,7 @@ function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.rou
     return `${sep}<div class="row ${now?"now":"dim"}${k>=3?" late":""}" data-day="${k}" title="Show ${dayName(k)} on the map"><div class="dlab"><em>${dayName(k)}${withWx&&k<3&&hs.some(h=>h.ec)?'<b class="ectag" title="ECMWF outlook, beyond AEMET\'s 48 hours">ECMWF</b>':""}</em>${withWx&&x?`<span role="img" aria-label="${x.word}, ${x.hi} degrees${x.rain>=.5?`, ${mm(x.rain)} mm of rain`:""}">${SKY[x.sky]}${x.hi}°${x.rain>=.5?` ${x.sky==="rain"?"":SKY.rain}${mm(x.rain)} mm`:""}</span>`:""}</div>
       <div class="strip">${hs.map(h=>h.na?na:cells(h,now)).join("")}</div></div>`}).join("")};
   const windCell=(h,now)=>{const s2=now?62:30;
-    return `<div class="${now&&h.h===hr?"cur":""}${h.ec?" ec":""}"><span class="gu">${h.g}</span><span class="kn">${h.kn}</span><span class="stack" style="height:${Math.round(h.g/gx*s2)}px"><span class="gbar"></span><span class="bar" style="height:${Math.round(h.kn/h.g*100)}%;background:${barCol(h.kn)}"></span></span>${now&&h.dir!=null?arrow(h.dir):""}</div>`};
+    return `<div class="${now&&h.h===hr?"cur":""}${h.ec?" ec":""}"><span class="gu">${h.g}</span><span class="kn">${h.kn}</span><span class="stack" style="height:${Math.round(h.g/gx*s2)}px"><span class="gbar"></span><span class="bar" style="height:${Math.round(h.kn/h.g*100)}%;background:${barCol(h.kn)}"></span></span>${h.dir!=null?arrow(h.dir):""}</div>`};
   document.getElementById("i-wind").innerHTML=hd+rows(windCell,true,h=>!h.na);
   // the outlook days sit in their own block: under the wind on wide screens, after the waves on phones
   document.getElementById("i-later").innerHTML=rows(windCell,true,h=>!h.na,3,NDAYS);

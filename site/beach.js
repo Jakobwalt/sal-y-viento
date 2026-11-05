@@ -130,6 +130,9 @@ function build() {
     }
   }
   tufts.sort((a, b) => a.y - b.y); bushes.sort((a, b) => a.y - b.y);
+  // pine wood on the lower slopes to the right (in the photo: dark crowns above the scrub)
+  sc.pines = Array.from({ length: 70 }, () => { const x = .74 + rand() * .3, top = -.012 - (x - .7) * .19;
+    return { x, y: top + rand() * (.03 - top) * .55, r: .5 + rand() * .7 }; }).sort((a, b) => a.y - b.y);
   tracks = Array.from({ length: 9 }, () => ({ x: X(.25 + rand() * .45), y: Y(.12 + rand() * .45), r: 40 + rand() * 160, a0: rand() * 6.28, a1: 1 + rand() * 2.2 }));
   clouds = Array.from({ length: 22 }, (_, i) => ({ x: rand() * 1.4 - .2, y: .04 + rand() * .3, s: .5 + rand() * 1.1, k: i / 22, puffs: Array.from({ length: 5 + (rand() * 4 | 0) }, () => [rand() * 2 - 1, rand() * .5 - .25, .4 + rand() * .6]) }));
   ripples = Array.from({ length: 420 }, () => ({ u: rand(), v: Math.pow(rand(), 1.6), ph: rand() * 6.28, cap: rand() }));
@@ -251,6 +254,9 @@ function drawClouds(t, dt) {
 function drawHills(t) {
   const s = S;
   sc.hills.forEach((h, i) => { g.fillStyle = css(mixc(lit(h.c), s.hor, i ? .12 : .32)); g.fill(polyPath(h.p)); });
+  for (const p of sc.pines) { const x = X(p.x), y = Y(p.y), r = (2.2 + depth(y) * 30) * p.r;
+    g.fillStyle = css(lit("#33502f")); g.beginPath(); g.ellipse(x, y, r * 1.5, r, 0, 0, 7); g.fill();
+    g.fillStyle = css(lit("#4c6a3d"), .7); g.beginPath(); g.ellipse(x - r * .3, y - r * .3, r * .8, r * .45, 0, 0, 7); g.fill(); }
   // little lights at night in the houses on the hill
   const night = 1 - smooth(-6, 1, s.sun.el);
   if (night > 0) sc.lights.forEach(([x, y], i) => { const a = night * (.6 + .4 * Math.sin(t * .7 + i * 2.1));
@@ -306,23 +312,31 @@ function drawLand(t) {
 }
 
 function drawWaves(t) {
-  const s = S, h = s.wh ?? .6, period = clamp(s.wp || 8, 4, 16), K = 4;
-  const reach = H * (.025 + clamp(h, 0, 3) * .03), foam = mix(.2, 1, s.day) * (1 - s.grey * .25);
+  // A new wave reaches the sand every `period` seconds (the forecast period, in real time).
+  // Bigger waves stand up and break further out, so they appear further from the shore.
+  const s = S, h = clamp(s.wh ?? .6, .1, 4), period = clamp(s.wp || 8, 3, 20), LIVE = 3;
+  const reach = H * (.03 + h * .075), foam = mix(.2, 1, s.day) * (1 - s.grey * .25);
+  const breakAt = clamp(.55 - h * .1, .2, .5);              // big waves break earlier on their way in
   g.save(); g.beginPath(); g.rect(0, HZ + 1, W, H); g.clip(); g.lineJoin = "round"; g.lineCap = "round";
-  for (let i = 0; i < K; i++) {
-    const p = ((t * 4 / period) + i / K) % 1;                 // 0 far out → 1 on the sand
-    const off = (1 - p) * reach, a = smooth(0, .35, p) * (1 - smooth(.88, 1, p));
-    const thick = (.7 + clamp(h, 0, 3) * .9) * (1 + p * 1.5);
-    // a breaking line: one run along the shore, wobbling a little, each segment scaled by depth
-    g.beginPath();
-    shoreP.forEach((q, j) => { const d = depth(q[1]) * .8 + .2, w = Math.sin(j * .45 + i * 1.7 + t * .6) * .5 + .5;
-      const x = q[0] + q.n[0] * off * d, y = q[1] + q.n[1] * (off + w * 1.5) * d; j ? g.lineTo(x, y) : g.moveTo(x, y); });
-    g.strokeStyle = `rgba(251,249,240,${a * .85 * foam})`; g.lineWidth = thick; g.stroke();
-    // the darker face just in front of each line
-    g.beginPath();
-    shoreP.forEach((q, j) => { const d = depth(q[1]) * .8 + .2, o = off + 2 + thick * 1.5;
-      const x = q[0] + q.n[0] * o * d, y = q[1] + q.n[1] * o * d; j ? g.lineTo(x, y) : g.moveTo(x, y); });
-    g.strokeStyle = css(lit("#24706f"), a * .35); g.lineWidth = thick * 1.6; g.stroke();
+  // a wave breaks in uneven sections along the beach, and shrinks into the distance
+  const persp = q => { const d = depth(q[1]); return Math.pow(d, 1.25) * .95 + .05; };
+  const SEG = 5;
+  for (let i = 0; i < LIVE; i++) {
+    const n = Math.floor(t / period + i / LIVE * LIVE);       // which wave this is, so each one breaks differently
+    const p = ((t / (period * LIVE)) + i / LIVE) % 1;         // 0 standing up far out → 1 on the sand
+    const off = (1 - p) * reach, show = smooth(0, .15, p) * (1 - smooth(.9, 1, p));
+    const white = smooth(breakAt, breakAt + .12, p), thick = (.8 + h * .9) * (1 + p);
+    for (let j0 = 0; j0 < shoreP.length - 1; j0 += SEG) {
+      const seg = shoreP.slice(j0, j0 + SEG + 1), q0 = seg[0], far = smooth(.02, .14, depth(q0[1]));
+      const part = .35 + .65 * (.5 + .5 * Math.sin(j0 * .21 + i * 2.3 + n * 1.7 + Math.sin(j0 * .07 + n) * 2));
+      const A = show * far * part; if (A < .02) continue;
+      const line = o => { g.beginPath(); seg.forEach((q, k) => { const d = persp(q);
+        const x = q[0] + q.n[0] * o * d, y = q[1] + q.n[1] * o * d; k ? g.lineTo(x, y) : g.moveTo(x, y); }); };
+      const tk = thick * (.3 + persp(q0) * .9);
+      line(off + 2 + tk * 1.4); g.strokeStyle = css(lit("#1f6667"), A * .38 * (1 - white * .4)); g.lineWidth = tk * 1.8; g.stroke();
+      line(off); g.strokeStyle = `rgba(251,249,240,${A * foam * mix(.12, .9, white * part)})`; g.lineWidth = tk * mix(.5, 1, white); g.stroke();
+      if (white > 0) { line(off - tk * 2.5 * white); g.strokeStyle = `rgba(251,249,240,${A * foam * white * .3})`; g.lineWidth = tk * 2.2; g.stroke(); }
+    }
   }
   // the swash: foam sliding up the sand and back
   const sw = Math.sin(t * 2 * Math.PI / period) * .5 + .5;
@@ -399,8 +413,8 @@ function drawWeather(t, dt) {
       const vz = s.wz * (4 + dd * 14) * (.5 + d.l);   // wind blowing away from us drags the streaks up the picture
       g.beginPath(); g.moveTo(x, y); g.lineTo(x - Math.sign(v) * (8 + dd * 30) * (.5 + d.l) * Math.max(.3, Math.abs(s.wx)), y + vz); g.stroke(); } }
   // rain, slanted by the wind
-  if (s.rainmm > .05) {
-    const n = Math.min(rain.length, Math.round(60 + s.rainmm * 200)), slant = clamp(s.wx * s.kn / 22, -1.4, 1.4), fall = 1.2 + s.kn * .01;
+  if (s.rainmm >= .1) {
+    const n = Math.min(rain.length, Math.round(30 + s.rainmm * 200)), slant = clamp(s.wx * s.kn / 22, -1.4, 1.4), fall = 1.2 + s.kn * .01;
     g.strokeStyle = css(mixc([214, 222, 230], [120, 130, 150], 1 - s.day), .35 + clamp(s.rainmm / 6) * .25); g.lineWidth = 1;
     g.beginPath();
     for (let i = 0; i < n; i++) { const r = rain[i];
@@ -479,34 +493,46 @@ window.beachTime = () => {   // called by the page whenever the time moves
 };
 
 /* ---------- in and out ---------- */
-let camBefore = null, busy = false;
+// One motion, played forwards to go in and backwards to come out: the map zooms down onto the
+// beach and tips away (the camera pitching up to the horizon), then the beach rises into view.
+let camBefore = null, camTarget = null, busy = false;
 window.beachHas = has;
 window.beachOpen = () => open;
+const LAYERS = ["map", "detail", "heat", "wind"].map(id => document.getElementById(id));
+function pose(k) {
+  const z = ease3(clamp(k / .8)), tilt = smooth(.18, .82, k), blur = smooth(.55, .95, k), rise = smooth(.5, .95, k);
+  cam.x = mix(camBefore.x, camTarget.x, z); cam.y = mix(camBefore.y, camTarget.y, z);
+  cam.z = Math.exp(mix(Math.log(camBefore.z), Math.log(camTarget.z), z)); applyCam();
+  for (const el of LAYERS) {
+    el.style.transformOrigin = "50% 58%";
+    el.style.transform = k > 0 ? `perspective(760px) rotateX(${(tilt * 70).toFixed(2)}deg) scale(${(1 + tilt * .35).toFixed(3)})` : "";
+    el.style.filter = blur > 0 ? `blur(${(blur * 9).toFixed(1)}px)` : "";
+    el.style.opacity = k > 0 ? (1 - smooth(.75, 1, k) * .9).toFixed(3) : "";
+  }
+  wrap.style.opacity = rise.toFixed(3);
+  wrap.style.transform = rise < 1 ? `perspective(900px) translateY(${((1 - rise) * 26).toFixed(2)}%) rotateX(${((1 - rise) * -22).toFixed(2)}deg) scale(${(1 + (1 - rise) * .18).toFixed(3)})` : "";
+  wrap.style.filter = rise < 1 ? `blur(${((1 - rise) * 10).toFixed(1)}px)` : "";
+}
+const ease3 = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
 window.openBeach = () => {
   if (busy || open || !selected || !has(selected.id)) return;
   busy = true; sc = SCENES[selected.id]; resize(); build();
   open = true; lastHourShown = -1; last = performance.now();
   S = state(curT); fillHud(); fillPanel(); draw(0, 0);
-  camBefore = { ...cam };
-  document.body.classList.add("beach");
+  const [bx, by] = P(selected.lon, selected.lat);
+  camBefore = { ...cam }; camTarget = { x: bx, y: by, z: cam.z * 7 };
+  document.body.classList.add("beach"); wrap.classList.add("on");
   hud.setAttribute("aria-hidden", "false");
-  // the map keeps diving onto the beach and blurs away while the view tips up to the horizon
-  const [bx, by] = P(selected.lon, selected.lat), s0 = { ...cam }, z1 = cam.z * 3.2;
-  tween(1100, (e, k) => { cam.x = s0.x + (bx - s0.x) * e; cam.y = s0.y + (by - s0.y) * e; cam.z = Math.exp(mix(Math.log(s0.z), Math.log(z1), e)); applyCam();
-    document.getElementById("map").style.filter = document.getElementById("detail").style.filter = `blur(${k * 6}px)`; }, () => {});
-  requestAnimationFrame(() => wrap.classList.add("on"));
-  setTimeout(() => { busy = false; window.beachFull = true; scrollToDay(); document.getElementById("back").setAttribute("aria-label", "Back to the spot"); }, 1250);
   raf = requestAnimationFrame(frame);
+  tween(2100, (e, k) => pose(k), () => { busy = false; window.beachFull = true; scrollToDay();
+    document.getElementById("back").setAttribute("aria-label", "Back to the spot"); });
 };
 window.closeBeach = () => {
   if (busy || !open) return; busy = true; window.beachFull = false;
-  wrap.classList.remove("on"); document.body.classList.remove("beach"); hud.setAttribute("aria-hidden", "true");
-  const s0 = { ...cam }, t = camBefore;
-  tween(1000, (e, k) => { cam.x = s0.x + (t.x - s0.x) * e; cam.y = s0.y + (t.y - s0.y) * e; cam.z = Math.exp(mix(Math.log(s0.z), Math.log(t.z), e)); applyCam();
-    document.getElementById("map").style.filter = document.getElementById("detail").style.filter = `blur(${(1 - k) * 6}px)`; },
-    () => { document.getElementById("map").style.filter = document.getElementById("detail").style.filter = ""; });
-  setTimeout(() => { open = false; cancelAnimationFrame(raf); busy = false; document.getElementById("back").setAttribute("aria-label", "Back to the whole coast");
-    document.getElementById("i-beach")?.focus({ preventScroll: true }); }, 1050);
+  document.body.classList.remove("beach"); hud.setAttribute("aria-hidden", "true");
+  tween(1500, (e, k) => pose(1 - k), () => { pose(0); wrap.classList.remove("on"); open = false; cancelAnimationFrame(raf); busy = false;
+    document.getElementById("back").setAttribute("aria-label", "Back to the whole coast");
+    document.getElementById("i-beach")?.focus({ preventScroll: true }); });
 };
 resize();
 })();

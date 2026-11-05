@@ -227,6 +227,57 @@ body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
 }
 @media (max-width:760px){.rows{grid-template-columns:minmax(0,1fr)}#info{padding-top:60px}.legend{display:none}}
 @media (prefers-reduced-motion:reduce){#info,.back{transition:opacity .2s}}
+/* beach view */
+.bv{position:absolute;top:96px;right:max(24px,env(safe-area-inset-right,0px));background:none;border:0;border-bottom:1px solid rgba(251,245,230,.35);padding:3px 0;color:var(--foam);cursor:pointer;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;opacity:.7;transition:opacity .2s}
+.bv:hover{opacity:1}.bv[hidden]{display:none}
+#beach{position:fixed;inset:0;z-index:5;opacity:0;pointer-events:none;transform-origin:50% 100%;transform:perspective(900px) rotateX(64deg) scale(1.12);filter:blur(8px);
+  transition:opacity .8s ease .2s,transform 1.2s cubic-bezier(.2,.75,.2,1) .05s,filter 1s ease .1s}
+#beach.on{opacity:1;transform:none;filter:none;pointer-events:auto}
+#beach canvas{display:block}
+body.beach #info,body.beach.dive.ready #info{opacity:0;pointer-events:none;transform:translateY(40px)}
+body.beach .ctrl,body.beach .zoomers{opacity:0;pointer-events:none}
+#beach-hud{top:calc(env(safe-area-inset-top,0px) + 14px);left:calc(max(18px,env(safe-area-inset-left,0px)) + 54px);right:18px;color:var(--foam);opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .6s .7s,transform .6s .7s;text-shadow:0 1px 14px rgba(10,24,30,.35)}
+body.beach #beach-hud{opacity:1;transform:none}
+#beach-hud h2{font-family:var(--f-display);font-weight:300;font-size:clamp(2rem,4.6vw,3.4rem);line-height:1;margin:0}
+#bh-now{display:flex;flex-wrap:wrap;align-items:center;gap:4px 18px;margin:8px 0 0;font-family:var(--f-mono);font-size:.68rem;letter-spacing:.08em}
+#bh-now span{display:inline-flex;align-items:center;gap:6px}
+#bh-now .bk{font-size:.95rem}
+#bh-now small{font-size:.66rem;opacity:.85}
+#bh-now svg{width:13px;height:13px}
+#beach-fc{left:max(18px,env(safe-area-inset-left,0px));right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 80px);color:var(--foam);
+  background:color-mix(in srgb,#10262a 34%,transparent);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);border-radius:8px;padding:6px 10px 4px;
+  opacity:0;transform:translateY(16px);pointer-events:none;transition:opacity .6s .8s,transform .6s .8s}
+body.beach #beach-fc{opacity:1;transform:none;pointer-events:auto}
+.bf-scroll{max-height:min(24vh,150px);overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.bf-grid{min-width:760px}
+.bf-row{display:grid;grid-template-columns:4.6rem repeat(24,minmax(0,1fr));gap:2px;align-items:end;padding:3px 0;border-top:1px solid rgba(251,245,230,.12)}
+.bf-hd{position:sticky;top:0;z-index:1;border:0;padding:0 0 3px;font-family:var(--f-mono);font-size:.54rem;text-align:center;background:color-mix(in srgb,#183034 92%,transparent);opacity:.9}
+.bf-hd .cur{color:var(--wax)}
+.bf-day{position:sticky;left:0;z-index:1;align-self:stretch;display:flex;align-items:center;font-family:var(--f-display);font-style:italic;font-size:1rem;background:color-mix(in srgb,#183034 85%,transparent);padding:0 6px 0 4px;border-radius:3px}
+.bf-row.now .bf-day{color:var(--wax)}
+.bf-row button,.bf-row .na{display:grid;justify-items:center;gap:1px;line-height:1.05;background:none;border:0;border-radius:3px;padding:2px 0;color:inherit;cursor:pointer;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.bf-row .na{opacity:.25;cursor:default;font-size:.6rem}
+.bf-row button:hover{background:rgba(251,245,230,.08)}
+.bf-row button.cur{background:rgba(243,194,90,.18)}
+.bf-row button.cur b{color:var(--wax)}
+.bf-row button.ec{opacity:.55}
+.bf-row b{font-weight:500;font-size:.64rem}
+.bf-row i{font-style:normal;font-size:.5rem;opacity:.6}
+.bf-row em{display:block;width:50%;border-radius:2px 2px 0 0}
+.bf-row svg{width:8px;height:8px;opacity:.85}
+.bf-key{margin:4px 0 0;font-family:var(--f-mono);font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;opacity:.5}
+@media (max-width:760px){
+  .bv{top:64px}
+  #beach-hud h2{font-size:1.9rem}
+  #bh-now{gap:2px 12px;font-size:.6rem}
+  #beach-fc{bottom:calc(env(safe-area-inset-bottom,0px) + 72px);left:8px;right:8px;padding:6px 8px 4px}
+  .bf-scroll{max-height:26vh}
+  .bf-grid{min-width:660px}
+  .bf-row{grid-template-columns:3.4rem repeat(24,minmax(0,1fr))}
+  .bf-day{font-size:.9rem}
+}
+@media (prefers-reduced-motion:reduce){#beach{transition:opacity .3s;transform:none;filter:none}}
+
 </style>
 </head>
 <body>
@@ -551,6 +602,7 @@ body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
 
 <section id="info" aria-live="polite" aria-hidden="true">
   <h2 id="i-name">Spot</h2>
+  <button class="bv" id="i-beach" type="button" hidden>Beach view <span aria-hidden="true">↗</span></button>
   <div class="fc">
     <div class="blk"><div class="rlab">Wind · knots</div><div class="tbl" id="i-wind"></div></div>
     <div class="blk"><div class="rlab">Waves · metres · period</div><div class="tbl" id="i-wave"></div></div>
@@ -830,6 +882,7 @@ function spawn(p){const [ax,ay]=toWorld(0,0),[bx,by]=toWorld(W,H);for(let t=0;t<
 function resetParts(){partZ=cam.z;parts=Array.from({length:Math.round(Math.min(900,W*H/1500))},()=>spawn({}));ctx.clearRect(0,0,W,H)}
 function fadeTrails(a){ctx.save();ctx.globalCompositeOperation="destination-out";ctx.fillStyle=`rgba(0,0,0,${a})`;ctx.fillRect(0,0,W,H);ctx.restore()}
 function tick(){
+  if(window.beachFull){requestAnimationFrame(tick);return}   // the beach view covers the map
   const zf=cam.z/fitZ;ctx.lineCap="round";
   if(layer==="waves"){fadeTrails(.12);const sp=0.22/cam.z,Lz=Math.min(1.3,Math.pow(zf,0.2)),n=parts.length*.5|0;
     for(let i=0;i<n;i++){const p=parts[i];if(onLand(p.x,p.y)){spawn(p);continue}const w=waveAt(p.x,p.y),v=sp*(0.6+0.25*w.h);p.x+=w.dx*v;p.y+=w.dy*v;p.age++;
@@ -865,6 +918,7 @@ function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.rou
   const gx=Math.max(30,...ok.map(h=>h.g)),wm=Math.max(2.5,...ok.map(h=>h.wh??0));
   const mm=r=>r<10?r.toFixed(1):Math.round(r);
   document.getElementById("i-name").textContent=s.name;
+  document.getElementById("i-beach").hidden=!(window.beachHas&&beachHas(s.id));
   const hd=`<div class="row hd"><div></div><div class="hrs">${all[0].map(h=>`<span class="${h.h===hr?"cur":""}">${h.h}</span>`).join("")}</div></div>`;
   const na='<div class="na"><span class="kn">·</span></div>';
   // first three days as before; the ECMWF outlook continues below (scroll); days without data are left out
@@ -920,8 +974,10 @@ function closeSpot(){if(!selected||diving)return;diving=true;const s=selected;do
     ()=>{setReveal(0,0);selected=null;document.body.classList.remove("dive");
       for(const id of ["signs","markers"]){const n=document.getElementById(id);n.style.opacity=1;n.style.pointerEvents=""}
       flyTo(fit(),850,()=>{diving=false;document.getElementById("mk-"+s.id).focus({preventScroll:true})})})}
-document.getElementById("back").onclick=closeSpot;
-addEventListener("keydown",e=>{if(e.key==="Escape")closeSpot()});
+const goBack=()=>window.beachOpen&&beachOpen()?closeBeach():closeSpot();
+document.getElementById("back").onclick=goBack;
+document.getElementById("i-beach").onclick=()=>window.openBeach&&openBeach();
+addEventListener("keydown",e=>{if(e.key==="Escape")goBack()});
 
 /* ---------- timeline ---------- */
 const tlRange=document.getElementById("tl-range"),tlPlay=document.getElementById("tl-play");
@@ -953,7 +1009,8 @@ function onTime(){const p=pct(curT);document.getElementById("tl-thumb").style.le
   document.getElementById("tl-chip").textContent=`${dayName(d)} · ${hh}:00${isEc(h)?" · ECMWF":""}`;
   document.querySelectorAll(".tl-day").forEach((e,i)=>e.classList.toggle("on",i===d));
   if(Math.abs(curT-waveT)>=0.25){buildWaves();drawHeat()}
-  if(h!==lastHour){lastHour=h;if(selected)fillInfo(selected);if(reduce)drawStatic()}}
+  if(h!==lastHour){lastHour=h;if(selected)fillInfo(selected);if(reduce)drawStatic()}
+  window.beachTime&&beachTime()}
 function setTime(v){curT=Math.max(0,Math.min(N-1,v));if(curT>VE+.01&&!wide)setWide(true);onTime()}
 function setPlaying(p){playing=p;tlPlay.innerHTML=p?PAUSE:PLAY;tlPlay.setAttribute("aria-pressed",p);tlPlay.setAttribute("aria-label",p?"Pause forecast":"Play forecast");lastFrame=performance.now()}
 tlRange.addEventListener("input",()=>{setPlaying(false);setTime(+tlRange.value)});
@@ -1015,6 +1072,7 @@ loadForecast().then(()=>{VE=viewEnd();buildTimeline();lastHour=-1;waveT=-9;setTi
   .catch(e=>{console.warn("forecast",e);status.textContent="Forecast unavailable, try again later"});
 if(!reduce)requestAnimationFrame(tick);
 </script>
+<script src="beach.js"></script>
 
 </body>
 </html>

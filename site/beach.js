@@ -429,11 +429,11 @@ function drawWeather(t, dt) {
 }
 
 /* ---------- loop ---------- */
-let last = 0, raf = 0, clockT = 0;
+let last = 0, raf = 0, clockT = 0, sceneHidden = false;
 function frame(now) {
   if (!open) return;
   const dt = Math.min(.1, (now - last) / 1000 || 0); last = now; clockT += dt;
-  try { draw(clockT, dt); } catch (e) { console.warn("beach", e); }
+  if (!sceneHidden) try { draw(clockT, dt); } catch (e) { console.warn("beach", e); }
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches) raf = requestAnimationFrame(frame);
 }
 function draw(t, dt) {
@@ -516,12 +516,14 @@ function gull(k, now) {
   } else if (k < .74) {     // carries us down: holds steady while the world rushes up
     const t = (k - .38) / .36;
     x = cx + Math.sin(t * 5) * w * .012; y = cy + t * h * .04 + Math.sin(t * 7) * h * .006; s = mix(1.05, 1.25, t); a = 1; glide = .85;
-  } else {                  // and glides off over the sea towards the horizon
+  } else {                  // and banks away out of the side of the picture
     const t = ease3((k - .74) / .26);
-    x = qb(cx, w * .42, w * .3, t); y = qb(cy + h * .04, h * .42, HZ - h * .012, t); s = mix(1.25, .07, t); a = 1 - smooth(.88, 1, k); glide = .3;
+    x = qb(cx, w * .78, w * 1.25, t); y = qb(cy + h * .04, h * .36, h * .2, t); s = mix(1.25, .95, t); a = 1; glide = .5;
   }
   if (a <= .01) return;
-  const span = base * s, f = Math.sin(now / (glide > .5 ? 260 : 140)) * (1 - glide * .7), bank = Math.sin(now / 900) * .08 + (k < .38 ? .18 * (1 - k / .38) : 0);
+  // slow, easy wingbeats; mostly gliding while it carries us
+  const span = base * s, f = Math.sin(now / 320) * (1 - glide * .75),
+    bank = Math.sin(now / 1400) * .06 + (k < .38 ? .16 * (1 - k / .38) : 0) + (k > .74 ? .22 * smooth(.74, .9, k) : 0);
   gc.save(); gc.globalAlpha = a; gc.translate(x, y); gc.rotate(bank);
   // a soft shadow keeps it readable over any colour
   gc.shadowColor = "rgba(20,30,34,.35)"; gc.shadowBlur = span * .06; gc.shadowOffsetY = span * .02;
@@ -541,13 +543,14 @@ function gull(k, now) {
   gc.fillStyle = "#e9e3d6"; gc.beginPath(); gc.moveTo(-span * .03, span * .1); gc.lineTo(span * .03, span * .1); gc.lineTo(0, span * .145); gc.fill();
   gc.restore();
 }
+const setWill = on => [...LAYERS, wrap].forEach(el => el.style.willChange = on ? "filter, opacity, transform" : "");
 function pose(k) {
   const z = ease3(clamp((k - .08) / .62));                       // the zoom, following the gull down
   cam.x = mix(camBefore.x, camTarget.x, z); cam.y = mix(camBefore.y, camTarget.y, z);
   cam.z = Math.exp(mix(Math.log(camBefore.z), Math.log(camTarget.z), z)); applyCam();
   const blur = smooth(.14, .5, k), fade = smooth(.42, .68, k);
   for (const el of LAYERS) {
-    el.style.filter = blur > 0 ? `blur(${(blur * 18).toFixed(1)}px) saturate(${(1 - blur * .25).toFixed(2)})` : "";
+    el.style.filter = blur > 0 ? `blur(${(blur * 14).toFixed(1)}px)` : "";
     el.style.opacity = fade > 0 ? (1 - fade).toFixed(3) : "";
     el.style.transform = blur > 0 ? `scale(${(1 + blur * .06).toFixed(3)})` : "";   // hides the soft edge of the blur
   }
@@ -555,8 +558,10 @@ function pose(k) {
   wrap.style.opacity = a.toFixed(3);
   wrap.style.transform = a < 1 ? `scale(${mix(.86, 1, e).toFixed(4)})` : "";
   wrap.style.transformOrigin = "50% 46%";
-  wrap.style.filter = a < 1 ? `blur(${((1 - e) * 18).toFixed(1)}px)` : "";
+  wrap.style.filter = a < 1 ? `blur(${((1 - e) * 12).toFixed(1)}px)` : "";
   document.body.classList.toggle("beach-on", k > .66);
+  window.beachFull = k > .3;          // the map is blurred past seeing: stop animating its wind
+  sceneHidden = a <= 0;               // the beach isn't showing yet: don't draw it
   gull(k, performance.now());
 }
 const ease3 = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
@@ -570,13 +575,15 @@ window.openBeach = () => {
   document.body.classList.add("beach"); wrap.classList.add("on");
   hud.setAttribute("aria-hidden", "false");
   raf = requestAnimationFrame(frame);
-  tween(3000, (e, k) => pose(k), () => { busy = false; window.beachFull = true; scrollToDay();
+  setWill(true);
+  tween(5200, (e, k) => pose(k), () => { setWill(false); busy = false; window.beachFull = true; scrollToDay();
     document.getElementById("back").setAttribute("aria-label", "Back to the spot"); });
 };
 window.closeBeach = () => {
   if (busy || !open) return; busy = true; window.beachFull = false;
   hud.setAttribute("aria-hidden", "true");
-  tween(2400, (e, k) => pose(1 - k), () => { pose(0); document.body.classList.remove("beach"); wrap.classList.remove("on"); open = false; cancelAnimationFrame(raf); busy = false;
+  setWill(true);
+  tween(4400, (e, k) => pose(1 - k), () => { setWill(false); pose(0); document.body.classList.remove("beach"); wrap.classList.remove("on"); open = false; cancelAnimationFrame(raf); busy = false;
     document.getElementById("back").setAttribute("aria-label", "Back to the whole coast");
     document.getElementById("i-beach")?.focus({ preventScroll: true }); });
 };

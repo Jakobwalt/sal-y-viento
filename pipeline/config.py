@@ -47,6 +47,6 @@ WAVES_BASE = "wave_regional_ibi"
 WAVES_DETAIL = "wave_regional_gib"
 
 TIMEZONE = "Europe/Madrid"
-DAYS = 3          # today plus two full days; ECMWF fills what AEMET's 48 h don't reach
+DAYS = 10         # today plus nine days: AEMET where it reaches (48 h), the ECMWF outlook beyond
 KMH_TO_KN = 1 / 1.852
 USER_AGENT = "sal-y-viento/1.0 (+https://github.com/Jakobwalt/sal-y-viento)"

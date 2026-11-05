@@ -53,7 +53,12 @@ def fetch(start: dt.datetime, end: dt.datetime) -> EcmwfRun:
     times = [dt.datetime.fromisoformat(s).replace(tzinfo=dt.timezone.utc) for s in body[0]["hourly"]["time"]]
     col = lambda key: np.array([[np.nan if x is None else x for x in b["hourly"].get(key, [None] * len(times))] for b in body], dtype=np.float64)  # [P, T]
     spd, dirn, gst = col("wind_speed_10m"), col("wind_direction_10m"), col("wind_gusts_10m")
-    temp, rain, cloud = col("temperature_2m"), col("precipitation"), col("cloud_cover")
+    # the run may not reach as far as we asked: drop the empty hours at the end
+    have = np.where((~np.isnan(spd)).sum(0) >= 3)[0]
+    n = int(have[-1]) + 1 if len(have) else 0
+    times = times[:n]
+    spd, dirn, gst = spd[:, :n], dirn[:, :n], gst[:, :n]
+    temp, rain, cloud = col("temperature_2m")[:, :n], col("precipitation")[:, :n], col("cloud_cover")[:, :n]
     u, v = _uv(spd, dirn)
 
     xy = np.array(pts)

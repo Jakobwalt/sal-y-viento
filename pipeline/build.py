@@ -131,7 +131,8 @@ def load_previous(base_url: str | None):
         prev = {"times": times, "meta": meta}
         w = g("wind.bin"); w.raise_for_status(); prev["wind"] = dec_wind(w.content, T)
         try:
-            wv = g("waves.bin"); wv.raise_for_status(); prev["waves"] = dec_waves(wv.content, T)
+            wv = g("waves.bin"); wv.raise_for_status()
+            prev["waves"] = dec_waves(wv.content, meta.get("wave_hours", T))
         except Exception:
             prev["waves"] = None
         s = g("spots.json"); s.raise_for_status(); prev["spots"] = s.json()["spots"]
@@ -193,7 +194,7 @@ def reuse_live(base_url, out):
         r = requests.get(f"{base_url.rstrip('/')}/data/{f}", timeout=60, headers={"User-Agent": C.USER_AGENT})
         r.raise_for_status()
         (out / f).write_bytes(r.content)
-    meta = json.loads((out / "meta.json").read_text()); T = meta["hours"]
+    meta = json.loads((out / "meta.json").read_text()); T = meta.get("wave_hours", meta["hours"])
     WH, WP, WD = dec_waves((out / "waves.bin").read_bytes(), T)
     sp = json.loads((out / "spots.json").read_text())
     for sid, s in C.SPOTS.items():
@@ -254,7 +255,7 @@ def main(argv=None):
     except Exception as e:
         report["errors"]["aemet"] = repr(e); log("aemet FAILED"); traceback.print_exc()
 
-    # Today plus two full days: AEMET where it reaches, ECMWF's own forecast beyond it.
+    # AEMET where it reaches (48 h), ECMWF's own forecast beyond it, out to DAYS days.
     horizon = t0 + (C.DAYS * 24 - 1) * H
     ec = None
     try:
@@ -263,7 +264,7 @@ def main(argv=None):
     except Exception as e:
         report["errors"]["ecmwf"] = repr(e); log("ecmwf FAILED"); traceback.print_exc()
 
-    ends = [x for x in (ae.times[-1] if ae else None, ec.times[-1] if ec else None,
+    ends = [x for x in (ae.times[-1] if ae else None, ec.times[-1] if ec and ec.times else None,
                         prev["times"][-1] if prev else None) if x is not None]
     if not ends:
         log("Nothing to publish: no source answered and there is no previous data.")
@@ -324,7 +325,8 @@ def main(argv=None):
         # waves
         if wv and t in wv_i:
             j = wv_i[t]; WH[k], WP[k], WD[k] = wv.h[j], wv.period[j], wv.dir_from[j]; src_wave.append("new")
-        elif prev and prev.get("waves") and t in pv_i and not np.isnan(prev["waves"][0][pv_i[t]]).all():
+        elif prev and prev.get("waves") and t in pv_i and pv_i[t] < len(prev["waves"][0]) \
+                and not np.isnan(prev["waves"][0][pv_i[t]]).all():
             j = pv_i[t]; WH[k], WP[k], WD[k] = (a[j] for a in prev["waves"]); src_wave.append("prev")
         else:
             src_wave.append(None)
@@ -373,19 +375,22 @@ def main(argv=None):
     # ------------------------------------------------ write
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     (out / "wind.bin").write_bytes(enc_wind(U, V, G))
-    (out / "waves.bin").write_bytes(enc_waves(WH, WP, WD))
+    # waves end long before the ECMWF outlook does: only write the hours that have any
+    TW = max((k + 1 for k, x in enumerate(src_wave) if x is not None), default=0)
+    (out / "waves.bin").write_bytes(enc_waves(WH[:TW], WP[:TW], WD[:TW]))
     (out / "spots.json").write_text(json.dumps({"t0": t0.isoformat(), "hours": T, "spots": spots_out}, separators=(",", ":")))
     meta = {
         "version": 1,
         "generated": now.isoformat(),
         "t0": t0.isoformat(),
         "hours": T,
+        "wave_hours": TW,
         "timezone": C.TIMEZONE,
         "grid": {"lon0": float(C.LONS[0]), "lat0": float(C.LATS[0]), "step": C.STEP, "nx": C.NX, "ny": C.NY,
                  "order": "row 0 = north, west to east"},
         "files": {
             "wind.bin": "[hour][row][col][u, v, gust]: u/v int8 in half knots (toward east/north), -128 = none; gust uint8 knots",
-            "waves.bin": "[hour][row][col][height, period, dir]: uint8 height 0.05 m, period 0.1 s, direction-from 360/256 deg; 255 = land/none",
+            "waves.bin": "first wave_hours hours only; [hour][row][col][height, period, dir]: uint8 height 0.05 m, period 0.1 s, direction-from 360/256 deg; 255 = land/none",
         },
         "sources": {
             "aemet": {"name": "AEMET HARMONIE-AROME", "first": ae.times[0].isoformat() if ae else None,

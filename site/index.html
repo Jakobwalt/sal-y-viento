@@ -235,10 +235,11 @@ body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
 #beach{position:fixed;inset:0;z-index:5;opacity:0;pointer-events:none;transform-origin:50% 100%;visibility:hidden}
 #beach.on{pointer-events:auto;visibility:visible}
 #beach canvas{display:block}
+#gull{position:fixed;inset:0;width:100%;height:100%;z-index:6;pointer-events:none}
 body.beach #info,body.beach.dive.ready #info{opacity:0;pointer-events:none;transform:translateY(40px)}
 body.beach .ctrl,body.beach .zoomers{opacity:0;pointer-events:none}
-#beach-hud{top:calc(env(safe-area-inset-top,0px) + 14px);left:calc(max(18px,env(safe-area-inset-left,0px)) + 54px);right:18px;color:var(--foam);opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .6s .7s,transform .6s .7s;text-shadow:0 1px 14px rgba(10,24,30,.35)}
-body.beach #beach-hud{opacity:1;transform:none}
+#beach-hud{top:calc(env(safe-area-inset-top,0px) + 14px);left:calc(max(18px,env(safe-area-inset-left,0px)) + 54px);right:18px;color:var(--foam);opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .6s .2s,transform .6s .2s;text-shadow:0 1px 14px rgba(10,24,30,.35)}
+body.beach-on #beach-hud{opacity:1;transform:none}
 #beach-hud h2{font-family:var(--f-display);font-weight:300;font-size:clamp(2rem,4.6vw,3.4rem);line-height:1;margin:0}
 #bh-now{display:flex;flex-wrap:wrap;align-items:center;gap:4px 18px;margin:8px 0 0;font-family:var(--f-mono);font-size:.68rem;letter-spacing:.08em}
 #bh-now span{display:inline-flex;align-items:center;gap:6px}
@@ -247,8 +248,8 @@ body.beach #beach-hud{opacity:1;transform:none}
 #bh-now svg{width:13px;height:13px}
 #beach-fc{left:max(18px,env(safe-area-inset-left,0px));right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 80px);color:var(--foam);
   background:color-mix(in srgb,#10262a 34%,transparent);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);border-radius:8px;padding:6px 10px 4px;
-  opacity:0;transform:translateY(16px);pointer-events:none;transition:opacity .6s .8s,transform .6s .8s}
-body.beach #beach-fc{opacity:1;transform:none;pointer-events:auto}
+  opacity:0;transform:translateY(16px);pointer-events:none;transition:opacity .6s .35s,transform .6s .35s}
+body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
 .bf-scroll{max-height:min(24vh,150px);overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .bf-grid{min-width:760px}
 .bf-row{display:grid;grid-template-columns:4.6rem repeat(24,minmax(0,1fr));gap:2px;align-items:end;padding:3px 0;border-top:1px solid rgba(251,245,230,.12)}

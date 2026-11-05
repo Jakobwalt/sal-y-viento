@@ -493,25 +493,71 @@ window.beachTime = () => {   // called by the page whenever the time moves
 };
 
 /* ---------- in and out ---------- */
-// One motion, played forwards to go in and backwards to come out: the map zooms down onto the
-// beach and tips away (the camera pitching up to the horizon), then the beach rises into view.
+// A gull flies in and the camera follows it down: the map zooms in behind it and dissolves
+// into blur early, the beach comes up through the blur (still zooming, so it reads as one dive),
+// and the gull glides on out over the sea. Going back plays the same motion in reverse.
 let camBefore = null, camTarget = null, busy = false;
 window.beachHas = has;
 window.beachOpen = () => open;
 const LAYERS = ["map", "detail", "heat", "wind"].map(id => document.getElementById(id));
+const sky = document.createElement("canvas");
+sky.id = "gull"; sky.setAttribute("aria-hidden", "true"); document.body.append(sky);
+const gc = sky.getContext("2d");
+const qb = (a, c, b, t) => (1 - t) * (1 - t) * a + 2 * (1 - t) * t * c + t * t * b;   // quadratic Bézier
+function gull(k, now) {
+  const w = innerWidth, h = innerHeight, r = Math.min(2, devicePixelRatio || 1);
+  if (sky.width !== w * r || sky.height !== h * r) { sky.width = w * r; sky.height = h * r; }
+  gc.setTransform(r, 0, 0, r, 0, 0); gc.clearRect(0, 0, w, h);
+  const base = Math.min(w, h) * .16, cx = w * .5, cy = h * .44;
+  let x, y, s, a, glide;
+  if (k < .38) {            // swoops in from the upper left and settles in front of us
+    const t = ease3(k / .38);
+    x = qb(-w * .1, w * .2, cx, t); y = qb(h * .08, -h * .02, cy, t); s = mix(.7, 1.05, t); a = smooth(0, .06, k); glide = t > .7 ? .6 : 0;
+  } else if (k < .74) {     // carries us down: holds steady while the world rushes up
+    const t = (k - .38) / .36;
+    x = cx + Math.sin(t * 5) * w * .012; y = cy + t * h * .04 + Math.sin(t * 7) * h * .006; s = mix(1.05, 1.25, t); a = 1; glide = .85;
+  } else {                  // and glides off over the sea towards the horizon
+    const t = ease3((k - .74) / .26);
+    x = qb(cx, w * .42, w * .3, t); y = qb(cy + h * .04, h * .42, HZ - h * .012, t); s = mix(1.25, .07, t); a = 1 - smooth(.88, 1, k); glide = .3;
+  }
+  if (a <= .01) return;
+  const span = base * s, f = Math.sin(now / (glide > .5 ? 260 : 140)) * (1 - glide * .7), bank = Math.sin(now / 900) * .08 + (k < .38 ? .18 * (1 - k / .38) : 0);
+  gc.save(); gc.globalAlpha = a; gc.translate(x, y); gc.rotate(bank);
+  // a soft shadow keeps it readable over any colour
+  gc.shadowColor = "rgba(20,30,34,.35)"; gc.shadowBlur = span * .06; gc.shadowOffsetY = span * .02;
+  for (const side of [-1, 1]) {
+    const tipY = -f * span * .22 - span * .05, elbowY = -span * .07 - f * span * .1;
+    gc.fillStyle = "#f7f3ea"; gc.beginPath(); gc.moveTo(0, -span * .015);
+    gc.quadraticCurveTo(side * span * .14, elbowY - span * .03, side * span * .25, elbowY);
+    gc.quadraticCurveTo(side * span * .38, elbowY + span * .01, side * span * .5, tipY);
+    gc.quadraticCurveTo(side * span * .34, elbowY + span * .07, side * span * .2, elbowY + span * .075);
+    gc.quadraticCurveTo(side * span * .08, span * .04, 0, span * .045); gc.fill();
+    gc.shadowColor = "transparent";
+    gc.fillStyle = "#3b3f42"; gc.beginPath(); gc.moveTo(side * span * .5, tipY);   // dark wingtips
+    gc.quadraticCurveTo(side * span * .42, elbowY + span * .02, side * span * .36, elbowY + span * .045);
+    gc.lineTo(side * span * .43, tipY + span * .05); gc.closePath(); gc.fill();
+  }
+  gc.fillStyle = "#fbf8f1"; gc.beginPath(); gc.ellipse(0, span * .02, span * .038, span * .1, 0, 0, 7); gc.fill();
+  gc.fillStyle = "#e9e3d6"; gc.beginPath(); gc.moveTo(-span * .03, span * .1); gc.lineTo(span * .03, span * .1); gc.lineTo(0, span * .145); gc.fill();
+  gc.restore();
+}
 function pose(k) {
-  const z = ease3(clamp(k / .8)), tilt = smooth(.18, .82, k), blur = smooth(.55, .95, k), rise = smooth(.5, .95, k);
+  const z = ease3(clamp((k - .08) / .62));                       // the zoom, following the gull down
   cam.x = mix(camBefore.x, camTarget.x, z); cam.y = mix(camBefore.y, camTarget.y, z);
   cam.z = Math.exp(mix(Math.log(camBefore.z), Math.log(camTarget.z), z)); applyCam();
+  const blur = smooth(.14, .5, k), fade = smooth(.42, .68, k);
   for (const el of LAYERS) {
-    el.style.transformOrigin = "50% 58%";
-    el.style.transform = k > 0 ? `perspective(760px) rotateX(${(tilt * 70).toFixed(2)}deg) scale(${(1 + tilt * .35).toFixed(3)})` : "";
-    el.style.filter = blur > 0 ? `blur(${(blur * 9).toFixed(1)}px)` : "";
-    el.style.opacity = k > 0 ? (1 - smooth(.75, 1, k) * .9).toFixed(3) : "";
+    el.style.filter = blur > 0 ? `blur(${(blur * 18).toFixed(1)}px) saturate(${(1 - blur * .25).toFixed(2)})` : "";
+    el.style.opacity = fade > 0 ? (1 - fade).toFixed(3) : "";
+    el.style.transform = blur > 0 ? `scale(${(1 + blur * .06).toFixed(3)})` : "";   // hides the soft edge of the blur
   }
-  wrap.style.opacity = rise.toFixed(3);
-  wrap.style.transform = rise < 1 ? `perspective(900px) translateY(${((1 - rise) * 26).toFixed(2)}%) rotateX(${((1 - rise) * -22).toFixed(2)}deg) scale(${(1 + (1 - rise) * .18).toFixed(3)})` : "";
-  wrap.style.filter = rise < 1 ? `blur(${((1 - rise) * 10).toFixed(1)}px)` : "";
+  const a = smooth(.36, .7, k), e = ease3(a);
+  wrap.style.opacity = a.toFixed(3);
+  wrap.style.transform = a < 1 ? `scale(${mix(.86, 1, e).toFixed(4)})` : "";
+  wrap.style.transformOrigin = "50% 46%";
+  wrap.style.filter = a < 1 ? `blur(${((1 - e) * 18).toFixed(1)}px)` : "";
+  document.body.classList.toggle("beach-on", k > .66);
+  gull(k, performance.now());
 }
 const ease3 = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
 window.openBeach = () => {
@@ -524,13 +570,13 @@ window.openBeach = () => {
   document.body.classList.add("beach"); wrap.classList.add("on");
   hud.setAttribute("aria-hidden", "false");
   raf = requestAnimationFrame(frame);
-  tween(2100, (e, k) => pose(k), () => { busy = false; window.beachFull = true; scrollToDay();
+  tween(3000, (e, k) => pose(k), () => { busy = false; window.beachFull = true; scrollToDay();
     document.getElementById("back").setAttribute("aria-label", "Back to the spot"); });
 };
 window.closeBeach = () => {
   if (busy || !open) return; busy = true; window.beachFull = false;
-  document.body.classList.remove("beach"); hud.setAttribute("aria-hidden", "true");
-  tween(1500, (e, k) => pose(1 - k), () => { pose(0); wrap.classList.remove("on"); open = false; cancelAnimationFrame(raf); busy = false;
+  hud.setAttribute("aria-hidden", "true");
+  tween(2400, (e, k) => pose(1 - k), () => { pose(0); document.body.classList.remove("beach"); wrap.classList.remove("on"); open = false; cancelAnimationFrame(raf); busy = false;
     document.getElementById("back").setAttribute("aria-label", "Back to the whole coast");
     document.getElementById("i-beach")?.focus({ preventScroll: true }); });
 };

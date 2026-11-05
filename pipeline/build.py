@@ -254,21 +254,25 @@ def main(argv=None):
     except Exception as e:
         report["errors"]["aemet"] = repr(e); log("aemet FAILED"); traceback.print_exc()
 
-    end = ae.times[-1] if ae else (prev["times"][-1] if prev else None)
-    if end is None:
-        log("Nothing to publish: AEMET failed and there is no previous data.")
+    # Today plus two full days: AEMET where it reaches, ECMWF's own forecast beyond it.
+    horizon = t0 + (C.DAYS * 24 - 1) * H
+    ec = None
+    try:
+        ec = ecmwf.fetch(t0, horizon); report["ecmwf"] = ec.report
+        log(f"ecmwf: {len(ec.times)} hours")
+    except Exception as e:
+        report["errors"]["ecmwf"] = repr(e); log("ecmwf FAILED"); traceback.print_exc()
+
+    ends = [x for x in (ae.times[-1] if ae else None, ec.times[-1] if ec else None,
+                        prev["times"][-1] if prev else None) if x is not None]
+    if not ends:
+        log("Nothing to publish: no source answered and there is no previous data.")
         return 1
+    end = min(max(ends), horizon)
     T = int((end - t0) / H) + 1
     if T <= 0:
         log("Newest data ends before today; nothing to publish."); return 1
     times = [t0 + i * H for i in range(T)]
-
-    ec = None
-    try:
-        ec = ecmwf.fetch(t0, end); report["ecmwf"] = ec.report
-        log(f"ecmwf: {len(ec.times)} hours")
-    except Exception as e:
-        report["errors"]["ecmwf"] = repr(e); log("ecmwf FAILED"); traceback.print_exc()
 
     wv = None
     try:
@@ -289,21 +293,34 @@ def main(argv=None):
     nan = lambda: np.full((T, C.NY, C.NX), np.nan, np.float32)
     U, V, G = nan(), nan(), nan()
     WH, WP, WD = nan(), nan(), nan()
-    src_wind, src_wave = [], []
+    src_wind, src_wave, model = [], [], []
+    prev_model = (prev["meta"].get("model") if prev else None) or (
+        ["aemet" if c else None for c in prev["meta"]["coverage"]["wind"]] if prev else [])
+    first_ae = ae.times[0] if ae else None
     for k, t in enumerate(times):
-        # wind: AEMET speed + ECMWF direction; else the previous deploy
+        pj = pv_i.get(t)
+        prev_has = prev and pj is not None and not np.isnan(prev["wind"][0][pj]).all()
+        prev_is_aemet = prev_has and pj < len(prev_model) and prev_model[pj] == "aemet"
+        # wind: AEMET speed + ECMWF direction; then earlier AEMET hours from the live build;
+        # then ECMWF's own wind (the outlook); then anything the live build had
         if t in ae_i and t in ec_i:
             s = ae.fields["wind_kmh"][ae_i[t]] * C.KMH_TO_KN
             eu, evv = ec.u[ec_i[t]], ec.v[ec_i[t]]
             m = np.hypot(eu, evv); m[m < 1e-6] = np.nan
             U[k], V[k] = s * eu / m, s * evv / m
             G[k] = ae.fields.get("gust_kmh", ae.fields["wind_kmh"])[ae_i[t]] * C.KMH_TO_KN
-            src_wind.append("new")
-        elif prev and t in pv_i and not np.isnan(prev["wind"][0][pv_i[t]]).all():
-            j = pv_i[t]; U[k], V[k], G[k] = prev["wind"][0][j], prev["wind"][1][j], prev["wind"][2][j]
-            src_wind.append("prev")
+            src_wind.append("new"); model.append("aemet")
+        elif prev_is_aemet and (first_ae is None or t < first_ae):
+            U[k], V[k], G[k] = prev["wind"][0][pj], prev["wind"][1][pj], prev["wind"][2][pj]
+            src_wind.append("prev"); model.append("aemet")
+        elif t in ec_i:
+            j = ec_i[t]; U[k], V[k], G[k] = ec.u[j], ec.v[j], ec.gust[j]
+            src_wind.append("ecmwf"); model.append("ecmwf")
+        elif prev_has:
+            U[k], V[k], G[k] = prev["wind"][0][pj], prev["wind"][1][pj], prev["wind"][2][pj]
+            src_wind.append("prev"); model.append(prev_model[pj] if pj < len(prev_model) else "aemet")
         else:
-            src_wind.append(None)
+            src_wind.append(None); model.append(None)
         # waves
         if wv and t in wv_i:
             j = wv_i[t]; WH[k], WP[k], WD[k] = wv.h[j], wv.period[j], wv.dir_from[j]; src_wave.append("new")
@@ -326,10 +343,17 @@ def main(argv=None):
                 gst = sample(ae.fields.get("gust_kmh", ae.fields["wind_kmh"])[ae_i[t]], plon, plat) * C.KMH_TO_KN
                 d = ec.points[sid]["dir"][ec_i[t]]
                 o["kn"].append(r1(spd, 0)); o["gust"].append(r1(max(gst, spd), 0)); o["dir"].append(r1(d, 0))
+            elif src_wind[k] == "ecmwf":
+                e = ec.points[sid]; j = ec_i[t]
+                o["kn"].append(r1(e["kn"][j], 0)); o["gust"].append(r1(max(e["gust"][j], e["kn"][j]) if e["gust"][j] == e["gust"][j] else e["kn"][j], 0))
+                o["dir"].append(r1(e["dir"][j], 0))
             else:
                 for key in ("kn", "gust", "dir"):
                     o[key].append(take_prev(key))
-            if ae and t in ae_i:
+            if src_wind[k] == "ecmwf":
+                e = ec.points[sid]; j = ec_i[t]
+                o["temp"].append(r1(e["temp"][j])); o["rain"].append(r1(e["rain"][j])); o["cloud"].append(r1(e["cloud"][j], 0))
+            elif ae and t in ae_i:
                 f = ae.fields; j = ae_i[t]
                 o["temp"].append(r1(sample(f["temp_c"][j], blon, blat)) if "temp_c" in f else None)
                 o["rain"].append(r1(sample(f["rain_mm"][j], blon, blat)) if "rain_mm" in f else None)
@@ -366,10 +390,12 @@ def main(argv=None):
         "sources": {
             "aemet": {"name": "AEMET HARMONIE-AROME", "first": ae.times[0].isoformat() if ae else None,
                       "last": ae.times[-1].isoformat() if ae else None},
-            "ecmwf": {"name": "ECMWF IFS 9 km via Open-Meteo", "ok": bool(ec)},
+            "ecmwf": {"name": "ECMWF IFS 9 km via Open-Meteo", "ok": bool(ec),
+                      "outlook_from": next((times[i].isoformat() for i in range(max((i for i, m in enumerate(model) if m == "aemet"), default=-1) + 1, T) if model[i] == "ecmwf"), None)},
             "waves": {"name": "Puertos del Estado IBI + Strait wave models", "run": wv.run.isoformat() if wv else None},
         },
         "signatures": sig,
+        "model": model,
         "coverage": {"wind": [s is not None for s in src_wind], "waves": [s is not None for s in src_wave]},
         "credit": "Forecast data: AEMET, ECMWF (CC BY 4.0), Puertos del Estado. Direction via Open-Meteo.",
     }
@@ -380,7 +406,7 @@ def main(argv=None):
     (out / "report.json").write_text(json.dumps(report, indent=1, default=str))
     set_output("changed", "true")
     log(f"wrote {T} hours from {t0.isoformat()} to {out}  "
-        f"(wind new {src_wind.count('new')}, prev {src_wind.count('prev')}; waves new {src_wave.count('new')}, prev {src_wave.count('prev')})")
+        f"(wind new {src_wind.count('new')}, ecmwf {src_wind.count('ecmwf')}, prev {src_wind.count('prev')}; waves new {src_wave.count('new')}, prev {src_wave.count('prev')})")
     return 0
 
 

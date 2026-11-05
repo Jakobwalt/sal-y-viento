@@ -13,6 +13,7 @@ import datetime as dt
 import json
 import os
 import sys
+import zlib
 import traceback
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -150,15 +151,32 @@ def set_output(key, value):
             f.write(f"{key}={value}\n")
 
 
+def aemet_run_id():
+    """Name of the first file inside AEMET's archive (it carries the run's first valid time).
+
+    Reads only the first few kilobytes of the download and then closes the connection, so the
+    check costs almost nothing. The archive's HTTP headers change on every request, so they
+    can't tell us whether the run is new."""
+    with requests.get(C.AEMET_URL, stream=True, timeout=60, headers={"User-Agent": C.USER_AGENT}) as r:
+        r.raise_for_status()
+        z = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        buf, read = b"", 0
+        for chunk in r.iter_content(16384):
+            read += len(chunk)
+            buf += z.decompress(chunk)
+            if len(buf) >= 512 or read > 1_000_000:
+                break
+    name = buf[:100].split(b"\0", 1)[0].decode("utf-8", "replace").rsplit("/", 1)[-1]
+    return name or None
+
+
 def source_signatures(now, aemet_mod, waves_mod):
-    """Cheap checks for whether new runs exist: a HEAD request to AEMET, two catalogue reads for waves."""
+    """Cheap checks for whether new runs exist: AEMET's first archive entry, two wave catalogue reads."""
     sig = {}
     try:
-        r = requests.head(C.AEMET_URL, timeout=30, allow_redirects=True, headers={"User-Agent": C.USER_AGENT})
-        parts = [r.headers.get(k, "") for k in ("ETag", "Last-Modified", "Content-Length")]
-        sig["aemet"] = "|".join(parts) if r.ok and any(parts) else None
-    except Exception:
-        sig["aemet"] = None
+        sig["aemet"] = aemet_run_id()
+    except Exception as e:
+        log(f"aemet check failed ({e})"); sig["aemet"] = None
     for ds in (C.WAVES_BASE, C.WAVES_DETAIL):
         try:
             sig[ds] = waves_mod.latest_file(now, ds)[0]
@@ -223,6 +241,7 @@ def main(argv=None):
     sig = source_signatures(now, aemet, waves)
     old = (prev or {}).get("meta", {}).get("signatures", {})
     same_day = bool(prev) and prev["times"][0] == t0
+    log(f"source check: {sig}\n        live build: {old}")
     if (not args.force and same_day and sig.get("aemet") and all(sig.get(k) and sig.get(k) == old.get(k) for k in sig)):
         log(f"no new runs since the last build ({sig}); nothing fetched, nothing to deploy")
         set_output("changed", "false")

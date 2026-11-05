@@ -53,6 +53,10 @@ jobs:
           [ "${{ inputs.force }}" = "true" ] && extra="--force"
           python -m pipeline.build --out site/data --previous "https://jakobwalt.github.io/sal-y-viento" $extra
 
+      # a fresh query string per deploy, so browsers load the new script instead of a cached one
+      - name: Version the scripts
+        run: sed -i "s/beach.js?v=[A-Za-z0-9]*/beach.js?v=${GITHUB_SHA::8}/" site/index.html
+
       - name: Summary
         if: always()
         run: |

@@ -235,7 +235,7 @@ body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
 #beach{position:fixed;inset:0;z-index:5;opacity:0;pointer-events:none;transform-origin:50% 100%;visibility:hidden}
 #beach.on{pointer-events:auto;visibility:visible}
 #beach canvas{display:block}
-#gull{position:fixed;inset:0;width:100%;height:100%;z-index:6;pointer-events:none}
+#gull{position:fixed;inset:0;width:100%;height:100%;z-index:5;pointer-events:none}
 body.beach #info,body.beach.dive.ready #info{opacity:0;pointer-events:none;transform:translateY(40px)}
 body.beach .ctrl,body.beach .zoomers{opacity:0;pointer-events:none}
 #beach-hud{top:calc(env(safe-area-inset-top,0px) + 14px);left:calc(max(18px,env(safe-area-inset-left,0px)) + 54px);right:18px;color:var(--foam);opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .6s .2s,transform .6s .2s;text-shadow:0 1px 14px rgba(10,24,30,.35)}
@@ -1072,7 +1072,7 @@ loadForecast().then(()=>{VE=viewEnd();buildTimeline();lastHour=-1;waveT=-9;setTi
   .catch(e=>{console.warn("forecast",e);status.textContent="Forecast unavailable, try again later"});
 if(!reduce)requestAnimationFrame(tick);
 </script>
-<script src="beach.js"></script>
+<script src="beach.js?v=dev"></script>
 
 </body>
 </html>

@@ -70,7 +70,8 @@ const wrap = document.createElement("div");
 wrap.id = "beach"; wrap.setAttribute("aria-hidden", "true");
 wrap.innerHTML = '<canvas id="beach-cv"></canvas>';
 document.getElementById("grain").before(wrap);
-const cv = wrap.firstChild, g = cv.getContext("2d");
+const cv = wrap.firstChild, main = cv.getContext("2d");
+let g = main;                       // the context being drawn into (swapped while a layer paints in)
 const hud = document.createElement("div");
 hud.id = "beach-hud"; hud.className = "ui"; hud.setAttribute("aria-live", "polite");
 hud.innerHTML = '<h2 id="bh-name"></h2><p id="bh-now"></p>';
@@ -436,15 +437,49 @@ function frame(now) {
   if (!sceneHidden) try { draw(clockT, dt); } catch (e) { console.warn("beach", e); }
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches) raf = requestAnimationFrame(frame);
 }
-function draw(t, dt) {
-  S = state(curT);
+/* When the gull brings us down, the picture paints itself in, one part after another, each with a
+   soft brushed edge: sky, clouds, sea, hills, sand, waves and dune, scrub, then the small things. */
+const PAINT = [   // [start, end] within the reveal, and the direction the brush moves
+  ["sky", 0, .3, "down"], ["clouds", .14, .44, "right"], ["sea", .2, .5, "right"], ["hills", .3, .6, "left"],
+  ["land", .4, .7, "up"], ["waves", .52, .8, "right"], ["scrub", .58, .86, "up"], ["things", .74, .94, "up"], ["weather", .84, 1, "fade"],
+];
+const off = document.createElement("canvas"), oc = off.getContext("2d");
+let reveal = 1;
+const easeOut = x => 1 - Math.pow(1 - x, 3);
+function paint(name, fn) {
+  const [, a, b, dir] = PAINT.find(p => p[0] === name), pr = clamp((reveal - a) / (b - a));
+  if (pr <= 0) return;
+  if (pr >= 1) { fn(); return; }
+  if (off.width !== cv.width || off.height !== cv.height) { off.width = cv.width; off.height = cv.height; }
+  const e = easeOut(pr);
+  oc.setTransform(1, 0, 0, 1, 0, 0); oc.clearRect(0, 0, off.width, off.height);
+  g = oc; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.save(); g.translate(0, (1 - e) * (dir === "up" ? 14 : dir === "down" ? -10 : 0)); fn(); g.restore();
+  // the brushed edge: a wide feather that sweeps across
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = "destination-in";
+  const w = off.width, h = off.height, F = .45, x = mix(-F, 1, e);
+  let gr;
+  if (dir === "right") gr = g.createLinearGradient(x * w, 0, (x + F) * w, 0);
+  else if (dir === "left") gr = g.createLinearGradient((1 - x) * w, 0, (1 - x - F) * w, 0);
+  else if (dir === "down") gr = g.createLinearGradient(0, x * h, 0, (x + F) * h);
+  else if (dir === "up") gr = g.createLinearGradient(0, (1 - x) * h, 0, (1 - x - F) * h);
+  if (gr) { gr.addColorStop(0, "rgba(0,0,0,1)"); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
+  g.globalCompositeOperation = "source-over";
+  g = main; g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = smooth(0, .6, pr); g.drawImage(off, 0, 0); g.globalAlpha = 1;
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  drawSky(t); drawClouds(t, dt); drawSea(t); drawHills(t); drawLand(t); drawWaves(t); drawScrub(t);
-  // the big pale dune at Punta Paloma, at the far end of the beach
+}
+function drawDune() {   // the big pale dune at Punta Paloma, at the far end of the beach
   g.fillStyle = css(mixc(lit("#f4ead2"), S.hor, .15)); g.fill(polyPath(sc.dune));
   const dz = sc.dune, mid = Math.floor(dz.length / 2);
   g.fillStyle = css(mixc(lit("#d8c49c"), S.hor, .2), .7); g.fill(polyPath([...dz.slice(mid), [dz[mid][0] - .02, .002]]));
-  drawBoardwalk(); drawFlag(t); drawWeather(t, dt);
+}
+function draw(t, dt) {
+  S = state(curT);
+  g = main; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (reveal < 1) { g.fillStyle = "#efe6d2"; g.fillRect(0, 0, W, H); }       // a blank sheet to paint on
+  paint("sky", () => drawSky(t)); paint("clouds", () => drawClouds(t, dt)); paint("sea", () => drawSea(t));
+  paint("hills", () => drawHills(t)); paint("land", () => drawLand(t)); paint("waves", () => { drawWaves(t); drawDune(); });
+  paint("scrub", () => drawScrub(t)); paint("things", () => { drawBoardwalk(); drawFlag(t); }); paint("weather", () => drawWeather(t, dt));
 }
 
 /* ---------- forecast readout and the 24-hour table ---------- */
@@ -493,99 +528,147 @@ window.beachTime = () => {   // called by the page whenever the time moves
 };
 
 /* ---------- in and out ---------- */
-// A gull flies in and the camera follows it down: the map zooms in behind it and dissolves
-// into blur early, the beach comes up through the blur (still zooming, so it reads as one dive),
-// and the gull glides on out over the sea. Going back plays the same motion in reverse.
-let camBefore = null, camTarget = null, busy = false;
+// Going down: a gull glides in from the side of the screen and the camera follows it down; the
+// map zooms in behind it, softens into blur and fades to a blank sheet; the beach then paints
+// itself in while the gull glides on and out of the other side. Coming back runs it in reverse.
+let camBefore = null, camTarget = null, busy = false, anim = 0;
 window.beachHas = has;
 window.beachOpen = () => open;
 const LAYERS = ["map", "detail", "heat", "wind"].map(id => document.getElementById(id));
 const sky = document.createElement("canvas");
-sky.id = "gull"; sky.setAttribute("aria-hidden", "true"); document.body.append(sky);
+sky.id = "gull"; sky.setAttribute("aria-hidden", "true"); document.getElementById("grain").before(sky);
 const gc = sky.getContext("2d");
-const qb = (a, c, b, t) => (1 - t) * (1 - t) * a + 2 * (1 - t) * t * c + t * t * b;   // quadratic Bézier
-function gull(k, now) {
+const ease3 = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const easeIO = k => .5 - .5 * Math.cos(Math.PI * clamp(k));                      // gentle sine in-out
+const setWill = on => [...LAYERS, wrap].forEach(el => el.style.willChange = on ? "filter, opacity, transform" : "");
+
+// the map side of things, m: 0 = spot view, 1 = gone
+function mapPose(m) {
+  const z = easeIO(m);
+  cam.x = mix(camBefore.x, camTarget.x, z); cam.y = mix(camBefore.y, camTarget.y, z);
+  cam.z = Math.exp(mix(Math.log(camBefore.z), Math.log(camTarget.z), z)); applyCam();
+  const blur = easeIO(clamp((m - .2) / .55)), fade = easeIO(clamp((m - .55) / .45));
+  for (const el of LAYERS) {
+    el.style.filter = blur > 0 ? `blur(${(blur * 14).toFixed(1)}px)` : "";
+    el.style.transform = blur > 0 ? `scale(${(1 + blur * .05).toFixed(3)})` : "";
+    el.style.opacity = fade > 0 ? (1 - fade).toFixed(3) : "";
+  }
+  wrap.style.opacity = fade.toFixed(3);
+  window.beachFull = m > .35;           // the map is blurred past seeing: stop animating its wind
+}
+
+/* The gull, after a photo of a herring gull in flight, kept flat and simple like the rest:
+   white head and body, pale grey wings with black tips, yellow bill and legs tucked back.
+   x/y in px, s = size, dir = 1 flying right / -1 left, lift = wing position (-1 down … 1 up). */
+function wing(c, sh, wr, tp, chord, fill, dark) {
+  // leading edge shoulder → wrist → tip, trailing edge back along a broader inner wing
+  const px = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [-dy / l, dx / l]; };
+  let n1 = px(sh, wr), n2 = px(wr, tp); if (n1[1] < 0) n1 = n1.map(v => -v); if (n2[1] < 0) n2 = n2.map(v => -v);   // chord hangs below the leading edge
+  const shB = [sh[0] + n1[0] * chord, sh[1] + n1[1] * chord], wrB = [wr[0] + n2[0] * chord * .95, wr[1] + n2[1] * chord * .95];
+  const tipB = [tp[0] + n2[0] * chord * .12, tp[1] + n2[1] * chord * .12];
+  c.fillStyle = fill; c.beginPath(); c.moveTo(...sh);
+  c.quadraticCurveTo((sh[0] + wr[0]) / 2 - n1[0] * chord * .25, (sh[1] + wr[1]) / 2 - n1[1] * chord * .25, ...wr);
+  c.quadraticCurveTo((wr[0] + tp[0]) / 2 - n2[0] * chord * .15, (wr[1] + tp[1]) / 2 - n2[1] * chord * .15, ...tp);
+  c.quadraticCurveTo((wrB[0] + tipB[0]) / 2, (wrB[1] + tipB[1]) / 2, ...wrB);
+  c.quadraticCurveTo((wrB[0] + shB[0]) / 2 + n1[0] * chord * .15, (wrB[1] + shB[1]) / 2 + n1[1] * chord * .15, ...shB); c.closePath(); c.fill();
+  // white trailing edge
+  c.strokeStyle = "rgba(255,255,255,.9)"; c.lineWidth = chord * .16;
+  c.beginPath(); c.moveTo(...mixp(wrB, tipB, .55)); c.quadraticCurveTo(...wrB, ...mixp(wrB, shB, .7)); c.stroke();
+  // black wingtip with a white mirror spot
+  const k = .62, a1 = mixp(wr, tp, k), b1 = mixp(wrB, tipB, k * .92);
+  c.fillStyle = dark; c.beginPath(); c.moveTo(...tp); c.lineTo(...a1); c.lineTo(...b1); c.quadraticCurveTo(...mixp(b1, tipB, .5), ...tp); c.fill();
+  c.fillStyle = "#f6f4ee"; const m = mixp(mixp(a1, b1, .5), tp, .45); c.beginPath(); c.arc(m[0], m[1], chord * .1, 0, 7); c.fill();
+}
+const mixp = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+function drawGull(x, y, s, dir, lift, tilt) {
+  const c = gc; c.save(); c.translate(x, y); c.rotate(tilt); c.scale(dir * s, s);
+  const L = lift; c.lineJoin = "round"; c.lineCap = "round";
+  // far wing: reaches forward and up, foreshortened, in shade
+  wing(c, [.05, -.03], [.13, -.17 * L - .07], [.27, -.3 * L - .15], .06, "#b3babf", "#2a2d30");
+  // tail: short and white, a little fanned
+  c.fillStyle = "#f2f0ea"; c.beginPath(); c.moveTo(-.09, -.016); c.lineTo(-.2, -.03); c.quadraticCurveTo(-.215, -.005, -.205, .018); c.lineTo(-.09, .03); c.fill();
+  // legs tucked back under the tail
+  c.strokeStyle = "#dda43a"; c.lineWidth = .008;
+  c.beginPath(); c.moveTo(-.04, .036); c.lineTo(-.125, .058); c.moveTo(-.025, .042); c.lineTo(-.11, .068); c.stroke();
+  // body and head
+  c.fillStyle = "#fbfaf6"; c.beginPath(); c.ellipse(.0, .008, .12, .046, -.05, 0, 7); c.fill();
+  c.beginPath(); c.arc(.125, -.004, .044, 0, 7); c.fill();
+  c.fillStyle = "#e6e2d8"; c.beginPath(); c.ellipse(-.015, .032, .095, .017, -.05, 0, 7); c.fill();
+  c.fillStyle = "#efb83a"; c.beginPath(); c.moveTo(.16, -.01); c.lineTo(.212, .004); c.quadraticCurveTo(.2, .014, .162, .012); c.fill();
+  c.fillStyle = "#c8503a"; c.beginPath(); c.arc(.2, .009, .0045, 0, 7); c.fill();
+  c.fillStyle = "#1d2124"; c.beginPath(); c.arc(.137, -.013, .0075, 0, 7); c.fill();
+  // near wing: long, sweeping up and back, pale grey
+  wing(c, [.03, -.02], [-.11, -.17 * L - .07], [-.45, -.29 * L - .14], .09, "#c8cdd1", "#222528");
+  c.restore();
+}
+// where the gull is: u runs 0 → 1 across one pass (in from one side, hover in the middle, out the other)
+function gull(u, dir, now) {
   const w = innerWidth, h = innerHeight, r = Math.min(2, devicePixelRatio || 1);
   if (sky.width !== w * r || sky.height !== h * r) { sky.width = w * r; sky.height = h * r; }
   gc.setTransform(r, 0, 0, r, 0, 0); gc.clearRect(0, 0, w, h);
-  const base = Math.min(w, h) * .16, cx = w * .5, cy = h * .44;
-  let x, y, s, a, glide;
-  if (k < .38) {            // swoops in from the upper left and settles in front of us
-    const t = ease3(k / .38);
-    x = qb(-w * .1, w * .2, cx, t); y = qb(h * .08, -h * .02, cy, t); s = mix(.7, 1.05, t); a = smooth(0, .06, k); glide = t > .7 ? .6 : 0;
-  } else if (k < .74) {     // carries us down: holds steady while the world rushes up
-    const t = (k - .38) / .36;
-    x = cx + Math.sin(t * 5) * w * .012; y = cy + t * h * .04 + Math.sin(t * 7) * h * .006; s = mix(1.05, 1.25, t); a = 1; glide = .85;
-  } else {                  // and banks away out of the side of the picture
-    const t = ease3((k - .74) / .26);
-    x = qb(cx, w * .78, w * 1.25, t); y = qb(cy + h * .04, h * .36, h * .2, t); s = mix(1.25, .95, t); a = 1; glide = .5;
+  if (u <= 0 || u >= 1) return;
+  const size = Math.min(w, h) * (w < 700 ? .62 : .42), side = x => dir > 0 ? x : w - x;
+  let x, y, s, tilt;
+  if (u < .36) {          // glides in level from the side of the screen
+    const t = easeIO(u / .36);
+    x = side(mix(-size * .6, w * .5, t)); y = mix(h * .36, h * .42, t); s = mix(.9, 1, t); tilt = dir * mix(.06, .0, t);
+  } else if (u < .64) {   // carries us: hangs in the air, rising and falling a little
+    const t = (u - .36) / .28;
+    x = side(w * .5 + Math.sin(t * Math.PI) * w * .03); y = h * .42 + Math.sin(t * Math.PI * 2) * h * .012; s = 1 + t * .05; tilt = Math.sin(t * 6) * .02;
+  } else {                // and glides on out of the other side, climbing a little
+    const t = easeIO((u - .64) / .36);
+    x = side(mix(w * .5 + w * .03 * 0, w + size * .6, t)); y = mix(h * .42, h * .3, t); s = mix(1.05, 1.1, t); tilt = dir * mix(0, -.08, t);
   }
-  if (a <= .01) return;
-  // slow, easy wingbeats; mostly gliding while it carries us
-  const span = base * s, f = Math.sin(now / 320) * (1 - glide * .75),
-    bank = Math.sin(now / 1400) * .06 + (k < .38 ? .16 * (1 - k / .38) : 0) + (k > .74 ? .22 * smooth(.74, .9, k) : 0);
-  gc.save(); gc.globalAlpha = a; gc.translate(x, y); gc.rotate(bank);
-  // a soft shadow keeps it readable over any colour
-  gc.shadowColor = "rgba(20,30,34,.35)"; gc.shadowBlur = span * .06; gc.shadowOffsetY = span * .02;
-  for (const side of [-1, 1]) {
-    const tipY = -f * span * .22 - span * .05, elbowY = -span * .07 - f * span * .1;
-    gc.fillStyle = "#f7f3ea"; gc.beginPath(); gc.moveTo(0, -span * .015);
-    gc.quadraticCurveTo(side * span * .14, elbowY - span * .03, side * span * .25, elbowY);
-    gc.quadraticCurveTo(side * span * .38, elbowY + span * .01, side * span * .5, tipY);
-    gc.quadraticCurveTo(side * span * .34, elbowY + span * .07, side * span * .2, elbowY + span * .075);
-    gc.quadraticCurveTo(side * span * .08, span * .04, 0, span * .045); gc.fill();
-    gc.shadowColor = "transparent";
-    gc.fillStyle = "#3b3f42"; gc.beginPath(); gc.moveTo(side * span * .5, tipY);   // dark wingtips
-    gc.quadraticCurveTo(side * span * .42, elbowY + span * .02, side * span * .36, elbowY + span * .045);
-    gc.lineTo(side * span * .43, tipY + span * .05); gc.closePath(); gc.fill();
-  }
-  gc.fillStyle = "#fbf8f1"; gc.beginPath(); gc.ellipse(0, span * .02, span * .038, span * .1, 0, 0, 7); gc.fill();
-  gc.fillStyle = "#e9e3d6"; gc.beginPath(); gc.moveTo(-span * .03, span * .1); gc.lineTo(span * .03, span * .1); gc.lineTo(0, span * .145); gc.fill();
-  gc.restore();
+  // slow wingbeats with long glides in between
+  const beat = (now / 1000) % 3.2, flap = beat < 1.1 ? Math.sin(beat / 1.1 * Math.PI * 2) : 0;
+  const lift = .35 + flap * .6 + Math.sin(now / 1700) * .05;     // mostly a shallow glide
+  drawGull(x, y, size * s, dir, lift, tilt);
 }
-const setWill = on => [...LAYERS, wrap].forEach(el => el.style.willChange = on ? "filter, opacity, transform" : "");
-function pose(k) {
-  const z = ease3(clamp((k - .08) / .62));                       // the zoom, following the gull down
-  cam.x = mix(camBefore.x, camTarget.x, z); cam.y = mix(camBefore.y, camTarget.y, z);
-  cam.z = Math.exp(mix(Math.log(camBefore.z), Math.log(camTarget.z), z)); applyCam();
-  const blur = smooth(.14, .5, k), fade = smooth(.42, .68, k);
-  for (const el of LAYERS) {
-    el.style.filter = blur > 0 ? `blur(${(blur * 14).toFixed(1)}px)` : "";
-    el.style.opacity = fade > 0 ? (1 - fade).toFixed(3) : "";
-    el.style.transform = blur > 0 ? `scale(${(1 + blur * .06).toFixed(3)})` : "";   // hides the soft edge of the blur
-  }
-  const a = smooth(.36, .7, k), e = ease3(a);
-  wrap.style.opacity = a.toFixed(3);
-  wrap.style.transform = a < 1 ? `scale(${mix(.86, 1, e).toFixed(4)})` : "";
-  wrap.style.transformOrigin = "50% 46%";
-  wrap.style.filter = a < 1 ? `blur(${((1 - e) * 12).toFixed(1)}px)` : "";
-  document.body.classList.toggle("beach-on", k > .66);
-  window.beachFull = k > .3;          // the map is blurred past seeing: stop animating its wind
-  sceneHidden = a <= 0;               // the beach isn't showing yet: don't draw it
-  gull(k, performance.now());
+
+// one clock for the whole thing; t in seconds
+const OPEN = { len: 9.6,
+  gull: t => clamp(t / 8.6),                 // in 0–3.1 s, carrying 3.1–5.5 s, out 5.5–8.6 s
+  map: t => clamp((t - .8) / 4.2),           // zoom, blur and fade 0.8–5.0 s
+  paint: t => clamp((t - 4.4) / 4.6),        // the beach paints in 4.4–9.0 s
+  ui: 8.4 };
+const CLOSE = { len: 8.2,
+  paint: t => 1 - clamp(t / 1.8),            // the picture fades back to a blank sheet 0–1.8 s
+  gull: t => clamp((t - 1.0) / 7.0),         // in from the other side and away again
+  map: t => 1 - clamp((t - 2.2) / 5.2) };    // the map comes back into focus and zooms out 2.2–7.4 s
+function run(plan, dir, done) {
+  cancelAnimationFrame(anim); setWill(true);
+  const t0 = performance.now();
+  const step = now => {
+    const t = (now - t0) / 1000;
+    mapPose(plan.map(t)); reveal = easeIO(plan.paint(t)); sceneHidden = wrap.style.opacity === "0";
+    gull(plan.gull(t), dir, now);
+    if (plan.ui) document.body.classList.toggle("beach-on", t > plan.ui);
+    if (t < plan.len) anim = requestAnimationFrame(step); else { setWill(false); gull(0, dir, now); done(); }
+  };
+  anim = requestAnimationFrame(step);
 }
-const ease3 = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
 window.openBeach = () => {
   if (busy || open || !selected || !has(selected.id)) return;
   busy = true; sc = SCENES[selected.id]; resize(); build();
-  open = true; lastHourShown = -1; last = performance.now();
-  S = state(curT); fillHud(); fillPanel(); draw(0, 0);
+  open = true; lastHourShown = -1; last = performance.now(); reveal = 0;
+  S = state(curT); fillHud(); fillPanel();
   const [bx, by] = P(selected.lon, selected.lat);
   camBefore = { ...cam }; camTarget = { x: bx, y: by, z: cam.z * 7 };
   document.body.classList.add("beach"); wrap.classList.add("on");
   hud.setAttribute("aria-hidden", "false");
   raf = requestAnimationFrame(frame);
-  setWill(true);
-  tween(5200, (e, k) => pose(k), () => { setWill(false); busy = false; window.beachFull = true; scrollToDay();
-    document.getElementById("back").setAttribute("aria-label", "Back to the spot"); });
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { mapPose(1); reveal = 1; draw(0, 0); document.body.classList.add("beach-on"); busy = false; return; }
+  run(OPEN, 1, () => { busy = false; scrollToDay(); document.getElementById("back").setAttribute("aria-label", "Back to the spot"); });
 };
 window.closeBeach = () => {
-  if (busy || !open) return; busy = true; window.beachFull = false;
-  hud.setAttribute("aria-hidden", "true");
-  setWill(true);
-  tween(4400, (e, k) => pose(1 - k), () => { setWill(false); pose(0); document.body.classList.remove("beach"); wrap.classList.remove("on"); open = false; cancelAnimationFrame(raf); busy = false;
+  if (busy || !open) return; busy = true;
+  hud.setAttribute("aria-hidden", "true"); document.body.classList.remove("beach-on");
+  const finish = () => { mapPose(0); for (const el of LAYERS) { el.style.filter = el.style.transform = el.style.opacity = ""; }
+    document.body.classList.remove("beach"); wrap.classList.remove("on"); open = false; cancelAnimationFrame(raf); busy = false; reveal = 1; window.beachFull = false;
     document.getElementById("back").setAttribute("aria-label", "Back to the whole coast");
-    document.getElementById("i-beach")?.focus({ preventScroll: true }); });
+    document.getElementById("i-beach")?.focus({ preventScroll: true }); };
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { finish(); return; }
+  run(CLOSE, -1, finish);
 };
 resize();
 })();

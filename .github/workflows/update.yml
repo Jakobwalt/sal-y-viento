@@ -60,7 +60,7 @@ jobs:
 
       # a fresh query string per deploy, so browsers load the new script instead of a cached one
       - name: Version the scripts
-        run: sed -i -E "s/\.js\?v=[A-Za-z0-9]+/.js?v=${GITHUB_SHA::8}/g" site/index.html
+        run: sed -i "s/beach.js?v=[A-Za-z0-9]*/beach.js?v=${GITHUB_SHA::8}/" site/index.html
 
       - name: Summary
         if: always()

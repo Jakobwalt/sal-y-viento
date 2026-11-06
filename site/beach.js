@@ -60,6 +60,7 @@ const SCENES = {
     dune: [[.56, .003], [.59, -.014], [.62, -.026], [.655, -.036], [.69, -.04], [.72, -.03], [.75, -.012], [.77, .003]],
     boardwalk: { from: [.51, .46], to: [.79, .64], w: .016 },
     flag: [.83, .25],
+    palm: [.905, .31],      // a palm on the dunes, right of the boardwalk (base point)
     lights: [[.83, -.12], [.87, -.135], [.91, -.11], [.76, -.07], [.95, -.14], [.715, -.035]],
   },
 };
@@ -391,6 +392,98 @@ function drawBoardwalk() {
   }
 }
 
+/* ---------- the palm ----------
+   Stands straight in calm air. From 10 kn the leaves stir; 15–20 kn the trunk starts to lean;
+   20–30 kn more lean and livelier leaves; 30–45 kn a hard lean with the leaves streaming like a
+   flag; above 45 kn it bends right over and leaves tear off one by one, fly away downwind,
+   and slowly grow back. */
+const lerpKn = (kn, pts) => { if (kn <= pts[0][0]) return pts[0][1];
+  for (let i = 0; i < pts.length - 1; i++) { const [a, va] = pts[i], [b, vb] = pts[i + 1]; if (kn <= b) return va + (vb - va) * (kn - a) / (b - a); }
+  return pts[pts.length - 1][1]; };
+const BEND = [[0, 0], [10, 0], [15, .03], [20, .1], [30, .26], [45, .52], [60, .66]];   // trunk lean, as a share of its height
+const FLUT = [[0, 0], [6, .01], [10, .03], [15, .07], [20, .12], [30, .24], [45, .5], [60, .6]];  // how wildly the leaves move
+const STREAM = [[0, 0], [15, .1], [20, .25], [30, .5], [45, .9], [60, 1]];               // how far the leaves swing downwind
+const palm = { fronds: Array.from({ length: 9 }, (_, i) => ({ rest: -Math.PI / 2 + (i - 4) * .36 + (i % 2 ? .08 : -.05), len: .86 + (i * 37 % 10) / 50,
+  ph: i * 1.7, grow: 1, droop: .55 + (i * 13 % 7) / 20 })), flying: [], nextTear: 0, gustPh: 0 };
+function drawPalm(t, dt) {
+  const s = S, P = sc.palm; if (!P) return;
+  const bx = X(P[0]), by = Y(P[1]), Ht = H * .3, leafL = Math.min(H * .12, W * .2);
+  const side = Math.abs(s.wx) < .05 ? 1 : Math.sign(s.wx);                 // which way downwind looks on screen
+  const across = Math.max(.55, Math.abs(s.wx));                            // wind blowing away from us still bends it, foreshortened
+  // gusts arrive as slow pulses on top of the mean wind
+  const gusty = Math.max(0, s.gust - s.kn), pulse = .5 + .5 * Math.sin(t * .9) * Math.sin(t * .37 + 1);
+  const kn = s.kn + gusty * pulse * .8;
+  const lean = lerpKn(kn, BEND) * across, flut = lerpKn(kn, FLUT), stream = lerpKn(kn, STREAM);
+  // trunk: a curve from the base up to the crown, leaning downwind, a little sway of its own
+  const sway = flut * .04 * Math.sin(t * (1.1 + kn * .03));
+  const tx = bx + side * (lean + sway) * Ht * 1.1, ty = by - Ht * (1 - lean * lean * .45);
+  const cx = bx + side * (lean * .15) * Ht + Ht * .05, cy = by - Ht * .55;          // a natural kink low down
+  const trunkC = lit("#8b7558"), ringC = lit("#6d5a43");
+  g.save(); g.lineCap = "round";
+  const seg = 22, wBase = Ht * .045, wTop = Ht * .028;
+  const pt = u => [(1 - u) * (1 - u) * bx + 2 * (1 - u) * u * cx + u * u * tx, (1 - u) * (1 - u) * by + 2 * (1 - u) * u * cy + u * u * ty];
+  for (let i = 0; i < seg; i++) {
+    const a = pt(i / seg), b = pt((i + 1) / seg);
+    g.strokeStyle = css(trunkC); g.lineWidth = mix(wBase, wTop, i / seg); g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke();
+    g.strokeStyle = css(ringC, .55); g.lineWidth = 1; const w = mix(wBase, wTop, i / seg) * .5, dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    g.beginPath(); g.moveTo(a[0] - dy / l * w, a[1] + dx / l * w); g.lineTo(a[0] + dy / l * w, a[1] - dx / l * w); g.stroke();
+  }
+  // tears at storm strength: a leaf at a time, now and then
+  if (kn > 45 && dt > 0) {
+    palm.nextTear -= dt;
+    if (palm.nextTear <= 0) {
+      const ready = palm.fronds.filter(f => f.grow >= .98);
+      if (ready.length > 3) { const f = ready[(Math.random() * ready.length) | 0]; f.grow = 0;
+        palm.flying.push({ x: tx, y: ty, a: f.ang ?? f.rest, len: leafL * f.len, vx: side * (120 + kn * 5) * across, vy: -40 - Math.random() * 60,
+          spin: (Math.random() - .5) * 6, life: 0, shrink: Math.max(0, s.wz) }); }
+      palm.nextTear = 1.6 + Math.random() * 2.4 - clamp((kn - 45) / 20) * 1.2;
+    }
+  }
+  // leaves grow back slowly (about half a minute)
+  for (const f of palm.fronds) if (f.grow < 1) f.grow = Math.min(1, f.grow + dt / 30);
+  const leafC = lit("#4e6a37"), leafHi = lit("#728c47");
+  const drawFrond = (x0, y0, ang, L, droop, ph, flt, alpha = 1) => {
+    // the midrib: out along the angle, sagging under gravity unless the wind holds it out straight
+    const hold = clamp(stream * 1.1), sag = droop * (1 - hold) * L * .55;
+    const ex = x0 + Math.cos(ang) * L, ey = y0 + Math.sin(ang) * L + sag * .9;
+    const mx = x0 + Math.cos(ang) * L * .55, my = y0 + Math.sin(ang) * L * .55 - sag * .15;
+    g.strokeStyle = css(leafC, alpha); g.lineWidth = 1.6; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(mx, my, ex, ey); g.stroke();
+    // leaflets on both sides, rippling along their length when it blows hard
+    const n = 16;
+    for (let k = 1; k <= n; k++) {
+      const u = k / n, q = [(1 - u) * (1 - u) * x0 + 2 * (1 - u) * u * mx + u * u * ex, (1 - u) * (1 - u) * y0 + 2 * (1 - u) * u * my + u * u * ey];
+      const d = [2 * (1 - u) * (mx - x0) + 2 * u * (ex - mx), 2 * (1 - u) * (my - y0) + 2 * u * (ey - my)], dl = Math.hypot(...d) || 1;
+      const tx2 = d[0] / dl, ty2 = d[1] / dl, ll = L * .3 * Math.sin(Math.PI * Math.min(1, u * 1.05)) * (1 - u * .35);
+      const rip = flt * Math.sin(t * (3 + flt * 22) - u * 7 + ph) * 1.6;
+      for (const sd of [-1, 1]) {
+        const back = .55 + rip * .5 * sd, nx = -ty2 * sd, ny = tx2 * sd;
+        const lx = q[0] + (nx * Math.cos(back) - tx2 * Math.sin(back) * .9) * ll, ly = q[1] + (ny * Math.cos(back) - ty2 * Math.sin(back) * .9) * ll + ll * .35 * (1 - hold);
+        g.strokeStyle = css(sd > 0 ? leafC : leafHi, alpha); g.lineWidth = 1.3; g.beginPath(); g.moveTo(...q); g.lineTo(lx, ly); g.stroke();
+      }
+    }
+  };
+  // crown: each leaf swings from its resting angle towards downwind, and flutters
+  const down = side > 0 ? 0 : Math.PI;
+  for (const f of palm.fronds) {
+    if (f.grow <= .02) continue;
+    let target = down + (f.rest + Math.PI / 2) * .35;                                // fan out a little around downwind
+    let a0 = f.rest, d = ((target - a0 + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    const ang = a0 + d * stream + flut * Math.sin(t * (1.4 + kn * .09) + f.ph) * (.6 + .4 * Math.sin(t * .7 + f.ph * 2));
+    f.ang = ang;
+    drawFrond(tx, ty, ang, leafL * f.len * (.15 + .85 * f.grow), f.droop, f.ph, flut, .4 + .6 * f.grow);
+  }
+  // the crown's heart and a few coconuts
+  g.fillStyle = css(lit("#5b4a33")); for (const [dx, dy] of [[-3, 3], [3, 4], [0, 6]]) { g.beginPath(); g.arc(tx + dx, ty + dy, Ht * .012, 0, 7); g.fill(); }
+  // leaves torn off, tumbling away downwind and getting smaller as they go
+  for (const L of palm.flying) {
+    L.life += dt; L.vy += 30 * dt; L.x += L.vx * dt; L.y += L.vy * dt + Math.sin(L.life * 4) * 20 * dt; L.a += L.spin * dt;
+    const k = Math.max(.15, 1 - L.life * (.08 + L.shrink * .35));
+    drawFrond(L.x, L.y, L.a, L.len * k, .3, L.life * 3, .6, Math.max(0, 1 - L.life / 6));
+  }
+  palm.flying = palm.flying.filter(L => L.life < 6 && L.x > -W * .3 && L.x < W * 1.3 && L.y < H * 1.2);
+  g.restore();
+}
+
 function drawFlag(t) {
   const s = S, [fx, fy] = [X(sc.flag[0]), Y(sc.flag[1])], ph = H * .07;
   g.strokeStyle = css(lit("#4b4038")); g.lineWidth = 1.6; g.beginPath(); g.moveTo(fx, fy); g.lineTo(fx, fy - ph); g.stroke();
@@ -479,7 +572,7 @@ function draw(t, dt) {
   if (reveal < 1) { g.fillStyle = "#efe6d2"; g.fillRect(0, 0, W, H); }       // a blank sheet to paint on
   paint("sky", () => drawSky(t)); paint("clouds", () => drawClouds(t, dt)); paint("sea", () => drawSea(t));
   paint("hills", () => drawHills(t)); paint("land", () => drawLand(t)); paint("waves", () => { drawWaves(t); drawDune(); });
-  paint("scrub", () => drawScrub(t)); paint("things", () => { drawBoardwalk(); drawFlag(t); }); paint("weather", () => drawWeather(t, dt));
+  paint("scrub", () => drawScrub(t)); paint("things", () => { drawBoardwalk(); drawFlag(t); drawPalm(t, dt); }); paint("weather", () => drawWeather(t, dt));
 }
 
 /* ---------- forecast readout and the 24-hour table ---------- */

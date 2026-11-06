@@ -385,62 +385,180 @@ SCENES.palmar = {
   E.layers.scrub = () => {};
   E.layers.things = (t, dt) => { drawPalm(t, dt); drawSurfer(t); };
 
-  /* The surfer: tanned, long brown curly hair blowing downwind, blue-and-white shirt over a dark
-     blue wetsuit, standing on the wet sand watching the waves (facing the sea, on our left). */
-  const surfer = { curls: Array.from({ length: 16 }, (_, i) => ({ a: i / 16, r: .5 + ((i * 7) % 5) / 8, ph: i * 1.3 })) };
-  function drawSurfer(t) {
-    const s = S, h = s.wh ?? .5, x = X(.6), feet = Y(.155), Hs = H * .2, u = Hs;     // u: his height in px
-    const big = h >= 2, kind = h < .5 ? "flat" : h < 1 ? "long" : "short";
-    const hop = big ? Math.abs(Math.sin(t * 5)) * u * .06 : 0, y = feet - hop;
-    const skin = lit("#a86a43"), suit = lit("#1f2b4d"), suitHi = lit("#34457a"), blue = lit("#3f74b8"), white = lit("#f2efe7"), hair = lit("#5b3a22"), hairHi = lit("#7a4f2e");
-    const board = lit("#f4f0e6"), stripe = lit("#2f6fa8");
-    const side = Math.abs(s.wx) < .05 ? 1 : Math.sign(s.wx), blow = clamp(s.kn / 30) * Math.max(.4, Math.abs(s.wx));
+  /* The surfer: tanned and athletic (broad shoulders, narrow waist), long brown curly hair blowing
+     downwind, a blue shirt with white upper sleeves over a dark blue wetsuit. He stands level with
+     the palms watching the waves (facing the sea, on our left):
+       flat (< 0.5 m)  longboard lying on the sand      0.5–1 m  longboard standing beside him
+       > 1 m           shortboard                        ≥ 2 m   bouncing and waving, excited
+       rain            board held over his head          night   asleep against the palm */
+  const litB = c => lit(c, (1 - S.day) * .2);
+  function drawDog(t, dx, dy, u, asleep, excited, side, blow) {
+    const fur = litB("#8a5a32"), furD = litB("#6a4224"), furL = litB("#a8774a"), nose = litB("#2a1d14");
+    const d = u * .32;                                                     // the dog's size
     g.save(); g.lineCap = "round"; g.lineJoin = "round";
-    // shadow on the wet sand
-    g.fillStyle = "rgba(40,30,20,.18)"; g.beginPath(); g.ellipse(x + u * .05, feet + 2, u * .16, u * .025, 0, 0, 7); g.fill();
-    // board: on the sand when it's flat, standing beside him otherwise (long or short)
-    const drawBoard = (bx, by, len, wid, ang) => { g.save(); g.translate(bx, by); g.rotate(ang);
-      g.fillStyle = css(board); g.beginPath(); g.ellipse(0, -len / 2, wid / 2, len / 2, 0, 0, 7); g.fill();
-      g.strokeStyle = css(stripe); g.lineWidth = Math.max(1, wid * .12); g.beginPath(); g.moveTo(0, -len * .92); g.lineTo(0, -len * .08); g.stroke();
-      g.strokeStyle = css(lit("#c9c2b3")); g.lineWidth = 1; g.beginPath(); g.ellipse(0, -len / 2, wid / 2, len / 2, 0, 0, 7); g.stroke(); g.restore(); };
-    if (kind === "flat") {   // the longboard lying on the sand beside him
-      const cx = x + u * .42, cy = feet - u * .01;
-      g.fillStyle = css(board); g.beginPath(); g.ellipse(cx, cy, u * .62, u * .045, -.03, 0, 7); g.fill();
-      g.strokeStyle = css(stripe); g.lineWidth = Math.max(1, u * .012); g.beginPath(); g.moveTo(cx - u * .55, cy); g.lineTo(cx + u * .55, cy - u * .01); g.stroke();
-      g.strokeStyle = css(lit("#c9c2b3")); g.lineWidth = 1; g.beginPath(); g.ellipse(cx, cy, u * .62, u * .045, -.03, 0, 7); g.stroke(); }
-    const bx = x + u * .2, boardLen = kind === "short" ? u * .92 : u * 1.38, bw = kind === "short" ? u * .13 : u * .16;
-    if (kind !== "flat") drawBoard(bx, feet + 1, boardLen, bw, .06);
-    // legs in the wetsuit
-    g.strokeStyle = css(suit); g.lineWidth = u * .075;
-    g.beginPath(); g.moveTo(x - u * .04, y - u * .46); g.lineTo(x - u * .06, feet - u * .02); g.moveTo(x + u * .04, y - u * .46); g.lineTo(x + u * .07, feet - u * .02); g.stroke();
-    g.fillStyle = css(skin); for (const fx of [-.07, .08]) { g.beginPath(); g.ellipse(x + u * fx, feet - u * .01, u * .035, u * .014, 0, 0, 7); g.fill(); }
-    // torso: wetsuit, with the blue-and-white striped shirt over it
-    g.fillStyle = css(suit); g.beginPath(); g.ellipse(x, y - u * .52, u * .1, u * .09, 0, 0, 7); g.fill();
-    const tx0 = x - u * .1, ty0 = y - u * .8, tw = u * .2, th = u * .3;
-    g.save(); g.beginPath(); g.moveTo(tx0 + tw * .08, ty0); g.lineTo(tx0 + tw * .92, ty0); g.lineTo(tx0 + tw, ty0 + th); g.lineTo(tx0, ty0 + th); g.closePath(); g.clip();
-    for (let k = 0; k < 8; k++) { g.fillStyle = css(k % 2 ? white : blue); g.fillRect(tx0, ty0 + k * th / 8, tw, th / 8 + .5); }
-    g.restore();
-    // arms: one resting on the board, the other at his side, or waving when it's big
-    g.strokeStyle = css(skin); g.lineWidth = u * .05;
-    if (kind !== "flat") { g.beginPath(); g.moveTo(x + u * .08, y - u * .76); g.quadraticCurveTo(x + u * .16, y - u * .66, bx - u * .02, feet - boardLen * .62); g.stroke(); }
-    else { g.beginPath(); g.moveTo(x + u * .08, y - u * .76); g.lineTo(x + u * .12, y - u * .52); g.stroke(); }
-    if (big) { const w = Math.sin(t * 9) * u * .05; g.beginPath(); g.moveTo(x - u * .08, y - u * .76); g.lineTo(x - u * .18, y - u * 1.0); g.lineTo(x - u * .2 + w, y - u * 1.16); g.stroke(); }
-    else { g.beginPath(); g.moveTo(x - u * .08, y - u * .76); g.quadraticCurveTo(x - u * .14, y - u * .64, x - u * .11, y - u * .52); g.stroke(); }
-    g.strokeStyle = css(blue); g.lineWidth = u * .06; g.beginPath(); g.moveTo(x - u * .08, y - u * .79); g.lineTo(x - u * .1, y - u * .72); g.moveTo(x + u * .08, y - u * .79); g.lineTo(x + u * .1, y - u * .72); g.stroke();
-    // neck and head, turned towards the waves (to our left)
-    g.fillStyle = css(skin); g.fillRect(x - u * .025, y - u * .86, u * .05, u * .07);
-    const hx = x - u * .01, hy = y - u * .93, hr = u * .07;
-    g.beginPath(); g.ellipse(hx - u * .012, hy, hr * .9, hr, 0, 0, 7); g.fill();
-    g.beginPath(); g.moveTo(hx - hr * .85, hy - hr * .1); g.lineTo(hx - hr * 1.12, hy + hr * .18); g.lineTo(hx - hr * .82, hy + hr * .3); g.closePath(); g.fill();   // nose: he's looking left, out to sea
-    g.fillStyle = css(lit("#8f5636")); g.beginPath(); g.ellipse(hx + hr * .1, hy + hr * .1, hr * .2, hr * .28, 0, 0, 7); g.fill();   // ear
-    // long brown curly hair, streaming downwind
-    for (const c of surfer.curls) {
-      const k = c.a, along = k * .9 + .1, wob = Math.sin(t * (3 + s.kn * .12) + c.ph) * u * .012 * (1 + blow * 2);
-      const cx = hx + hr * .25 + side * along * u * .16 * blow + Math.cos(k * 5 + c.ph) * hr * .5 * (1 - blow * .5);
-      const cy = hy - hr * .55 + along * u * .17 * (1 - blow * .6) + Math.sin(k * 7 + c.ph) * hr * .25 + wob;
-      g.fillStyle = css(k % .25 < .12 ? hairHi : hair); g.beginPath(); g.arc(cx, cy, hr * .32 * c.r * (1 - along * .3), 0, 7); g.fill();
+    g.fillStyle = "rgba(40,30,20,.14)"; g.beginPath(); g.ellipse(dx, dy + 1, d * .75, d * .1, 0, 0, 7); g.fill();
+    if (asleep) {
+      // curled up in a ring, nose tucked to the tail, breathing slowly
+      const br = 1 + Math.sin(t * 1.6) * .03;
+      g.fillStyle = css(fur); g.beginPath(); g.ellipse(dx, dy - d * .2 * br, d * .62, d * .26 * br, 0, 0, 7); g.fill();
+      g.fillStyle = css(furL); g.beginPath(); g.ellipse(dx + d * .05, dy - d * .3 * br, d * .4, d * .1, 0, 0, 7); g.fill();
+      g.fillStyle = css(fur); g.beginPath(); g.ellipse(dx - d * .42, dy - d * .16, d * .2, d * .15, -.2, 0, 7); g.fill();   // head resting on the paws
+      g.fillStyle = css(furD); g.beginPath(); g.ellipse(dx - d * .36, dy - d * .25, d * .1, d * .06, -.6, 0, 7); g.fill();  // ear
+      g.fillStyle = css(nose); g.beginPath(); g.arc(dx - d * .6, dy - d * .14, d * .035, 0, 7); g.fill();
+      g.strokeStyle = css(furD); g.lineWidth = d * .1; g.beginPath(); g.moveTo(dx + d * .55, dy - d * .12); g.quadraticCurveTo(dx + d * .2, dy + d * .02, dx - d * .3, dy - d * .04); g.stroke();   // tail wrapped round
+      g.restore(); return;
     }
-    g.fillStyle = css(hair); g.beginPath(); g.ellipse(hx + hr * .3, hy - hr * .4, hr * .9, hr * .62, .2, 0, 7); g.fill();
+    const hop = excited ? Math.abs(Math.sin(t * 5 + 1)) * d * .25 : 0, y = dy - hop;
+    const bodyY = y - d * .55;
+    // legs (far pair darker)
+    g.strokeStyle = css(furD); g.lineWidth = d * .1;
+    g.beginPath(); g.moveTo(dx - d * .3, bodyY); g.lineTo(dx - d * .34, y); g.moveTo(dx + d * .32, bodyY); g.lineTo(dx + d * .36, y); g.stroke();
+    g.strokeStyle = css(fur);
+    g.beginPath(); g.moveTo(dx - d * .38, bodyY); g.lineTo(dx - d * .42, y); g.moveTo(dx + d * .24, bodyY); g.lineTo(dx + d * .27, y); g.stroke();
+    // tail, wagging (faster when it's big)
+    const wag = Math.sin(t * (excited ? 16 : 7)) * .5;
+    g.strokeStyle = css(fur); g.lineWidth = d * .09;
+    g.beginPath(); g.moveTo(dx + d * .45, bodyY - d * .05); g.quadraticCurveTo(dx + d * .7, bodyY - d * .2, dx + d * (.72 + wag * .12), bodyY - d * (.45 - Math.abs(wag) * .1)); g.stroke();
+    // body
+    g.fillStyle = css(fur); g.beginPath(); g.ellipse(dx, bodyY, d * .52, d * .2, 0, 0, 7); g.fill();
+    g.fillStyle = css(furL); g.beginPath(); g.ellipse(dx - d * .05, bodyY + d * .08, d * .38, d * .08, 0, 0, 7); g.fill();
+    // neck and head, looking out to sea (left)
+    g.fillStyle = css(fur); g.beginPath(); g.moveTo(dx - d * .38, bodyY - d * .1); g.lineTo(dx - d * .5, bodyY - d * .26); g.lineTo(dx - d * .36, bodyY - d * .32); g.lineTo(dx - d * .22, bodyY - d * .06); g.closePath(); g.fill();
+    const hx = dx - d * .5, hy = bodyY - d * .3;
+    g.beginPath(); g.ellipse(hx, hy, d * .17, d * .14, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(hx - d * .2, hy + d * .04, d * .13, d * .07, .1, 0, 7); g.fill();     // snout
+    g.fillStyle = css(nose); g.beginPath(); g.arc(hx - d * .32, hy + d * .02, d * .035, 0, 7); g.fill();
+    g.beginPath(); g.arc(hx - d * .04, hy - d * .04, d * .022, 0, 7); g.fill();                     // eye
+    // floppy ear, lifted by the wind
+    const flap = Math.sin(t * (4 + blow * 8)) * .15 * blow;
+    g.fillStyle = css(furD); g.save(); g.translate(hx + d * .06, hy - d * .08); g.rotate(.35 + side * blow * .9 + flap);
+    g.beginPath(); g.ellipse(0, d * .1, d * .06, d * .12, 0, 0, 7); g.fill(); g.restore();
+    g.restore();
+  }
+  const curls = Array.from({ length: 30 }, (_, i) => ({ a: i / 30, r: .6 + ((i * 7) % 5) / 9, ph: i * 1.3, sx: ((i * 37) % 11) / 10 - .5 }));
+  function drawSurfer(t) {
+    const s = S, h = s.wh ?? .5;
+    const night = s.sun.el < -4, rain = s.rainmm >= .3;
+    const pose = night ? "sleep" : rain ? "rain" : h >= 2 ? "excited" : "stand";
+    const kind = h < .5 ? "flat" : h < 1 ? "long" : "short";
+    const u = H * .15;                                                       // his height in px
+    const P0 = sc.palms[0].at;
+    const x = pose === "sleep" ? X(P0[0]) - u * .12 : X(.72), feet = pose === "sleep" ? Y(P0[1]) : Y(.088);
+    const hop = pose === "excited" ? Math.abs(Math.sin(t * 5)) * u * .07 : 0, y = feet - hop;
+    const skin = litB("#a86a43"), skinD = litB("#8a532f"), suit = litB("#1f2b4d"), blue = litB("#3f74b8"), white = litB("#f2efe7");
+    const hair = litB("#5b3a22"), hairHi = litB("#7a4f2e"), board = litB("#f4f0e6"), stripe = litB("#2f6fa8");
+    const lat = windLateral(x / W), side = lat >= 0 ? 1 : -1, blow = clamp(s.kn / 28) * Math.max(.45, Math.min(1, Math.abs(lat) + .3));
+    g.save(); g.lineCap = "round"; g.lineJoin = "round";
+    const surf = (bx, by, len, wid, ang) => { g.save(); g.translate(bx, by); g.rotate(ang);
+      g.fillStyle = css(board); g.beginPath(); g.ellipse(0, 0, wid / 2, len / 2, 0, 0, 7); g.fill();
+      g.strokeStyle = css(stripe); g.lineWidth = Math.max(1, wid * .12); g.beginPath(); g.moveTo(0, -len * .42); g.lineTo(0, len * .42); g.stroke();
+      g.strokeStyle = css(litB("#c9c2b3")); g.lineWidth = 1; g.beginPath(); g.ellipse(0, 0, wid / 2, len / 2, 0, 0, 7); g.stroke(); g.restore(); };
+    const boardLen = kind === "short" ? u * .92 : u * 1.4, bw = kind === "short" ? u * .14 : u * .17;
+    // shadow
+    g.fillStyle = "rgba(40,30,20,.16)"; g.beginPath(); g.ellipse(x + u * .05, feet + 1, u * .2, u * .03, 0, 0, 7); g.fill();
+
+    // the head with its mop of curls; (hx, hy) centre, tilt in radians, eyesShut for sleeping
+    const head = (hx, hy, tilt, eyesShut) => {
+      const hr = u * .068;
+      g.save(); g.translate(hx, hy); g.rotate(tilt);
+      // curls behind the head first, streaming downwind and falling to the shoulders
+      for (const c of curls) {
+        const k = c.a, wob = Math.sin(t * (3 + s.kn * .12) + c.ph) * hr * .18 * (1 + blow * 1.5);
+        const cx = hr * (.35 + c.sx * .9) + side * k * u * .2 * blow + (pose === "sleep" ? 0 : 0);
+        const cy = -hr * .7 + k * hr * 2.6 * (1 - blow * .55) + Math.sin(k * 9 + c.ph) * hr * .2 + wob;
+        g.fillStyle = css(k * 30 % 3 < 1 ? hairHi : hair); g.beginPath(); g.arc(cx, cy, hr * .5 * c.r * (1 - k * .2), 0, 7); g.fill();
+      }
+      g.fillStyle = css(skin); g.beginPath(); g.ellipse(-hr * .1, 0, hr * .85, hr, 0, 0, 7); g.fill();
+      // profile towards the sea on the left: nose, brow, chin
+      g.beginPath(); g.moveTo(-hr * .8, -hr * .2); g.lineTo(-hr * 1.12, hr * .12); g.lineTo(-hr * .8, hr * .26); g.closePath(); g.fill();
+      g.fillStyle = css(skinD); g.beginPath(); g.ellipse(hr * .18, hr * .08, hr * .17, hr * .26, 0, 0, 7); g.fill();     // ear
+      g.fillStyle = css(litB("#2a1d14"));
+      if (eyesShut) { g.strokeStyle = css(litB("#2a1d14")); g.lineWidth = 1; g.beginPath(); g.moveTo(-hr * .62, -hr * .08); g.quadraticCurveTo(-hr * .5, hr * .02, -hr * .38, -hr * .08); g.stroke(); }
+      else { g.beginPath(); g.arc(-hr * .52, -hr * .12, Math.max(1, hr * .09), 0, 7); g.fill(); }
+      // fluffy top: a crown of curls over the head and down the back
+      for (let i = 0; i < 14; i++) { const a = -Math.PI * 1.0 + i / 13 * Math.PI * 1.35, rr = hr * (1.0 + (i % 3) * .1);
+        g.fillStyle = css(i % 3 ? hair : hairHi); g.beginPath(); g.arc(Math.cos(a) * rr * .8 + hr * .12 + side * blow * hr * .15, Math.sin(a) * rr * .75 - hr * .12, hr * (.36 + (i % 2) * .08), 0, 7); g.fill(); }
+      g.restore();
+    };
+    // torso: broad shoulders tapering to the waist; shirt blue, upper sleeves white
+    const torso = (cx, top, lean) => {
+      const sw = u * .3, ww = u * .17, th = u * .3;
+      g.save(); g.translate(cx, top); g.rotate(lean);
+      g.fillStyle = css(blue); g.beginPath(); g.moveTo(-sw / 2, u * .02); g.quadraticCurveTo(0, -u * .02, sw / 2, u * .02);
+      g.lineTo(ww / 2, th); g.lineTo(-ww / 2, th); g.closePath(); g.fill();
+      g.fillStyle = css(litB("#2f5f9a")); g.beginPath(); g.moveTo(sw * .05, u * .03); g.lineTo(sw / 2, u * .02); g.lineTo(ww / 2, th); g.lineTo(ww * .1, th); g.closePath(); g.fill();   // shade on the far side
+      g.restore();
+      return { lsh: [cx - sw * .44, top + u * .06], rsh: [cx + sw * .44, top + u * .06], hip: top + th };
+    };
+    // an arm: the upper half in the shirt's white sleeve, the forearm and hand tanned skin
+    const arm = (from, to, ctrl) => {
+      const c = ctrl || [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2];
+      const at = k => [(1 - k) * (1 - k) * from[0] + 2 * (1 - k) * k * c[0] + k * k * to[0], (1 - k) * (1 - k) * from[1] + 2 * (1 - k) * k * c[1] + k * k * to[1]];
+      const seg = (k0, k1, col, w) => { g.strokeStyle = css(col); g.lineWidth = w; g.beginPath();
+        for (let i = 0; i <= 10; i++) { const p = at(k0 + (k1 - k0) * i / 10); i ? g.lineTo(...p) : g.moveTo(...p); } g.stroke(); };
+      seg(.45, 1, skin, u * .046);                                             // forearm
+      g.fillStyle = css(skin); g.beginPath(); g.arc(...to, u * .028, 0, 7); g.fill();   // hand
+      seg(0, .5, white, u * .066);                                             // white sleeve over the upper arm
+    };
+
+    if (pose === "sleep") {
+      // sitting at the foot of the palm, back against the trunk, knees up, head tipped to one side
+      const bx = x, by = feet;
+      const board0 = () => surf(bx - u * .62, by - u * .01, u * 1.4, u * .12, Math.PI / 2 - .02);
+      if (!rain) board0();
+      g.strokeStyle = css(suit); g.lineWidth = u * .085;
+      g.beginPath(); g.moveTo(bx - u * .01, by - u * .05); g.lineTo(bx - u * .2, by - u * .22); g.lineTo(bx - u * .34, by - u * .02); g.stroke();   // thigh up to the knee, shin down to the sand
+      g.beginPath(); g.moveTo(bx + u * .02, by - u * .04); g.lineTo(bx - u * .16, by - u * .19); g.lineTo(bx - u * .27, by - u * .02); g.stroke();
+      g.fillStyle = css(skin); for (const fx of [-.35, -.28]) { g.beginPath(); g.ellipse(bx + u * fx, by - u * .01, u * .04, u * .015, 0, 0, 7); g.fill(); }
+      g.fillStyle = css(suit); g.beginPath(); g.ellipse(bx + u * .01, by - u * .06, u * .09, u * .06, 0, 0, 7); g.fill();          // hips on the sand
+      const T = torso(bx + u * .02, by - u * .36, .1);                                                                              // back against the trunk, sitting on the hips
+      arm(T.lsh, [bx - u * .19, by - u * .22], [bx - u * .12, by - u * .2]);                                                         // arm resting on the knee
+      head(bx + u * .02, by - u * .44, .38, true);
+      drawDog(t, bx + u * .3, by, u, true, false, side, blow);
+      if (rain) {   // the board leant from the sand over him against the trunk: a little shelter
+        const ax = bx - u * .5, ay = by, cx2 = bx + u * .12, cy2 = by - u * .78, len = Math.hypot(cx2 - ax, cy2 - ay);
+        surf((ax + cx2) / 2, (ay + cy2) / 2, len, u * .18, Math.atan2(cy2 - ay, cx2 - ax) - Math.PI / 2);
+      }
+      // z z z, drifting up and away, growing as they rise and fading out
+      g.textAlign = "center";
+      for (let i = 0; i < 3; i++) {
+        const k = (t * .28 + i / 3) % 1, a = Math.sin(k * Math.PI);
+        g.font = `italic 600 ${Math.round(u * (.1 + k * .12))}px "Cormorant Garamond", serif`;
+        g.fillStyle = `rgba(246,240,224,${.95 * a})`;
+        g.fillText("z", bx + u * (.12 + k * .3 + Math.sin(k * 6 + i) * .03), by - u * (.56 + k * .5));
+      }
+      g.textAlign = "start"; g.restore(); return;
+    }
+    // board lying on the sand on flat days
+    if (kind === "flat" && pose === "stand") surf(x + u * .45, feet - u * .01, u * 1.4, u * .1, Math.PI / 2 - .03);
+    // board standing beside him
+    const bx = x + u * .24;
+    if (pose !== "rain" && kind !== "flat") surf(bx, feet - boardLen / 2 + 1, boardLen, bw, .06);
+    drawDog(t, x - u * .42, feet, u, false, pose === "excited", side, blow);
+    // legs in the wetsuit, athletic stance
+    g.strokeStyle = css(suit); g.lineWidth = u * .085;
+    g.beginPath(); g.moveTo(x - u * .045, y - u * .44); g.lineTo(x - u * .07, feet - u * .02); g.moveTo(x + u * .045, y - u * .44); g.lineTo(x + u * .08, feet - u * .02); g.stroke();
+    g.fillStyle = css(skin); for (const fx of [-.08, .09]) { g.beginPath(); g.ellipse(x + u * fx, feet - u * .01, u * .04, u * .015, 0, 0, 7); g.fill(); }
+    g.fillStyle = css(suit); g.fillRect(x - u * .09, y - u * .5, u * .18, u * .1);     // hips
+    const T = torso(x, y - u * .8, 0);
+    if (pose === "rain") {
+      // both arms up, holding the board flat over his head
+      const top = y - u * 1.12;
+      arm(T.lsh, [x - u * .2, top + u * .04], [x - u * .26, y - u * .82]);
+      arm(T.rsh, [x + u * .2, top + u * .04], [x + u * .26, y - u * .82]);
+      head(x - u * .005, y - u * .9, 0, false);
+      surf(x + u * .05, top, boardLen * 1.05, bw * .9, Math.PI / 2 - .04);
+    } else if (pose === "excited") {
+      const w = Math.sin(t * 9) * u * .06;
+      arm(T.lsh, [x - u * .26 + w, y - u * 1.18], [x - u * .3, y - u * .9]);
+      arm(T.rsh, [bx - u * .03, feet - boardLen * .66], [x + u * .22, y - u * .62]);
+      head(x - u * .005, y - u * .9, -.08, false);
+    } else {
+      arm(T.lsh, [x - u * .15, y - u * .5], [x - u * .2, y - u * .62]);
+      if (kind !== "flat") arm(T.rsh, [bx - u * .03, feet - boardLen * .64], [x + u * .22, y - u * .64]);
+      else arm(T.rsh, [x + u * .16, y - u * .5], [x + u * .21, y - u * .62]);
+      head(x - u * .005, y - u * .9, 0, false);
+    }
     g.restore();
   }
 }
@@ -574,6 +692,10 @@ function lit(h, extra = 0) {
 }
 
 /* ---------- drawing ---------- */
+// Which way the wind pushes something at screen position px (0 left … 1 right), sideways on screen.
+// Wind blowing away from us bends things towards the vanishing point in the middle of the horizon,
+// wind blowing towards us bends them away from it; plus whatever blows across the view.
+function windLateral(px) { return S.wx - S.wz * (px - .5) * 1.6; }
 function polyPath(pts) { const p = new Path2D(); p.moveTo(X(pts[0][0]), Y(pts[0][1])); for (const [x, y] of pts.slice(1)) p.lineTo(X(x), Y(y)); p.closePath(); return p; }
 const screenOf = (az, el) => { let d = ((az - sc.bearing + 540) % 360) - 180; const ppd = W / sc.fov; return [W / 2 + d * ppd, HZ - el * ppd]; };
 
@@ -811,8 +933,9 @@ function drawPalm(t, dt) {   // every palm in the scene: sc.palm (one) or sc.pal
 function drawOnePalm(t, dt, cfg, palm) {
   const s = S, P = cfg.at;
   const bx = X(P[0]), by = Y(P[1]), Ht = H * .3 * cfg.size, leafL = Math.min(H * .12, W * .2) * cfg.size;
-  const side = Math.abs(s.wx) < .05 ? 1 : Math.sign(s.wx);                 // which way downwind looks on screen
-  const across = Math.max(.55, Math.abs(s.wx));                            // wind blowing away from us still bends it, foreshortened
+  const lat = windLateral(P[0]);
+  const side = lat >= 0 ? 1 : -1;                                          // which way downwind looks on screen
+  const across = Math.max(.55, Math.min(1, Math.abs(lat) + .25));          // wind along our view still bends it, foreshortened
   // gusts arrive as slow pulses on top of the mean wind
   const gusty = Math.max(0, s.gust - s.kn), pulse = .5 + .5 * Math.sin(t * .9) * Math.sin(t * .37 + 1);
   const kn = s.kn + gusty * pulse * .8;
@@ -895,8 +1018,9 @@ function drawFlag(t) {
   if (!sc.flag) return;
   const s = S, [fx, fy] = [X(sc.flag[0]), Y(sc.flag[1])], ph = H * .07;
   g.strokeStyle = css(lit("#4b4038")); g.lineWidth = 1.6; g.beginPath(); g.moveTo(fx, fy); g.lineTo(fx, fy - ph); g.stroke();
-  const calm = s.kn < 4, len = H * .028 * (calm ? .6 : (.35 + .65 * Math.min(1, Math.abs(s.wx) + .15)) * Math.min(1.25, .85 + s.kn / 50));
-  const dirx = calm ? 0 : (s.wx >= 0 ? 1 : -1), hh = H * .016, flap = calm ? 0 : Math.sin(t * (6 + s.kn * .25) + 1) * hh * .18;
+  const lat = windLateral(sc.flag[0]);
+  const calm = s.kn < 4, len = H * .028 * (calm ? .6 : (.35 + .65 * Math.min(1, Math.abs(lat) + .15)) * Math.min(1.25, .85 + s.kn / 50));
+  const dirx = calm ? 0 : (lat >= 0 ? 1 : -1), hh = H * .016, flap = calm ? 0 : Math.sin(t * (6 + s.kn * .25) + 1) * hh * .18;
   g.fillStyle = css(lit("#d9573a"));
   g.beginPath(); g.moveTo(fx, fy - ph);
   if (calm) { g.quadraticCurveTo(fx + 3, fy - ph + hh, fx + 1, fy - ph + hh * 1.6); g.lineTo(fx, fy - ph + hh * 1.2); }

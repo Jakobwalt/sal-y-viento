@@ -15,7 +15,7 @@
    Tapping a spot flies in, then dives: the chart dissolves into that spot's own colour world
    with a finer shoreline, and the forecast rises from the bottom. Single sunlit look on purpose. */
 :root{
-  --sand:#ecdcb6;--foam:#fbf5e6;--ink:#23312f;--sea:#2f7f84;--kite:#ee6a39;--wax:#f3c25a;--muted:#6c7570;
+  --sand:#ecdcb6;--foam:#fbf5e6;--ink:#23312f;--sea:#4b9c9c;--kite:#ee6a39;--wax:#f3c25a;--muted:#6c7570;
   --spot:#2a8a8c;
   --f-display:"Cormorant Garamond","Cormorant",Garamond,"Times New Roman",serif;
   --f-body:"Cormorant Garamond",Garamond,"Times New Roman",serif;
@@ -286,7 +286,7 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
 
 <svg id="map" role="img" aria-label="Map of the Costa de la Luz and the Strait of Gibraltar with wind, towns and spots" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="deep" cx="50%" cy="55%" r="70%"><stop offset="0" stop-color="#2f7f84"/><stop offset="1" stop-color="#215f66"/></radialGradient>
+    <radialGradient id="deep" cx="50%" cy="55%" r="70%"><stop offset="0" stop-color="#4fa1a0"/><stop offset="1" stop-color="#3b8588"/></radialGradient>
     <path id="es" fill-rule="evenodd" clip-rule="evenodd"/>
     <path id="esd" fill-rule="evenodd" clip-rule="evenodd"/>
     <clipPath id="landclip"><use href="#es"/></clipPath>
@@ -529,10 +529,10 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
   <g id="world">
     <rect x="-300" y="-300" width="900" height="900" fill="url(#deep)"/>
     <g fill="none" stroke-linejoin="round" stroke-linecap="round">
-      <use href="#es" stroke="#3a8c8f" stroke-width="10"/>
-      <use href="#es" stroke="#4f9e9c" stroke-width="6"/>
-      <use href="#es" stroke="#6db5aa" stroke-width="3"/>
-      <use href="#es" stroke="#9bd2c2" stroke-width="1.3"/>
+      <use href="#es" stroke="#5aa9a6" stroke-width="10"/>
+      <use href="#es" stroke="#6cb6ae" stroke-width="6"/>
+      <use href="#es" stroke="#86c6b8" stroke-width="3"/>
+      <use href="#es" stroke="#addfcd" stroke-width="1.3"/>
       <use href="#es" stroke="#fbf5e6" stroke-width=".7" opacity=".9"/>
     </g>
     <use href="#es" fill="#e8d5aa"/>
@@ -871,7 +871,7 @@ function wcol(kn){if(kn<=WRAMP[0][0])return WRAMP[0][1];for(let i=0;i<WRAMP.leng
 function paintWindSrc(){const c=windSrc.getContext("2d"),id=c.createImageData(G.nx,G.ny);
   for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,[r,g,b,a]=wcol(field(G.x0+i*G.st,G.y0+j*G.st,curT).g);id.data.set([r,g,b,a*255],k*4)}c.putImageData(id,0,0)}
 function drawHeat(){hctx.setTransform(1,0,0,1,0,0);hctx.clearRect(0,0,hv.width,hv.height);
-  if(layer!=="waves"){hv.style.opacity=(selected?.35:.55)*(isEc(curT)?.6:1);hv.style.mixBlendMode="screen";hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
+  if(layer!=="waves"){hv.style.opacity=(selected?.45:.72)*(isEc(curT)?.6:1);hv.style.mixBlendMode="screen";hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
     hctx.drawImage(windSrc,G.x0-G.st/2,G.y0-G.st/2,G.nx*G.st,G.ny*G.st);return}
   hv.style.opacity=.8;hv.style.mixBlendMode="normal";
   hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
@@ -893,7 +893,7 @@ function tick(){
   else{const dv=selected&&!diving;fadeTrails(.045);const am=(dv?.7:1)*(isEc(curT)?.55:1);
     for(const p of parts){const f=field(p.x,p.y),v=f.kn*0.045/cam.z,nx=p.x+f.vx*v,ny=p.y+f.vy*v,[a,b]=toScreen(p.x,p.y),[c,d]=toScreen(nx,ny),land=onLand(p.x,p.y),
       fade=Math.min(1,p.age/40,(p.life-p.age)/40);
-      ctx.strokeStyle=`rgba(${colFor(f.g,land)},${(land?.38:.6)*fade*am*(f.g<5?.35:1)})`;ctx.lineWidth=f.g>35?1.6:f.g>25?1.3:1;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();
+      ctx.strokeStyle=`rgba(${colFor(f.g,land)},${(land?.5:.8)*fade*am*(f.g<5?.4:1)})`;ctx.lineWidth=f.g>35?1.6:f.g>25?1.3:1;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();
       p.x=nx;p.y=ny;p.age++;if(p.age>p.life||c<-20||c>W+20||d<-20||d>H+20)spawn(p)}}
   requestAnimationFrame(tick)}
 function drawStatic(){ctx.clearRect(0,0,W,H);if(layer==="waves")return;const step=46;ctx.lineCap="round";

@@ -61,9 +61,206 @@ const SCENES = {
     boardwalk: { from: [.51, .46], to: [.79, .64], w: .016 },
     flag: [.83, .25],
     palm: [.905, .31],      // a palm on the dunes, right of the boardwalk (base point)
+    pineWood: true,
     lights: [[.83, -.12], [.87, -.135], [.91, -.11], [.76, -.07], [.95, -.14], [.715, -.035]],
   },
 };
+/* Balneario, Tarifa: standing on the sand, looking west out to sea. Isla de Tarifa with its fort
+   on the left, the boulders of the causeway running out to it along the left edge, the open
+   Atlantic ahead, and far right the hazy ridge with the Punta Paloma dune at its foot.
+   Swell comes straight at us from the west; with levante (offshore here) the big ones throw
+   spray back off their crests, and they burst against the rocks. */
+SCENES.balneario = {
+  name: "Balneario", lat: 36.017, lon: -5.61, bearing: 268, fov: 104,
+  out: true, hz: .46, hzP: .36, seaSpan: .24, shallow: .4, seaRef: [.6, .02],
+  shore: [[.14, .128], [.3, .121], [.5, .114], [.68, .108], [.85, .103], [1.03, .1]],
+  // where the boulders meet the water and the sand, from the island out to the near left corner
+  rockEdge: [[.29, .01], [.25, .035], [.21, .075], [.165, .14], [.11, .25], [.05, .38], [-.03, .56]],
+  // the top of the low rock wall along the causeway (it hides the promenade behind it)
+  rockTop: [[.29, .008], [.21, .011], [.13, .014], [.06, .017], [-.03, .02]],
+  hills: [{ c: "#8ea2b0", p: [[.64, .002], [.7, -.004], [.76, -.011], [.82, -.022], [.87, -.033], [.91, -.039], [.95, -.038], [1.03, -.03], [1.03, .002]] }],
+  dune: [[.79, .002], [.815, -.006], [.845, -.009], [.87, -.006], [.89, .002]],
+  flag: [.87, .16],
+  lights: [[.035, -.058]],
+  layers: {},
+};
+{
+  const B = SCENES.balneario;
+  const along = (pts, key, v) => {   // interpolate along a screen polyline by x or y
+    const i0 = key === "x" ? 0 : 1, i1 = 1 - i0, sorted = pts[0][i0] <= pts[pts.length - 1][i0] ? pts : [...pts].reverse();
+    if (v <= sorted[0][i0]) return sorted[0][i1];
+    for (let i = 0; i < sorted.length - 1; i++) { const a = sorted[i], b = sorted[i + 1]; if (v <= b[i0]) return a[i1] + (b[i1] - a[i1]) * (v - a[i0]) / ((b[i0] - a[i0]) || 1); }
+    return sorted[sorted.length - 1][i1];
+  };
+  B.build = () => {
+    B.edgeP = curve(B.rockEdge, 8); B.topP = curve(B.rockTop, 8);
+    const rock = new Path2D(); rock.moveTo(...B.edgeP[0]); B.topP.forEach(p => rock.lineTo(...p));
+    rock.lineTo(-W * .05, H + 2); [...B.edgeP].reverse().forEach(p => rock.lineTo(...p)); rock.closePath(); B.rockPath = rock;
+    B.boulders = [];
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    for (let i = 0; i < 4000 && B.boulders.length < 150; i++) {
+      const y = mix(Y(-.04), H * 1.05, Math.pow(rand(), .8)), x = mix(-W * .05, X(.3), rand());
+      if (!g.isPointInPath(rock, x, y)) continue;
+      const d = depth(y), r = (3 + d * 70) * (.55 + rand() * .7), n = 7 + (rand() * 3 | 0);
+      B.boulders.push({ x, y, r, c: rand(), v: Array.from({ length: n }, (_, k) => [Math.cos(k / n * 6.283) * (.75 + rand() * .4), Math.sin(k / n * 6.283) * (.55 + rand() * .3)]) });
+    }
+    B.boulders.sort((a, b) => a.y - b.y);
+    B.sandMarks = Array.from({ length: 70 }, () => ({ x: rand(), y: rand(), l: .3 + rand() * .7 }));
+  };
+  B.shoreY = x => along(shoreP, "x", x);
+  B.edgeX = y => along(B.edgeP, "y", y);
+
+  // the island, its fort and lighthouse
+  B.layers.hills = t => {
+    drawHills(t); drawDune();
+    const s = S;
+    g.fillStyle = css(mixc(lit("#5d564b"), s.hor, .18));
+    g.fill(polyPath([[-.03, .014], [-.03, -.03], [.02, -.034], [.08, -.033], [.12, -.036], [.165, -.032], [.2, -.027], [.235, -.02], [.262, -.009], [.285, .004], [.29, .014]]));
+    g.fillStyle = css(mixc(lit("#8a7d68"), s.hor, .2), .8);      // the lighter rock band along its top
+    g.fill(polyPath([[-.03, -.026], [-.03, -.03], [.02, -.034], [.08, -.033], [.12, -.036], [.165, -.032], [.2, -.027], [.235, -.02], [.25, -.014], [.2, -.02], [.12, -.028], [.05, -.027]]));
+    g.fillStyle = css(mixc(lit("#efe5cf"), s.hor, .2));          // the little pale beach at its foot
+    g.fill(polyPath([[.215, .006], [.26, .002], [.285, .009], [.25, .012]]));
+    // the fort: long low pale buildings with dark windows
+    for (const [x0, x1, top, base] of [[.0, .07, -.046, -.033], [.082, .118, -.042, -.033], [.135, .178, -.048, -.034], [.185, .205, -.04, -.029]]) {
+      g.fillStyle = css(mixc(lit("#ddd4c1"), s.hor, .15)); g.fillRect(X(x0), Y(top), X(x1) - X(x0), Y(base) - Y(top));
+      g.fillStyle = css(mixc(lit("#9c8f7a"), s.hor, .15)); g.fillRect(X(x0), Y(top), X(x1) - X(x0), Math.max(1, (Y(base) - Y(top)) * .18));
+      g.fillStyle = css(lit("#4a453d"), .7);
+      for (let x = x0 + .006; x < x1 - .004; x += .011) g.fillRect(X(x), Y(top + (base - top) * .45), Math.max(1, W * .0025), Math.max(1, (Y(base) - Y(top)) * .25));
+    }
+    // the lighthouse at the island's tip, flashing at night every 15 s like on the map
+    const lx = X(.035), ly = Y(-.046), lh = H * .02;
+    g.fillStyle = css(lit("#f1ece0")); g.fillRect(lx - W * .003, ly - lh, W * .006, lh);
+    g.fillStyle = css(lit("#c9573a")); g.fillRect(lx - W * .004, ly - lh - H * .004, W * .008, H * .004);
+    const night = 1 - smooth(-6, 1, s.sun.el), ph = (performance.now() / 1000) % 15, flash = ph < .9 ? Math.sin(ph / .9 * Math.PI) : 0;
+    if (night > 0) { const r = H * (.01 + flash * .06), gl = g.createRadialGradient(lx, ly - lh, 0, lx, ly - lh, r);
+      gl.addColorStop(0, `rgba(255,240,200,${night * (.5 + flash * .5)})`); gl.addColorStop(1, "rgba(255,240,200,0)"); g.fillStyle = gl; g.fillRect(lx - r, ly - lh - r, r * 2, r * 2); }
+  };
+
+  // the sand: pale and wide, darker where it's wet, with wind ripples
+  B.layers.land = t => {
+    const s = S, top = B.shoreY(W / 2);
+    const gr = g.createLinearGradient(0, top, 0, H);
+    gr.addColorStop(0, css(lit("#d9c49d"))); gr.addColorStop(.12, css(lit("#ead9b6"))); gr.addColorStop(1, css(lit("#f0e3c6", .03)));
+    g.fillStyle = gr; g.fill(B.sandPath || sc.sandPath);
+    if (s.wet > 0) { g.fillStyle = css(lit("#8f7b5a"), s.wet * .3); g.fill(sc.sandPath); }
+    g.save(); g.clip(sc.sandPath);
+    const shore = new Path2D(); shore.moveTo(...shoreP[0]); shoreP.forEach(p => shore.lineTo(...p));
+    g.strokeStyle = css(lit("#c9b086"), .75); g.lineWidth = H * .012; g.stroke(shore);
+    g.strokeStyle = css(lit("#c7b18b"), .35); g.lineWidth = 1;
+    for (const m of B.sandMarks) { const y = mix(top + H * .03, H, Math.pow(m.y, 1.3)), d = depth(y), x = m.x * W, l = (20 + d * 160) * m.l;
+      g.beginPath(); g.moveTo(x - l / 2, y); g.quadraticCurveTo(x, y - 2 - d * 4, x + l / 2, y); g.stroke(); }
+    g.restore();
+  };
+
+  // waves coming straight in from the west
+  B.layers.waves = t => {
+    const s = S, h = clamp(s.wh ?? .6, .1, 5), period = clamp(s.wp || 8, 3, 20), LIVE = 4;
+    const lightF = mix(.25, 1, s.day) * (1 - s.grey * .25);
+    const sb = clamp(.95 - h * .075, .55, .92);                     // where they break: 0 horizon … 1 the sand
+    const offshore = clamp(s.wz * 1.5), onshore = clamp(-s.wz * 1.5);
+    const sprayAmt = smooth(10, 28, s.kn) * smooth(.8, 2.6, h) * offshore;
+    const foamC = `rgba(251,249,242,`;
+    B.hits = [];
+    g.save(); g.lineJoin = "round"; g.lineCap = "round";
+    for (let i = 0; i < LIVE; i++) {
+      const cyc = t / (period * LIVE) + i / LIVE, id = Math.floor(cyc) * LIVE + i, p = cyc % 1;
+      const sp = mix(.1, 1.03, p);                                   // how far in this wave has come
+      const stand = smooth(sb - .32, sb, sp), broke = smooth(sb, sb + .05, sp), fade = 1 - smooth(.95, 1.03, sp);
+      const yAt = x => HZ + (B.shoreY(x) - HZ) * sp * sp;
+      const x0 = Math.max(0, B.edgeX(yAt(W * .3)) - 4), N = 46, pts = [];
+      for (let k = 0; k <= N; k++) {
+        const x = mix(x0, W + 4, k / N), y = yAt(x);
+        const sect = .62 + .38 * Math.sin(x / W * 6.5 + id * 1.9) * Math.sin(x / W * 2.2 + id * .7 + 1);
+        const face = H * .017 * h * (.1 + .9 * sp * sp) * sect * stand * (1 - broke * .85);
+        pts.push([x, y, y - face, sect]);
+      }
+      // the swell line far out, before it stands up
+      g.strokeStyle = css(lit("#86c7bd"), .22 * (1 - stand) * fade); g.lineWidth = 1;
+      g.beginPath(); pts.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+      if (stand > .02) {
+        // the face: darker water between the crest and the trough
+        g.fillStyle = css(lit("#1d5d61"), .55 * stand * fade);
+        g.beginPath(); pts.forEach(([x, , c], k) => k ? g.lineTo(x, c) : g.moveTo(x, c)); [...pts].reverse().forEach(([x, y]) => g.lineTo(x, y + 1)); g.closePath(); g.fill();
+        g.strokeStyle = css(lit("#7cc6b9"), .7 * stand * (1 - broke) * fade); g.lineWidth = 1 + sp;
+        g.beginPath(); pts.forEach(([x, , c], k) => k ? g.lineTo(x, c) : g.moveTo(x, c)); g.stroke();
+        // feathering lip just before it goes
+        const lip = clamp((stand - .6) * 2.5) * (1 - broke);
+        if (lip > 0) { g.strokeStyle = foamC + (lip * .85 * lightF) + ")"; g.lineWidth = 1 + h * .7 * sp;
+          g.beginPath(); pts.forEach(([x, , c, sct], k) => { const yy = c + (1 - sct) * 2; k ? g.lineTo(x, yy) : g.moveTo(x, yy); }); g.stroke(); }
+      }
+      if (broke > 0) {
+        // white water rolling in
+        const foamH = H * .006 * h * (.2 + .8 * sp * sp) * (1 + (sp - sb) * 8);
+        g.fillStyle = foamC + (.88 * broke * fade * lightF) + ")";
+        g.beginPath(); pts.forEach(([x, , c, sct], k) => { const yy = c - foamH * .35 * sct; k ? g.lineTo(x, yy) : g.moveTo(x, yy); });
+        [...pts].reverse().forEach(([x, y, , sct]) => g.lineTo(x, y + foamH * (.6 + .4 * sct))); g.closePath(); g.fill();
+        g.fillStyle = css(lit("#c9ddd6"), .5 * broke * fade);
+        for (let k = 0; k < pts.length; k += 2) { const [x, y] = pts[k]; g.fillRect(x + Math.sin(k * 3.1 + id) * 6, y + foamH * .2, 2 + sp * 6, 1); }
+      }
+      // levante blows the tops off: mist streaming back off the crests, up and away from us
+      if (sprayAmt > .02 && stand > .35 && broke < .95) {
+        const amt = sprayAmt * (stand - .35) / .65 * (1 - broke * .8) * fade;
+        for (let k = 0; k < pts.length - 1; k++) {
+          const [xa, , ca, sct] = pts[k], [xb, , cb] = pts[k + 1]; if (sct < .5) continue;
+          for (let m = 0; m < 3; m++) {                                  // several wisps between samples, jittered
+            const u = (m + .5 + Math.sin(k * 7.3 + m * 3.1 + id) * .4) / 3, x = mix(xa, xb, u), c = mix(ca, cb, u);
+            const flick = .5 + .5 * Math.sin(t * (2.2 + m * .7) + k * 1.9 + m * 2.3 + id);
+            const len = H * .016 * h * (.25 + .75 * sp * sp) * (1 + 3 * sprayAmt) * flick * (sct - .3) * 1.6;
+            const sz = (2 + sp * 10) * (.6 + .4 * sct);
+            for (let q = 0; q < 4; q++) {                                // puffs along the plume: dense at the crest, thinning as it streams off
+              const f = q / 3, px = x + s.wx * len * .45 * f + Math.sin(t * 3 + k + q) * sz * .3 * f, py = c - len * f * (.85 + .15 * Math.sin(k + m));
+              const r = sz * (.6 + f * 1.6), al = .32 * amt * lightF * (1 - f * .75);
+              const gl = g.createRadialGradient(px, py, 0, px, py, r);
+              gl.addColorStop(0, foamC + al + ")"); gl.addColorStop(1, foamC + "0)");
+              g.fillStyle = gl; g.fillRect(px - r, py - r, r * 2, r * 2);
+            }
+          }
+        }
+      }
+      // onshore wind: crests crumble forward instead
+      if (onshore > .2 && s.kn > 16 && stand > .5 && broke < 1) {
+        g.fillStyle = foamC + (.5 * onshore * lightF) + ")";
+        for (let k = 0; k < pts.length; k += 2) { const [x, , c] = pts[k], dd = ((t * 2 + k * .37) % 1); g.fillRect(x, c + dd * 6 * (.5 + sp), 2, 1.5); }
+      }
+      if (stand > .3 || broke > 0) B.hits.push({ y: yAt(B.edgeX(yAt(W * .3))), sp, power: h * Math.max(stand, broke) * fade, id });
+    }
+    // the swash sliding up the sand
+    const sw = Math.sin(t * 2 * Math.PI / period) * .5 + .5;
+    g.beginPath(); shoreP.forEach(([x, y], k) => { const yy = y + (2 + sw * (3 + h * 3)) * (1 + Math.sin(k * .3) * .2); k ? g.lineTo(x, yy) : g.moveTo(x, yy); });
+    g.strokeStyle = foamC + (.6 * lightF) + ")"; g.lineWidth = 1.4; g.stroke();
+    g.restore();
+  };
+
+  // the boulders of the causeway, and the sea bursting against them
+  B.layers.scrub = t => {
+    const s = S;
+    g.fillStyle = css(lit("#5e4f3f")); g.fill(B.rockPath);
+    for (const b of B.boulders) {
+      const base = b.c < .33 ? "#b19675" : b.c < .66 ? "#9c8164" : "#c2a883", r = b.r;
+      const gr = g.createLinearGradient(b.x, b.y - r * .6, b.x, b.y + r * .6);
+      gr.addColorStop(0, css(lit(base, .06))); gr.addColorStop(.55, css(lit(base))); gr.addColorStop(1, css(lit("#6b5946")));
+      g.fillStyle = gr; g.beginPath(); b.v.forEach(([vx, vy], k) => k ? g.lineTo(b.x + vx * r, b.y + vy * r) : g.moveTo(b.x + vx * r, b.y + vy * r)); g.closePath(); g.fill();
+      if (r > 8) { g.strokeStyle = css(lit("#e2cfa9"), .35); g.lineWidth = 1; g.beginPath();
+        b.v.slice(Math.floor(b.v.length * .55)).forEach(([vx, vy], k) => k ? g.lineTo(b.x + vx * r, b.y + vy * r) : g.moveTo(b.x + vx * r, b.y + vy * r)); g.stroke(); }
+    }
+    // wet, darker rock where the water reaches
+    g.save(); g.clip(B.rockPath); g.strokeStyle = css(lit("#3e3428"), .35); g.lineWidth = H * .01;
+    g.beginPath(); B.edgeP.forEach((p, k) => { if (p[1] > B.shoreY(p[0]) + 4) return; k ? g.lineTo(...p) : g.moveTo(...p); }); g.stroke(); g.restore();
+    // spray bursting up where the waves hit the rocks
+    const lightF = mix(.25, 1, s.day) * (1 - s.grey * .25);
+    for (const hit of B.hits || []) {
+      if (hit.power < .25) continue;
+      const x = B.edgeX(hit.y) + 3, R = H * .012 * hit.power * (.25 + .75 * hit.sp * hit.sp) * (1 + s.kn / 45);
+      for (let j = 0; j < 6; j++) {
+        const rise = R * (j * .55) * (.6 + .4 * Math.sin(t * 2.4 + j + hit.id)), rr = R * (.6 + j * .25), cx = x - j * R * .12 + s.wx * rise * .4;
+        const gl = g.createRadialGradient(cx, hit.y - rise, 0, cx, hit.y - rise, rr);
+        gl.addColorStop(0, `rgba(251,249,242,${.45 * (1 - j / 6) * lightF})`); gl.addColorStop(1, "rgba(251,249,242,0)");
+        g.fillStyle = gl; g.fillRect(cx - rr, hit.y - rise - rr, rr * 2, rr * 2);
+      }
+    }
+  };
+  B.layers.things = t => { drawFlag(t); };
+}
 const has = id => !!SCENES[id];
 
 /* ---------- canvas & layout ---------- */
@@ -85,7 +282,7 @@ const X = x => x * W, Y = y => HZ + y * H;
 function resize() {
   W = innerWidth; H = innerHeight; dpr = Math.min(1.5, devicePixelRatio || 1);
   cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
-  HZ = H * (W / H < .8 ? .3 : .4);
+  HZ = H * (W / H < .8 ? (sc?.hzP ?? .3) : (sc?.hz ?? .4));
   if (sc) build();
 }
 addEventListener("resize", resize);
@@ -109,15 +306,20 @@ let rnd = 1; const rand = () => ((rnd = (rnd * 16807) % 2147483647) / 2147483647
 function build() {
   rnd = 7;
   shoreP = curve(sc.shore, 14);
-  scrubP = curve(sc.scrub, 10);
+  scrubP = sc.scrub ? curve(sc.scrub, 10) : [];
   // seaward normals along the shore, for the lines of breaking waves
-  const ref = [X(.25), Y(.06)];
+  const ref = [X((sc.seaRef || [.25, .06])[0]), Y((sc.seaRef || [.25, .06])[1])];
   shoreP.forEach((p, i) => {
     const a = shoreP[Math.max(0, i - 1)], b = shoreP[Math.min(shoreP.length - 1, i + 1)];
     let nx = -(b[1] - a[1]), ny = b[0] - a[0]; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
     if (nx * (ref[0] - p[0]) + ny * (ref[1] - p[1]) < 0) { nx = -nx; ny = -ny; }
     p.n = [nx, ny];
   });
+  tufts = []; bushes = [];
+  if (sc.out) {   // looking out to sea: water above the shore line, sand below it
+    const sea = new Path2D(); sea.moveTo(-2, HZ); sea.lineTo(W + 2, HZ); [...shoreP].reverse().forEach(p => sea.lineTo(...p)); sea.lineTo(-2, shoreP[0][1]); sea.closePath(); sc.seaPath = sea;
+    const sand = new Path2D(); sand.moveTo(-2, shoreP[0][1]); shoreP.forEach(p => sand.lineTo(...p)); sand.lineTo(W + 2, H + 2); sand.lineTo(-2, H + 2); sand.closePath(); sc.sandPath = sand;
+  } else {
   const scrub = new Path2D(); scrub.moveTo(...scrubP[0]); scrubP.forEach(p => scrub.lineTo(...p));
   scrub.lineTo(X(.68), H + 2); scrub.lineTo(W + 2, H + 2); scrub.lineTo(W + 2, Y(-.06)); scrub.closePath();
   sc.scrubPath = scrub;
@@ -125,8 +327,8 @@ function build() {
   sea.lineTo(-2, shoreP[shoreP.length - 1][1]); sea.closePath(); sc.seaPath = sea;
   const sand = new Path2D(); sand.moveTo(...shoreP[0]); shoreP.forEach(p => sand.lineTo(...p)); sand.lineTo(-2, H + 2);
   sand.lineTo(X(.66), H + 2); [...scrubP].reverse().forEach(p => sand.lineTo(...p)); sand.closePath(); sc.sandPath = sand;
-  tufts = []; bushes = [];
-  for (let i = 0; i < 2600 && tufts.length < 190; i++) {
+  }
+  for (let i = 0; i < 2600 && sc.scrubPath && !sc.out && tufts.length < 190; i++) {
     const x = X(.45 + rand() * .6), y = Y(-.02 + rand() * (1 - HZ / H + .05));
     g.setTransform(1, 0, 0, 1, 0, 0);
     if (g.isPointInPath(scrub, x, y)) {
@@ -135,7 +337,8 @@ function build() {
   }
   tufts.sort((a, b) => a.y - b.y); bushes.sort((a, b) => a.y - b.y);
   // pine wood on the lower slopes to the right (in the photo: dark crowns above the scrub)
-  sc.pines = Array.from({ length: 70 }, () => { const x = .74 + rand() * .3, top = -.012 - (x - .7) * .19;
+  if (sc.build) sc.build();
+  if (sc.pineWood) sc.pines = Array.from({ length: 70 }, () => { const x = .74 + rand() * .3, top = -.012 - (x - .7) * .19;
     return { x, y: top + rand() * (.03 - top) * .55, r: .5 + rand() * .7 }; }).sort((a, b) => a.y - b.y);
   tracks = Array.from({ length: 9 }, () => ({ x: X(.25 + rand() * .45), y: Y(.12 + rand() * .45), r: 40 + rand() * 160, a0: rand() * 6.28, a1: 1 + rand() * 2.2 }));
   clouds = Array.from({ length: 22 }, (_, i) => ({ x: rand() * 1.4 - .2, y: .04 + rand() * .3, s: .5 + rand() * 1.1, k: i / 22, puffs: Array.from({ length: 5 + (rand() * 4 | 0) }, () => [rand() * 2 - 1, rand() * .5 - .25, .4 + rand() * .6]) }));
@@ -258,12 +461,12 @@ function drawClouds(t, dt) {
 function drawHills(t) {
   const s = S;
   sc.hills.forEach((h, i) => { g.fillStyle = css(mixc(lit(h.c), s.hor, i ? .12 : .32)); g.fill(polyPath(h.p)); });
-  for (const p of sc.pines) { const x = X(p.x), y = Y(p.y), r = (2.2 + depth(y) * 30) * p.r;
+  for (const p of sc.pines || []) { const x = X(p.x), y = Y(p.y), r = (2.2 + depth(y) * 30) * p.r;
     g.fillStyle = css(lit("#33502f")); g.beginPath(); g.ellipse(x, y, r * 1.5, r, 0, 0, 7); g.fill();
     g.fillStyle = css(lit("#4c6a3d"), .7); g.beginPath(); g.ellipse(x - r * .3, y - r * .3, r * .8, r * .45, 0, 0, 7); g.fill(); }
   // little lights at night in the houses on the hill
   const night = 1 - smooth(-6, 1, s.sun.el);
-  if (night > 0) sc.lights.forEach(([x, y], i) => { const a = night * (.6 + .4 * Math.sin(t * .7 + i * 2.1));
+  if (night > 0) (sc.lights || []).forEach(([x, y], i) => { const a = night * (.6 + .4 * Math.sin(t * .7 + i * 2.1));
     g.fillStyle = `rgba(255,206,130,${a})`; g.beginPath(); g.arc(X(x), Y(y), 1.4, 0, 7); g.fill(); });
 }
 
@@ -276,7 +479,7 @@ function drawSea(t) {
   g.save(); g.clip(sc.seaPath); g.lineJoin = "round";
   const shore = new Path2D(); shore.moveTo(...shoreP[0]); shoreP.forEach(p => shore.lineTo(...p));
   for (const [w, a] of [[.11, .25], [.07, .3], [.035, .35]]) {
-    g.strokeStyle = css(lit("#6fc0b0"), a * (1 - s.grey * .4)); g.lineWidth = H * w; g.stroke(shore);
+    g.strokeStyle = css(lit("#6fc0b0"), a * (1 - s.grey * .4)); g.lineWidth = H * w * (sc.shallow ?? 1); g.stroke(shore);
   }
   // sun or moon glitter on the water
   const glit = (b, alpha) => { if (b.el < -1) return; const [sx] = screenOf(b.az, b.el); if (sx < -W * .2 || sx > W * 1.2) return;
@@ -289,11 +492,11 @@ function drawSea(t) {
   const caps = clamp((s.kn - 11) / 22), storm = clamp((s.kn - 25) / 15), seaH = H - HZ, lightF = (1 - s.grey * .3) * mix(.2, 1, s.day);
   // foam streaks lying along the wind once it really blows
   if (storm > 0) { g.strokeStyle = `rgba(250,248,240,${.22 * storm * lightF})`; g.lineCap = "round";
-    for (let i = 0; i < 70 * storm; i++) { const r = ripples[i], y = HZ + 4 + r.v * seaH * .7, d = depth(y), L = (30 + r.cap * 140) * (.2 + d);
+    for (let i = 0; i < 70 * storm; i++) { const r = ripples[i], y = HZ + 4 + r.v * seaH * (sc.seaSpan ?? .7), d = depth(y), L = (30 + r.cap * 140) * (.2 + d);
       const x = ((r.u * W + t * (s.wx || .3) * (20 + s.kn) * (.3 + d)) % (W + L) + W + L) % (W + L) - L;
       g.lineWidth = .6 + d * 1.6; g.beginPath(); g.moveTo(x, y); g.lineTo(x + L, y + s.wz * L * .05); g.stroke(); } }
   for (const r of ripples) {
-    const y = HZ + 3 + r.v * seaH * .62, d = depth(y), x = r.u * W + Math.sin(t * .5 + r.ph) * 6 * d + (t * s.wx * (2 + s.kn * .3) * d) % W;
+    const y = HZ + 3 + r.v * seaH * (sc.seaSpan ?? .62), d = depth(y), x = r.u * W + Math.sin(t * .5 + r.ph) * 6 * d + (t * s.wx * (2 + s.kn * .3) * d) % W;
     const xx = ((x % W) + W) % W, w = 3 + d * 26;
     if (r.cap < caps * .5 + storm * .45 && Math.sin(t * (1.2 + s.kn * .04) + r.ph) > .6 - storm * .55) {
       g.fillStyle = `rgba(250,248,240,${(.55 + storm * .4) * lightF})`; g.fillRect(xx, y, w * (.8 + storm * 1.4), 1 + d * (2.5 + storm * 2.5));
@@ -366,7 +569,7 @@ function drawWaves(t) {
 }
 
 function drawScrub(t) {
-  const s = S;
+  const s = S; if (!sc.scrubPath) return;
   const gr = g.createLinearGradient(0, HZ, 0, H);
   gr.addColorStop(0, css(mixc(lit("#8d9a5e"), s.hor, .2))); gr.addColorStop(.5, css(lit("#9b9461"))); gr.addColorStop(1, css(lit("#8a7f50")));
   g.fillStyle = gr; g.fill(sc.scrubPath);
@@ -387,6 +590,7 @@ function drawScrub(t) {
 }
 
 function drawBoardwalk() {
+  if (!sc.boardwalk) return;
   const { from, to, w } = sc.boardwalk, [ax, ay] = [X(from[0]), Y(from[1])], [bx, by] = [X(to[0]), Y(to[1])];
   const wa = W * w * .6, wb = W * w * 4.2, nx = -(by - ay), ny = bx - ax, l = Math.hypot(nx, ny), ux = nx / l, uy = ny / l;
   const deck = [[ax - ux * wa, ay - uy * wa], [ax + ux * wa, ay + uy * wa], [bx + ux * wb, by + uy * wb], [bx - ux * wb, by - uy * wb]];
@@ -500,6 +704,7 @@ function drawPalm(t, dt) {
 }
 
 function drawFlag(t) {
+  if (!sc.flag) return;
   const s = S, [fx, fy] = [X(sc.flag[0]), Y(sc.flag[1])], ph = H * .07;
   g.strokeStyle = css(lit("#4b4038")); g.lineWidth = 1.6; g.beginPath(); g.moveTo(fx, fy); g.lineTo(fx, fy - ph); g.stroke();
   const calm = s.kn < 4, len = H * .028 * (calm ? .6 : (.35 + .65 * Math.min(1, Math.abs(s.wx) + .15)) * Math.min(1.25, .85 + s.kn / 50));
@@ -518,7 +723,7 @@ function drawWeather(t, dt) {
   if (s.kn > 14) { const a = clamp((s.kn - 14) / 16) * .45, v = (s.wx || .2) * (60 + s.kn * 6);
     g.save(); g.clip(sc.sandPath); g.strokeStyle = css(lit("#d9c398"), a); g.lineWidth = 1;
     for (const d of drift) { d.x += v * dt / W; if (d.x > 1.1) d.x = -.1; if (d.x < -.1) d.x = 1.1;
-      const y = mix(Y(.12), H, d.y), dd = depth(y), x = d.x * W; if (x > X(.72) + (y - HZ) * .1) continue;
+      const y = mix(Y(.12), H, d.y), dd = depth(y), x = d.x * W; if (sc.scrub && x > X(.72) + (y - HZ) * .1) continue;
       const vz = s.wz * (4 + dd * 14) * (.5 + d.l);   // wind blowing away from us drags the streaks up the picture
       g.beginPath(); g.moveTo(x, y); g.lineTo(x - Math.sign(v) * (8 + dd * 30) * (.5 + d.l) * Math.max(.3, Math.abs(s.wx)), y + vz); g.stroke(); }
     g.restore(); }
@@ -578,6 +783,7 @@ function paint(name, fn) {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 function drawDune() {   // the big pale dune at Punta Paloma, at the far end of the beach
+  if (!sc.dune) return;
   g.fillStyle = css(mixc(lit("#f4ead2"), S.hor, .15)); g.fill(polyPath(sc.dune));
   const dz = sc.dune, mid = Math.floor(dz.length / 2);
   g.fillStyle = css(mixc(lit("#d8c49c"), S.hor, .2), .7); g.fill(polyPath([...dz.slice(mid), [dz[mid][0] - .02, .002]]));
@@ -586,9 +792,12 @@ function draw(t, dt) {
   S = state(curT);
   g = main; g.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (reveal < 1) { g.fillStyle = "#efe6d2"; g.fillRect(0, 0, W, H); }       // a blank sheet to paint on
+  const L = sc.layers || {};   // a scene can replace any layer with its own
   paint("sky", () => drawSky(t)); paint("clouds", () => drawClouds(t, dt)); paint("sea", () => drawSea(t));
-  paint("hills", () => drawHills(t)); paint("land", () => drawLand(t)); paint("waves", () => { drawWaves(t); drawDune(); });
-  paint("scrub", () => drawScrub(t)); paint("things", () => { drawBoardwalk(); drawFlag(t); drawPalm(t, dt); }); paint("weather", () => drawWeather(t, dt));
+  paint("hills", () => (L.hills || drawHills)(t, dt)); paint("land", () => (L.land || drawLand)(t, dt));
+  paint("waves", () => (L.waves || (() => { drawWaves(t); drawDune(); }))(t, dt));
+  paint("scrub", () => (L.scrub || drawScrub)(t, dt)); paint("things", () => (L.things || (() => { drawBoardwalk(); drawFlag(t); drawPalm(t, dt); }))(t, dt));
+  paint("weather", () => drawWeather(t, dt));
 }
 
 /* ---------- forecast readout and the 24-hour table ---------- */

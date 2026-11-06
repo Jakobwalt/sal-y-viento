@@ -273,6 +273,177 @@ SCENES.balneario = {
   };
   B.layers.things = () => {};
 }
+/* El Palmar: on the glossy wet sand at low tide, looking west-north-west along the beach.
+   The sea on the left with the surf breaking in lines along the shore, the white Torre de
+   El Palmar on the right with the low building beside it, the dark reef at the water's edge,
+   the dune line and white houses beyond, two palms that answer the wind, and a surfer
+   watching the waves: longboard for small days, shortboard when it's over a metre, and
+   jumping about when it's really big. The wet sand mirrors the sky and the tower. */
+SCENES.palmar = {
+  name: "El Palmar", lat: 36.23, lon: -6.075, bearing: 292, fov: 112,
+  hz: .52, hzP: .38, seaRef: [.08, .03], shallow: .55, seaSpan: .4,
+  // the water's edge, from far up the beach down to the near left
+  shore: [[.52, .004], [.47, .018], [.39, .045], [.29, .085], [.17, .135], [.05, .19], [-.04, .23]],
+  hills: [{ c: "#9aa7a8", p: [[.86, .002], [.92, -.004], [.97, -.006], [1.03, -.005], [1.03, .002]] }],
+  palms: [{ at: [.83, .075], size: .82 }, { at: [.94, .1], size: 1 }],
+  lights: [[.88, -.02], [.93, -.022], [.97, -.019], [.665, -.05]],
+  layers: {},
+};
+{
+  const E = SCENES.palmar;
+  E.build = () => {
+    // sea up and to the left of the shore line, sand everywhere else below the horizon
+    const sea = new Path2D(); sea.moveTo(-2, HZ); sea.lineTo(...shoreP[0]); shoreP.forEach(p => sea.lineTo(...p)); sea.lineTo(-2, shoreP[shoreP.length - 1][1]); sea.closePath(); sc.seaPath = sea;
+    const sand = new Path2D(); sand.moveTo(...shoreP[0]); shoreP.forEach(p => sand.lineTo(...p)); sand.lineTo(-2, H + 2); sand.lineTo(W + 2, H + 2); sand.lineTo(W + 2, HZ); sand.closePath(); sc.sandPath = sand;
+    E.marks = Array.from({ length: 50 }, () => ({ x: rand(), y: rand(), l: .3 + rand() * .7 }));
+    E.reef = Array.from({ length: 14 }, () => ({ x: .47 + rand() * .12, y: .002 + rand() * .01, r: .4 + rand() * .8 }));
+  };
+  // dune line, tower, houses (behind the beach, on the right)
+  E.layers.hills = t => {
+    const s = S; drawHills(t);
+    g.fillStyle = css(mixc(lit("#6d6a4c"), s.hor, .15));                         // the low dark dune and scrub line
+    g.fill(polyPath([[.53, .004], [.6, -.002], [.7, -.006], [.8, -.009], [.9, -.012], [1.03, -.014], [1.03, .02], [.53, .012]]));
+    g.fillStyle = css(mixc(lit("#4f5a3c"), s.hor, .1));
+    for (let i = 0; i < 22; i++) { const x = .72 + i * .015, y = -.008 - (i % 3) * .002; g.beginPath(); g.ellipse(X(x), Y(y), W * .009, H * .006, 0, 0, 7); g.fill(); }
+    // white houses far right, and little palms among them
+    for (const [x0, x1, top] of [[.85, .9, -.026], [.905, .945, -.03], [.95, 1.0, -.027], [.79, .82, -.018]]) {
+      g.fillStyle = css(mixc(lit("#f3efe6"), s.hor, .15)); g.fillRect(X(x0), Y(top), X(x1) - X(x0), Y(-.009) - Y(top));
+      g.fillStyle = css(lit("#9a8f80"), .5); g.fillRect(X(x0), Y(top), X(x1) - X(x0), 1.5);
+    }
+    // the low building beside the tower
+    g.fillStyle = css(mixc(lit("#efe8da"), s.hor, .12)); g.fillRect(X(.675), Y(-.02), X(.745) - X(.675), Y(-.004) - Y(-.02));
+    g.fillStyle = css(mixc(lit("#b9a58c"), s.hor, .12)); g.fill(polyPath([[.672, -.02], [.71, -.027], [.748, -.02]]));
+    // Torre de El Palmar: a white round watchtower, slightly tapered, with a dark doorway high up
+    const tx = X(.655), tb = Y(-.004), th = H * .085, tw = W * .022;
+    g.fillStyle = css(mixc(lit("#f5f1e7"), s.hor, .1));
+    g.beginPath(); g.moveTo(tx - tw / 2, tb); g.lineTo(tx - tw * .42, tb - th); g.lineTo(tx + tw * .42, tb - th); g.lineTo(tx + tw / 2, tb); g.closePath(); g.fill();
+    g.fillStyle = css(lit("#c9c2b4"), .7); g.beginPath(); g.moveTo(tx + tw * .12, tb); g.lineTo(tx + tw * .1, tb - th); g.lineTo(tx + tw * .42, tb - th); g.lineTo(tx + tw / 2, tb); g.closePath(); g.fill();
+    g.fillStyle = css(mixc(lit("#e8e2d4"), s.hor, .1)); g.fillRect(tx - tw * .48, tb - th - H * .004, tw * .96, H * .004);
+    g.fillStyle = css(lit("#4a443c")); g.fillRect(tx - tw * .08, tb - th * .62, tw * .16, th * .12);
+    E.tower = { x: tx, b: tb, h: th, w: tw };
+    // the reef at the water's edge
+    for (const r of E.reef) { g.fillStyle = css(lit("#3f3a33")); g.beginPath(); g.ellipse(X(r.x), Y(r.y), W * .012 * r.r, H * .004 * r.r, 0, 0, 7); g.fill(); }
+  };
+  // the wet sand: a mirror for the sky and the tower, drier and paler further back
+  E.layers.land = t => {
+    const s = S;
+    g.save(); g.clip(sc.sandPath);
+    const gr = g.createLinearGradient(0, HZ, 0, H);
+    gr.addColorStop(0, css(lit("#e6d6b4"))); gr.addColorStop(.12, css(mixc(lit("#cdb08a"), s.hor, .35)));
+    gr.addColorStop(.45, css(mixc(lit("#b39370"), s.top, .3))); gr.addColorStop(1, css(mixc(lit("#9d7c5e"), s.top, .22)));
+    g.fillStyle = gr; g.fillRect(0, HZ, W, H - HZ);
+    // a sheen of sky on the wet sand, strongest near the water
+    const sh = g.createLinearGradient(0, HZ, W * .7, H);
+    sh.addColorStop(0, css(s.hor, .45)); sh.addColorStop(.6, css(mixc(s.top, s.hor, .4), .25)); sh.addColorStop(1, css(s.top, .05));
+    g.fillStyle = sh; g.fillRect(0, HZ, W, H - HZ);
+    // dry sand behind, on the right
+    g.fillStyle = css(lit("#e8d8b6"), .85); g.fill(polyPath([[.53, .012], [.7, .016], [.85, .03], [1.03, .045], [1.03, .004], [.53, .004]]));
+    // the tower's reflection
+    if (E.tower) { const { x, b, h, w } = E.tower, rb = b + H * .03;
+      const rg = g.createLinearGradient(0, rb, 0, rb + h * 1.1); rg.addColorStop(0, css(lit("#f5f1e7"), .45)); rg.addColorStop(1, css(lit("#f5f1e7"), 0));
+      g.fillStyle = rg; g.fillRect(x - w * .45 + Math.sin(t * 1.3) * .6, rb, w * .9, h * 1.1); }
+    // ripple marks and tracks
+    g.strokeStyle = css(lit("#8c6f55"), .18); g.lineWidth = 1;
+    for (const m of E.marks) { const y = mix(HZ + H * .04, H, Math.pow(m.y, 1.2)), d = depth(y), x = mix(W * .25, W, m.x), l = (16 + d * 150) * m.l;
+      g.beginPath(); g.moveTo(x - l / 2, y); g.quadraticCurveTo(x, y - 1 - d * 3, x + l / 2, y); g.stroke(); }
+    g.restore();
+  };
+  // surf: several lines of white water along the shore; faces, breaking and white water by the swell
+  E.layers.waves = t => {
+    const s = S, h = clamp(s.wh ?? .8, .1, 5), period = clamp(s.wp || 9, 3, 20), LIVE = 5;
+    const lightF = mix(.25, 1, s.day) * (1 - s.grey * .25), foamC = "rgba(251,249,242,";
+    const reach = H * (.04 + h * .065), sb = clamp(.5 - h * .07, .15, .45);
+    const persp = q => depth(q[1]) * .8 + .2;
+    g.save(); g.clip(sc.seaPath); g.lineJoin = "round"; g.lineCap = "round";
+    for (let i = 0; i < LIVE; i++) {
+      const cyc = t / (period * LIVE) + i / LIVE, id = Math.floor(cyc) * LIVE + i, p = cyc % 1;
+      const off = (1 - p) * reach, stand = smooth(sb - .3, sb, p), broke = smooth(sb, sb + .06, p), fade = smooth(0, .08, p) * (1 - smooth(.9, 1, p));
+      const pts = shoreP.map((q, j) => { const d = persp(q), sect = .55 + .45 * Math.sin(j * .19 + id * 1.7) * Math.sin(j * .07 + id);
+        const x = q[0] + q.n[0] * off * d, y = q[1] + q.n[1] * off * d, face = H * .02 * h * d * sect * stand * (1 - broke * .8);
+        return [x, y, y - face, sect, d]; });
+      if (stand > .02) {
+        g.fillStyle = css(lit("#1e5e62"), .5 * stand * fade);
+        g.beginPath(); pts.forEach(([x, , c], k) => k ? g.lineTo(x, c) : g.moveTo(x, c)); [...pts].reverse().forEach(([x, y]) => g.lineTo(x, y + 1)); g.closePath(); g.fill();
+        g.strokeStyle = css(lit("#86cbbd"), .6 * stand * (1 - broke) * fade); g.lineWidth = 1.2;
+        g.beginPath(); pts.forEach(([x, , c], k) => k ? g.lineTo(x, c) : g.moveTo(x, c)); g.stroke();
+      } else { g.strokeStyle = css(lit("#86c7bd"), .25 * fade); g.lineWidth = 1; g.beginPath(); pts.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); }
+      if (broke > 0) {   // white water rolling in, in broken sections
+        for (let k = 0; k < pts.length - 1; k++) {
+          const [x, , c, sect, d] = pts[k], [x2, , c2] = pts[k + 1]; if (sect < .3) continue;
+          g.strokeStyle = foamC + (.85 * broke * fade * lightF * Math.min(1, sect * 1.3)) + ")"; g.lineWidth = (1.5 + h * 3) * (.3 + d) * (1 + (p - sb) * 2) * (.5 + sect * .5);
+          g.beginPath(); g.moveTo(x, c); g.lineTo(x2, c2); g.stroke();
+        }
+      }
+    }
+    // the swash, and a thin film of water sliding over the flat sand
+    const sw = Math.sin(t * 2 * Math.PI / period) * .5 + .5;
+    g.restore(); g.save(); g.lineJoin = "round";
+    g.beginPath(); shoreP.forEach((q, k) => { const d = persp(q), o = -(3 + sw * (6 + h * 8)) * d; const x = q[0] + q.n[0] * o, y = q[1] + q.n[1] * o; k ? g.lineTo(x, y) : g.moveTo(x, y); });
+    g.strokeStyle = foamC + (.65 * lightF) + ")"; g.lineWidth = 1.5; g.stroke();
+    g.restore();
+  };
+  E.layers.scrub = () => {};
+  E.layers.things = (t, dt) => { drawPalm(t, dt); drawSurfer(t); };
+
+  /* The surfer: tanned, long brown curly hair blowing downwind, blue-and-white shirt over a dark
+     blue wetsuit, standing on the wet sand watching the waves (facing the sea, on our left). */
+  const surfer = { curls: Array.from({ length: 16 }, (_, i) => ({ a: i / 16, r: .5 + ((i * 7) % 5) / 8, ph: i * 1.3 })) };
+  function drawSurfer(t) {
+    const s = S, h = s.wh ?? .5, x = X(.6), feet = Y(.155), Hs = H * .2, u = Hs;     // u: his height in px
+    const big = h >= 2, kind = h < .5 ? "flat" : h < 1 ? "long" : "short";
+    const hop = big ? Math.abs(Math.sin(t * 5)) * u * .06 : 0, y = feet - hop;
+    const skin = lit("#a86a43"), suit = lit("#1f2b4d"), suitHi = lit("#34457a"), blue = lit("#3f74b8"), white = lit("#f2efe7"), hair = lit("#5b3a22"), hairHi = lit("#7a4f2e");
+    const board = lit("#f4f0e6"), stripe = lit("#2f6fa8");
+    const side = Math.abs(s.wx) < .05 ? 1 : Math.sign(s.wx), blow = clamp(s.kn / 30) * Math.max(.4, Math.abs(s.wx));
+    g.save(); g.lineCap = "round"; g.lineJoin = "round";
+    // shadow on the wet sand
+    g.fillStyle = "rgba(40,30,20,.18)"; g.beginPath(); g.ellipse(x + u * .05, feet + 2, u * .16, u * .025, 0, 0, 7); g.fill();
+    // board: on the sand when it's flat, standing beside him otherwise (long or short)
+    const drawBoard = (bx, by, len, wid, ang) => { g.save(); g.translate(bx, by); g.rotate(ang);
+      g.fillStyle = css(board); g.beginPath(); g.ellipse(0, -len / 2, wid / 2, len / 2, 0, 0, 7); g.fill();
+      g.strokeStyle = css(stripe); g.lineWidth = Math.max(1, wid * .12); g.beginPath(); g.moveTo(0, -len * .92); g.lineTo(0, -len * .08); g.stroke();
+      g.strokeStyle = css(lit("#c9c2b3")); g.lineWidth = 1; g.beginPath(); g.ellipse(0, -len / 2, wid / 2, len / 2, 0, 0, 7); g.stroke(); g.restore(); };
+    if (kind === "flat") {   // the longboard lying on the sand beside him
+      const cx = x + u * .42, cy = feet - u * .01;
+      g.fillStyle = css(board); g.beginPath(); g.ellipse(cx, cy, u * .62, u * .045, -.03, 0, 7); g.fill();
+      g.strokeStyle = css(stripe); g.lineWidth = Math.max(1, u * .012); g.beginPath(); g.moveTo(cx - u * .55, cy); g.lineTo(cx + u * .55, cy - u * .01); g.stroke();
+      g.strokeStyle = css(lit("#c9c2b3")); g.lineWidth = 1; g.beginPath(); g.ellipse(cx, cy, u * .62, u * .045, -.03, 0, 7); g.stroke(); }
+    const bx = x + u * .2, boardLen = kind === "short" ? u * .92 : u * 1.38, bw = kind === "short" ? u * .13 : u * .16;
+    if (kind !== "flat") drawBoard(bx, feet + 1, boardLen, bw, .06);
+    // legs in the wetsuit
+    g.strokeStyle = css(suit); g.lineWidth = u * .075;
+    g.beginPath(); g.moveTo(x - u * .04, y - u * .46); g.lineTo(x - u * .06, feet - u * .02); g.moveTo(x + u * .04, y - u * .46); g.lineTo(x + u * .07, feet - u * .02); g.stroke();
+    g.fillStyle = css(skin); for (const fx of [-.07, .08]) { g.beginPath(); g.ellipse(x + u * fx, feet - u * .01, u * .035, u * .014, 0, 0, 7); g.fill(); }
+    // torso: wetsuit, with the blue-and-white striped shirt over it
+    g.fillStyle = css(suit); g.beginPath(); g.ellipse(x, y - u * .52, u * .1, u * .09, 0, 0, 7); g.fill();
+    const tx0 = x - u * .1, ty0 = y - u * .8, tw = u * .2, th = u * .3;
+    g.save(); g.beginPath(); g.moveTo(tx0 + tw * .08, ty0); g.lineTo(tx0 + tw * .92, ty0); g.lineTo(tx0 + tw, ty0 + th); g.lineTo(tx0, ty0 + th); g.closePath(); g.clip();
+    for (let k = 0; k < 8; k++) { g.fillStyle = css(k % 2 ? white : blue); g.fillRect(tx0, ty0 + k * th / 8, tw, th / 8 + .5); }
+    g.restore();
+    // arms: one resting on the board, the other at his side, or waving when it's big
+    g.strokeStyle = css(skin); g.lineWidth = u * .05;
+    if (kind !== "flat") { g.beginPath(); g.moveTo(x + u * .08, y - u * .76); g.quadraticCurveTo(x + u * .16, y - u * .66, bx - u * .02, feet - boardLen * .62); g.stroke(); }
+    else { g.beginPath(); g.moveTo(x + u * .08, y - u * .76); g.lineTo(x + u * .12, y - u * .52); g.stroke(); }
+    if (big) { const w = Math.sin(t * 9) * u * .05; g.beginPath(); g.moveTo(x - u * .08, y - u * .76); g.lineTo(x - u * .18, y - u * 1.0); g.lineTo(x - u * .2 + w, y - u * 1.16); g.stroke(); }
+    else { g.beginPath(); g.moveTo(x - u * .08, y - u * .76); g.quadraticCurveTo(x - u * .14, y - u * .64, x - u * .11, y - u * .52); g.stroke(); }
+    g.strokeStyle = css(blue); g.lineWidth = u * .06; g.beginPath(); g.moveTo(x - u * .08, y - u * .79); g.lineTo(x - u * .1, y - u * .72); g.moveTo(x + u * .08, y - u * .79); g.lineTo(x + u * .1, y - u * .72); g.stroke();
+    // neck and head, turned towards the waves (to our left)
+    g.fillStyle = css(skin); g.fillRect(x - u * .025, y - u * .86, u * .05, u * .07);
+    const hx = x - u * .01, hy = y - u * .93, hr = u * .07;
+    g.beginPath(); g.ellipse(hx - u * .012, hy, hr * .9, hr, 0, 0, 7); g.fill();
+    g.beginPath(); g.moveTo(hx - hr * .85, hy - hr * .1); g.lineTo(hx - hr * 1.12, hy + hr * .18); g.lineTo(hx - hr * .82, hy + hr * .3); g.closePath(); g.fill();   // nose: he's looking left, out to sea
+    g.fillStyle = css(lit("#8f5636")); g.beginPath(); g.ellipse(hx + hr * .1, hy + hr * .1, hr * .2, hr * .28, 0, 0, 7); g.fill();   // ear
+    // long brown curly hair, streaming downwind
+    for (const c of surfer.curls) {
+      const k = c.a, along = k * .9 + .1, wob = Math.sin(t * (3 + s.kn * .12) + c.ph) * u * .012 * (1 + blow * 2);
+      const cx = hx + hr * .25 + side * along * u * .16 * blow + Math.cos(k * 5 + c.ph) * hr * .5 * (1 - blow * .5);
+      const cy = hy - hr * .55 + along * u * .17 * (1 - blow * .6) + Math.sin(k * 7 + c.ph) * hr * .25 + wob;
+      g.fillStyle = css(k % .25 < .12 ? hairHi : hair); g.beginPath(); g.arc(cx, cy, hr * .32 * c.r * (1 - along * .3), 0, 7); g.fill();
+    }
+    g.fillStyle = css(hair); g.beginPath(); g.ellipse(hx + hr * .3, hy - hr * .4, hr * .9, hr * .62, .2, 0, 7); g.fill();
+    g.restore();
+  }
+}
 const has = id => !!SCENES[id];
 
 /* ---------- canvas & layout ---------- */
@@ -331,7 +502,7 @@ function build() {
   if (sc.out) {   // looking out to sea: water above the shore line, sand below it
     const sea = new Path2D(); sea.moveTo(-2, HZ); sea.lineTo(W + 2, HZ); [...shoreP].reverse().forEach(p => sea.lineTo(...p)); sea.lineTo(-2, shoreP[0][1]); sea.closePath(); sc.seaPath = sea;
     const sand = new Path2D(); sand.moveTo(-2, shoreP[0][1]); shoreP.forEach(p => sand.lineTo(...p)); sand.lineTo(W + 2, H + 2); sand.lineTo(-2, H + 2); sand.closePath(); sc.sandPath = sand;
-  } else {
+  } else if (sc.scrub) {
   const scrub = new Path2D(); scrub.moveTo(...scrubP[0]); scrubP.forEach(p => scrub.lineTo(...p));
   scrub.lineTo(X(.68), H + 2); scrub.lineTo(W + 2, H + 2); scrub.lineTo(W + 2, Y(-.06)); scrub.closePath();
   sc.scrubPath = scrub;
@@ -630,11 +801,16 @@ const lerpKn = (kn, pts) => { if (kn <= pts[0][0]) return pts[0][1];
 const BEND = [[0, 0], [10, 0], [15, .06], [20, .16], [30, .38], [45, .7], [60, .85]];   // trunk lean, as a share of its height
 const FLUT = [[0, 0], [6, .01], [10, .03], [15, .07], [20, .12], [30, .24], [45, .5], [60, .6]];  // how wildly the leaves move
 const STREAM = [[0, 0], [12, .08], [15, .2], [20, .42], [30, .75], [40, .95], [60, 1]];               // how far the leaves swing downwind
-const palm = { fronds: Array.from({ length: 14 }, (_, i) => ({ rest: -Math.PI / 2 + (i - 6.5) * .235 + (i % 2 ? .06 : -.04), len: .82 + (i * 37 % 10) / 40,
-  ph: i * 1.7, grow: 1, droop: .55 + (i * 13 % 7) / 20 })), flying: [], nextTear: 0, gustPh: 0 };
-function drawPalm(t, dt) {
-  const s = S, P = sc.palm; if (!P) return;
-  const bx = X(P[0]), by = Y(P[1]), Ht = H * .3, leafL = Math.min(H * .12, W * .2);
+const newPalm = k => ({ fronds: Array.from({ length: 14 }, (_, i) => ({ rest: -Math.PI / 2 + (i - 6.5) * .235 + (i % 2 ? .06 : -.04), len: .82 + ((i + k * 3) * 37 % 10) / 40,
+  ph: i * 1.7 + k * 2.9, grow: 1, droop: .55 + ((i + k) * 13 % 7) / 20 })), flying: [], nextTear: k * 1.3, gustPh: 0, off: k * 3.7 });
+const palmStates = [];
+function drawPalm(t, dt) {   // every palm in the scene: sc.palm (one) or sc.palms [{at, size}]
+  const list = sc.palms || (sc.palm ? [{ at: sc.palm, size: 1 }] : []);
+  list.forEach((cfg, i) => drawOnePalm(t + (i ? 3.7 * i : 0), dt, cfg, palmStates[i] || (palmStates[i] = newPalm(i))));
+}
+function drawOnePalm(t, dt, cfg, palm) {
+  const s = S, P = cfg.at;
+  const bx = X(P[0]), by = Y(P[1]), Ht = H * .3 * cfg.size, leafL = Math.min(H * .12, W * .2) * cfg.size;
   const side = Math.abs(s.wx) < .05 ? 1 : Math.sign(s.wx);                 // which way downwind looks on screen
   const across = Math.max(.55, Math.abs(s.wx));                            // wind blowing away from us still bends it, foreshortened
   // gusts arrive as slow pulses on top of the mean wind
@@ -962,9 +1138,9 @@ const OPEN = { len: 9.6,
   paint: t => clamp((t - 4.4) / 4.6),        // the beach paints in 4.4–9.0 s
   ui: 8.4 };
 const CLOSE = { len: 8.2,
-  paint: t => 1 - clamp(t / 1.8),            // the picture fades back to a blank sheet 0–1.8 s
-  gull: t => clamp((t - 1.0) / 7.0),         // in from the other side and away again
-  map: t => 1 - clamp((t - 2.2) / 5.2) };    // the map comes back into focus and zooms out 2.2–7.4 s
+  paint: () => 1,                            // the picture stays whole and simply crossfades into the map
+  gull: t => clamp((t - .4) / 7.4),          // in from the other side and away again
+  map: t => 1 - clamp((t - .8) / 6.4) };     // the map comes back through the blur and zooms out .8–7.2 s
 function run(plan, dir, done) {
   cancelAnimationFrame(anim); setWill(true);
   const t0 = performance.now();

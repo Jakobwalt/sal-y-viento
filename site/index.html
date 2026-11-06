@@ -238,6 +238,7 @@ body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
 #gull{position:fixed;inset:0;width:100%;height:100%;z-index:5;pointer-events:none}
 body.beach #info,body.beach.dive.ready #info{opacity:0;pointer-events:none;transform:translateY(40px)}
 body.beach .ctrl,body.beach .zoomers{opacity:0;pointer-events:none}
+body.dive .toggle{display:none}
 #beach-hud{top:calc(env(safe-area-inset-top,0px) + 14px);left:calc(max(18px,env(safe-area-inset-left,0px)) + 54px);right:18px;color:var(--foam);opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .6s .2s,transform .6s .2s;text-shadow:0 1px 14px rgba(10,24,30,.35)}
 body.beach-on #beach-hud{opacity:1;transform:none}
 #beach-hud h2{font-family:var(--f-display);font-weight:300;font-size:clamp(2rem,4.6vw,3.4rem);line-height:1;margin:0}

@@ -343,7 +343,7 @@ function build() {
   for (let i = 0; i < 2600 && sc.scrubPath && !sc.out && tufts.length < 190; i++) {
     const x = X(.45 + rand() * .6), y = Y(-.02 + rand() * (1 - HZ / H + .05));
     g.setTransform(1, 0, 0, 1, 0, 0);
-    if (g.isPointInPath(scrub, x, y)) {
+    if (g.isPointInPath(sc.scrubPath, x, y)) {
       (rand() < .22 ? bushes : tufts).push({ x, y, s: .4 + depth(y) * 1.6, ph: rand() * 6.28, f: .8 + rand() * .8, c: rand() });
     }
   }
@@ -979,7 +979,8 @@ function run(plan, dir, done) {
 }
 window.openBeach = () => {
   if (busy || open || !selected || !has(selected.id)) return;
-  busy = true; sc = SCENES[selected.id]; resize(); build();
+  busy = true; sc = SCENES[selected.id];
+  try { resize(); build(); } catch (e) { console.warn("beach", e); busy = false; return; }
   open = true; lastHourShown = -1; last = performance.now(); reveal = 0;
   S = state(curT); fillHud(); fillPanel();
   const [bx, by] = P(selected.lon, selected.lat);

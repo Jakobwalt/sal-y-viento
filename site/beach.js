@@ -73,14 +73,15 @@ const SCENES = {
 SCENES.balneario = {
   name: "Balneario", lat: 36.017, lon: -5.61, bearing: 268, fov: 104,
   out: true, hz: .46, hzP: .36, seaSpan: .24, shallow: .4, seaRef: [.6, .02],
-  shore: [[.14, .128], [.3, .121], [.5, .114], [.68, .108], [.85, .103], [1.03, .1]],
-  // where the boulders meet the water and the sand, from the island out to the near left corner
-  rockEdge: [[.29, .01], [.25, .035], [.21, .075], [.165, .14], [.11, .25], [.05, .38], [-.03, .56]],
-  // the top of the low rock wall along the causeway (it hides the promenade behind it)
-  rockTop: [[.29, .008], [.21, .011], [.13, .014], [.06, .017], [-.03, .02]],
+  shore: [[-.03, .138], [.14, .13], [.3, .122], [.5, .114], [.68, .108], [.85, .103], [1.03, .1]],
+  // the breakwater runs from the island to the left edge as one long wall of boulders: its foot
+  // in the water and on the sand, and its top, which hides the promenade entirely
+  rockEdge: [[.3, .011], [.26, .028], [.2, .05], [.13, .075], [.06, .1], [-.03, .13]],
+  rockTop: [[.3, .006], [.22, .002], [.14, -.002], [.06, -.006], [-.03, -.01]],
+  // a rock outcrop in the surf on the right
+  outcrop: [.9, .084],
   hills: [{ c: "#8ea2b0", p: [[.64, .002], [.7, -.004], [.76, -.011], [.82, -.022], [.87, -.033], [.91, -.039], [.95, -.038], [1.03, -.03], [1.03, .002]] }],
   dune: [[.79, .002], [.815, -.006], [.845, -.009], [.87, -.006], [.89, .002]],
-  flag: [.87, .16],
   lights: [[.035, -.058]],
   layers: {},
 };
@@ -95,16 +96,20 @@ SCENES.balneario = {
   B.build = () => {
     B.edgeP = curve(B.rockEdge, 8); B.topP = curve(B.rockTop, 8);
     const rock = new Path2D(); rock.moveTo(...B.edgeP[0]); B.topP.forEach(p => rock.lineTo(...p));
-    rock.lineTo(-W * .05, H + 2); [...B.edgeP].reverse().forEach(p => rock.lineTo(...p)); rock.closePath(); B.rockPath = rock;
+    [...B.edgeP].reverse().forEach(p => rock.lineTo(...p)); rock.closePath(); B.rockPath = rock;
     B.boulders = [];
     g.setTransform(1, 0, 0, 1, 0, 0);
     for (let i = 0; i < 4000 && B.boulders.length < 150; i++) {
-      const y = mix(Y(-.04), H * 1.05, Math.pow(rand(), .8)), x = mix(-W * .05, X(.3), rand());
+      const y = mix(Y(-.02), Y(.14), rand()), x = mix(-W * .05, X(.31), rand());
       if (!g.isPointInPath(rock, x, y)) continue;
       const d = depth(y), r = (3 + d * 70) * (.55 + rand() * .7), n = 7 + (rand() * 3 | 0);
       B.boulders.push({ x, y, r, c: rand(), v: Array.from({ length: n }, (_, k) => [Math.cos(k / n * 6.283) * (.75 + rand() * .4), Math.sin(k / n * 6.283) * (.55 + rand() * .3)]) });
     }
     B.boulders.sort((a, b) => a.y - b.y);
+    // the outcrop: a cluster of dark, wet rocks
+    const [ox, oy] = B.outcrop; B.rocksR = Array.from({ length: 11 }, (_, i) => { const d = depth(Y(oy)), r = (6 + d * 70) * (.5 + rand() * .7);
+      return { x: X(ox + (rand() - .5) * .09), y: Y(oy) - rand() * r * .4, r, c: rand(), v: Array.from({ length: 8 }, (_, k) => [Math.cos(k / 8 * 6.283) * (.75 + rand() * .4), Math.sin(k / 8 * 6.283) * (.5 + rand() * .3) - (k > 4 ? .15 : 0)]) }; })
+      .sort((a, b) => a.y - b.y);
     B.sandMarks = Array.from({ length: 70 }, () => ({ x: rand(), y: rand(), l: .3 + rand() * .7 }));
   };
   B.shoreY = x => along(shoreP, "x", x);
@@ -157,7 +162,8 @@ SCENES.balneario = {
     const s = S, h = clamp(s.wh ?? .6, .1, 5), period = clamp(s.wp || 8, 3, 20), LIVE = 4;
     const lightF = mix(.25, 1, s.day) * (1 - s.grey * .25);
     const sb = clamp(.95 - h * .075, .55, .92);                     // where they break: 0 horizon … 1 the sand
-    const offshore = clamp(s.wz * 1.5), onshore = clamp(-s.wz * 1.5);
+    const easterly = s.dir != null && s.dir >= 35 && s.dir <= 145;            // levante
+    const offshore = easterly ? clamp(s.wz * 1.5) : 0;
     const sprayAmt = smooth(10, 28, s.kn) * smooth(.8, 2.6, h) * offshore;
     const foamC = `rgba(251,249,242,`;
     B.hits = [];
@@ -167,7 +173,7 @@ SCENES.balneario = {
       const sp = mix(.1, 1.03, p);                                   // how far in this wave has come
       const stand = smooth(sb - .32, sb, sp), broke = smooth(sb, sb + .05, sp), fade = 1 - smooth(.95, 1.03, sp);
       const yAt = x => HZ + (B.shoreY(x) - HZ) * sp * sp;
-      const x0 = Math.max(0, B.edgeX(yAt(W * .3)) - 4), N = 46, pts = [];
+      const x0 = -4, N = 54, pts = [];          // runs behind the breakwater, which is drawn on top
       for (let k = 0; k <= N; k++) {
         const x = mix(x0, W + 4, k / N), y = yAt(x);
         const sect = .62 + .38 * Math.sin(x / W * 6.5 + id * 1.9) * Math.sin(x / W * 2.2 + id * .7 + 1);
@@ -190,10 +196,13 @@ SCENES.balneario = {
       }
       if (broke > 0) {
         // white water rolling in
-        const foamH = H * .006 * h * (.2 + .8 * sp * sp) * (1 + (sp - sb) * 8);
-        g.fillStyle = foamC + (.88 * broke * fade * lightF) + ")";
-        g.beginPath(); pts.forEach(([x, , c, sct], k) => { const yy = c - foamH * .35 * sct; k ? g.lineTo(x, yy) : g.moveTo(x, yy); });
-        [...pts].reverse().forEach(([x, y, , sct]) => g.lineTo(x, y + foamH * (.6 + .4 * sct))); g.closePath(); g.fill();
+        // white water: thick where the wave was biggest, thin and broken where it was small
+        const foamH = H * .0045 * Math.sqrt(h) * (.2 + .8 * sp * sp) * (1 + (sp - sb) * 6);
+        g.fillStyle = foamC + (.85 * broke * fade * lightF) + ")";
+        g.beginPath(); pts.forEach(([x, , c, sct], k) => { const yy = c - foamH * .3 * sct + Math.sin(k * 2.7 + id) * foamH * .15; k ? g.lineTo(x, yy) : g.moveTo(x, yy); });
+        [...pts].reverse().forEach(([x, y, , sct], k) => g.lineTo(x, y + foamH * (.25 + .75 * sct * sct) * (.8 + .2 * Math.sin(k * 1.9 + id)))); g.closePath(); g.fill();
+        g.fillStyle = css(lit("#2f7f80"), .35 * broke * fade);    // gaps where the foam has thinned
+        for (let k = 0; k < pts.length; k += 3) { const [x, y, , sct] = pts[k]; if (sct > .7) continue; g.beginPath(); g.ellipse(x, y + foamH * .3, 6 + sp * 18, 1 + foamH * .25, 0, 0, 7); g.fill(); }
         g.fillStyle = css(lit("#c9ddd6"), .5 * broke * fade);
         for (let k = 0; k < pts.length; k += 2) { const [x, y] = pts[k]; g.fillRect(x + Math.sin(k * 3.1 + id) * 6, y + foamH * .2, 2 + sp * 6, 1); }
       }
@@ -217,12 +226,9 @@ SCENES.balneario = {
           }
         }
       }
-      // onshore wind: crests crumble forward instead
-      if (onshore > .2 && s.kn > 16 && stand > .5 && broke < 1) {
-        g.fillStyle = foamC + (.5 * onshore * lightF) + ")";
-        for (let k = 0; k < pts.length; k += 2) { const [x, , c] = pts[k], dd = ((t * 2 + k * .37) % 1); g.fillRect(x, c + dd * 6 * (.5 + sp), 2, 1.5); }
-      }
-      if (stand > .3 || broke > 0) B.hits.push({ y: yAt(B.edgeX(yAt(W * .3))), sp, power: h * Math.max(stand, broke) * fade, id });
+      if (stand > .3 || broke > 0) { const pw = h * Math.max(stand, broke) * fade;
+        B.hits.push({ x: B.edgeX(yAt(W * .3)) + 3, y: yAt(B.edgeX(yAt(W * .3))), sp, power: pw, id });
+        const ox = X(B.outcrop[0]), oy = yAt(ox); if (Math.abs(oy - Y(B.outcrop[1])) < H * .02) B.hits.push({ x: ox, y: Y(B.outcrop[1]), sp, power: pw * 1.1, id: id + 7 }); }
     }
     // the swash sliding up the sand
     const sw = Math.sin(t * 2 * Math.PI / period) * .5 + .5;
@@ -246,11 +252,17 @@ SCENES.balneario = {
     // wet, darker rock where the water reaches
     g.save(); g.clip(B.rockPath); g.strokeStyle = css(lit("#3e3428"), .35); g.lineWidth = H * .01;
     g.beginPath(); B.edgeP.forEach((p, k) => { if (p[1] > B.shoreY(p[0]) + 4) return; k ? g.lineTo(...p) : g.moveTo(...p); }); g.stroke(); g.restore();
+    // the outcrop in the surf on the right, wet and dark, a ring of foam around its foot
+    { const [ox, oy] = B.outcrop, d = depth(Y(oy)), sw = .5 + .5 * Math.sin(t * 1.3);
+      g.fillStyle = `rgba(251,249,242,${(.35 + sw * .3) * mix(.25, 1, s.day)})`; g.beginPath(); g.ellipse(X(ox), Y(oy) + 2, W * .045, 3 + d * 10, 0, 0, 7); g.fill();
+      for (const b of B.rocksR) { const r = b.r, gr = g.createLinearGradient(b.x, b.y - r * .6, b.x, b.y + r * .5);
+        gr.addColorStop(0, css(lit(b.c > .5 ? "#7d6c58" : "#6a5b4a", .04))); gr.addColorStop(1, css(lit("#3f362d")));
+        g.fillStyle = gr; g.beginPath(); b.v.forEach(([vx, vy], k) => k ? g.lineTo(b.x + vx * r, b.y + vy * r) : g.moveTo(b.x + vx * r, b.y + vy * r)); g.closePath(); g.fill(); } }
     // spray bursting up where the waves hit the rocks
     const lightF = mix(.25, 1, s.day) * (1 - s.grey * .25);
     for (const hit of B.hits || []) {
       if (hit.power < .25) continue;
-      const x = B.edgeX(hit.y) + 3, R = H * .012 * hit.power * (.25 + .75 * hit.sp * hit.sp) * (1 + s.kn / 45);
+      const x = hit.x, R = H * .012 * hit.power * (.25 + .75 * hit.sp * hit.sp) * (1 + s.kn / 45);
       for (let j = 0; j < 6; j++) {
         const rise = R * (j * .55) * (.6 + .4 * Math.sin(t * 2.4 + j + hit.id)), rr = R * (.6 + j * .25), cx = x - j * R * .12 + s.wx * rise * .4;
         const gl = g.createRadialGradient(cx, hit.y - rise, 0, cx, hit.y - rise, rr);
@@ -259,7 +271,7 @@ SCENES.balneario = {
       }
     }
   };
-  B.layers.things = t => { drawFlag(t); };
+  B.layers.things = () => {};
 }
 const has = id => !!SCENES[id];
 

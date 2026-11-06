@@ -123,6 +123,8 @@ function build() {
   sc.scrubPath = scrub;
   const sea = new Path2D(); sea.moveTo(-2, HZ); sea.lineTo(shoreP[0][0], HZ); shoreP.forEach(p => sea.lineTo(...p));
   sea.lineTo(-2, shoreP[shoreP.length - 1][1]); sea.closePath(); sc.seaPath = sea;
+  const sand = new Path2D(); sand.moveTo(...shoreP[0]); shoreP.forEach(p => sand.lineTo(...p)); sand.lineTo(-2, H + 2);
+  sand.lineTo(X(.66), H + 2); [...scrubP].reverse().forEach(p => sand.lineTo(...p)); sand.closePath(); sc.sandPath = sand;
   tufts = []; bushes = [];
   for (let i = 0; i < 2600 && tufts.length < 190; i++) {
     const x = X(.45 + rand() * .6), y = Y(-.02 + rand() * (1 - HZ / H + .05));
@@ -284,11 +286,18 @@ function drawSea(t) {
   glit(S.sun, .75 * (1 - s.grey * .9) * smooth(-1, 6, s.sun.el));
   glit(S.moon, .45 * (1 - s.cloud * .8) * (1 - s.day) * (1 - Math.abs(Math.cos(s.ph * 2 * Math.PI))));
   // ripples and, with wind, whitecaps
-  const caps = clamp((s.kn - 11) / 22), seaH = H - HZ;
+  const caps = clamp((s.kn - 11) / 22), storm = clamp((s.kn - 25) / 15), seaH = H - HZ, lightF = (1 - s.grey * .3) * mix(.2, 1, s.day);
+  // foam streaks lying along the wind once it really blows
+  if (storm > 0) { g.strokeStyle = `rgba(250,248,240,${.22 * storm * lightF})`; g.lineCap = "round";
+    for (let i = 0; i < 70 * storm; i++) { const r = ripples[i], y = HZ + 4 + r.v * seaH * .7, d = depth(y), L = (30 + r.cap * 140) * (.2 + d);
+      const x = ((r.u * W + t * (s.wx || .3) * (20 + s.kn) * (.3 + d)) % (W + L) + W + L) % (W + L) - L;
+      g.lineWidth = .6 + d * 1.6; g.beginPath(); g.moveTo(x, y); g.lineTo(x + L, y + s.wz * L * .05); g.stroke(); } }
   for (const r of ripples) {
     const y = HZ + 3 + r.v * seaH * .62, d = depth(y), x = r.u * W + Math.sin(t * .5 + r.ph) * 6 * d + (t * s.wx * (2 + s.kn * .3) * d) % W;
     const xx = ((x % W) + W) % W, w = 3 + d * 26;
-    if (r.cap < caps * .55 && Math.sin(t * (1.2 + s.kn * .04) + r.ph) > .6) { g.fillStyle = `rgba(250,248,240,${.55 * (1 - s.grey * .3) * mix(.2, 1, s.day)})`; g.fillRect(xx, y, w * .8, 1 + d * 2.5); }
+    if (r.cap < caps * .5 + storm * .45 && Math.sin(t * (1.2 + s.kn * .04) + r.ph) > .6 - storm * .55) {
+      g.fillStyle = `rgba(250,248,240,${(.55 + storm * .4) * lightF})`; g.fillRect(xx, y, w * (.8 + storm * 1.4), 1 + d * (2.5 + storm * 2.5));
+      if (storm > .3) { g.fillStyle = `rgba(250,248,240,${.25 * storm * lightF})`; g.fillRect(xx - w * .3, y + 1 + d * 3, w * 1.6, 1 + d); } }
     else { g.fillStyle = css(lit("#a9dad3"), .14 + .12 * Math.sin(t * .8 + r.ph)); g.fillRect(xx, y, w, 1 + d); }
   }
   g.restore();
@@ -346,11 +355,13 @@ function drawWaves(t) {
   shoreP.forEach((q, j) => { const d = depth(q[1]) * .9 + .1, o = -(sw * 6 + 2) * d;
     const x = q[0] + q.n[0] * o, y = q[1] + q.n[1] * o; j ? g.lineTo(x, y) : g.moveTo(x, y); });
   g.strokeStyle = `rgba(251,249,240,${.7 * foam})`; g.lineWidth = 1.5; g.stroke();
-  // spray blown off the crests in strong wind
+  // spray blown off the crests in strong wind (over the water only)
+  g.save(); g.clip(sc.seaPath);
   if (s.kn > 18) { const n = Math.round((s.kn - 18) * 3);
     for (let i = 0; i < n; i++) { const q = shoreP[(i * 7 + Math.floor(t * 3)) % shoreP.length], d = depth(q[1]) + .1, k = (t * 1.7 + i * .37) % 1;
       g.fillStyle = `rgba(251,249,240,${(1 - k) * .45 * foam})`;
       g.fillRect(q[0] + q.n[0] * reach * .5 * d + s.wx * k * 40 * d, q[1] + q.n[1] * reach * .5 * d - k * 10 * d, 2 * d + 1, 1); } }
+  g.restore();
   g.restore();
 }
 
@@ -400,10 +411,10 @@ function drawBoardwalk() {
 const lerpKn = (kn, pts) => { if (kn <= pts[0][0]) return pts[0][1];
   for (let i = 0; i < pts.length - 1; i++) { const [a, va] = pts[i], [b, vb] = pts[i + 1]; if (kn <= b) return va + (vb - va) * (kn - a) / (b - a); }
   return pts[pts.length - 1][1]; };
-const BEND = [[0, 0], [10, 0], [15, .03], [20, .1], [30, .26], [45, .52], [60, .66]];   // trunk lean, as a share of its height
+const BEND = [[0, 0], [10, 0], [15, .06], [20, .16], [30, .38], [45, .7], [60, .85]];   // trunk lean, as a share of its height
 const FLUT = [[0, 0], [6, .01], [10, .03], [15, .07], [20, .12], [30, .24], [45, .5], [60, .6]];  // how wildly the leaves move
-const STREAM = [[0, 0], [15, .1], [20, .25], [30, .5], [45, .9], [60, 1]];               // how far the leaves swing downwind
-const palm = { fronds: Array.from({ length: 9 }, (_, i) => ({ rest: -Math.PI / 2 + (i - 4) * .36 + (i % 2 ? .08 : -.05), len: .86 + (i * 37 % 10) / 50,
+const STREAM = [[0, 0], [12, .08], [15, .2], [20, .42], [30, .75], [40, .95], [60, 1]];               // how far the leaves swing downwind
+const palm = { fronds: Array.from({ length: 14 }, (_, i) => ({ rest: -Math.PI / 2 + (i - 6.5) * .235 + (i % 2 ? .06 : -.04), len: .82 + (i * 37 % 10) / 40,
   ph: i * 1.7, grow: 1, droop: .55 + (i * 13 % 7) / 20 })), flying: [], nextTear: 0, gustPh: 0 };
 function drawPalm(t, dt) {
   const s = S, P = sc.palm; if (!P) return;
@@ -416,8 +427,8 @@ function drawPalm(t, dt) {
   const lean = lerpKn(kn, BEND) * across, flut = lerpKn(kn, FLUT), stream = lerpKn(kn, STREAM);
   // trunk: a curve from the base up to the crown, leaning downwind, a little sway of its own
   const sway = flut * .04 * Math.sin(t * (1.1 + kn * .03));
-  const tx = bx + side * (lean + sway) * Ht * 1.1, ty = by - Ht * (1 - lean * lean * .45);
-  const cx = bx + side * (lean * .15) * Ht + Ht * .05, cy = by - Ht * .55;          // a natural kink low down
+  const tx = bx + side * (lean + sway) * Ht * 1.05, ty = by - Ht * (1 - lean * lean * .38);
+  const cx = bx - side * lean * .06 * Ht + Ht * .03, cy = by - Ht * .62;          // stays upright low down, bows near the top
   const trunkC = lit("#8b7558"), ringC = lit("#6d5a43");
   g.save(); g.lineCap = "round";
   const seg = 22, wBase = Ht * .045, wTop = Ht * .028;
@@ -447,18 +458,18 @@ function drawPalm(t, dt) {
     const hold = clamp(stream * 1.1), sag = droop * (1 - hold) * L * .55;
     const ex = x0 + Math.cos(ang) * L, ey = y0 + Math.sin(ang) * L + sag * .9;
     const mx = x0 + Math.cos(ang) * L * .55, my = y0 + Math.sin(ang) * L * .55 - sag * .15;
-    g.strokeStyle = css(leafC, alpha); g.lineWidth = 1.6; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(mx, my, ex, ey); g.stroke();
-    // leaflets on both sides, rippling along their length when it blows hard
-    const n = 16;
+    g.strokeStyle = css(leafC, alpha); g.lineWidth = 2; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(mx, my, ex, ey); g.stroke();
+    // leaflets on both sides; the wind combs them back along the rib and makes them shiver
+    const n = 26;
     for (let k = 1; k <= n; k++) {
       const u = k / n, q = [(1 - u) * (1 - u) * x0 + 2 * (1 - u) * u * mx + u * u * ex, (1 - u) * (1 - u) * y0 + 2 * (1 - u) * u * my + u * u * ey];
       const d = [2 * (1 - u) * (mx - x0) + 2 * u * (ex - mx), 2 * (1 - u) * (my - y0) + 2 * u * (ey - my)], dl = Math.hypot(...d) || 1;
-      const tx2 = d[0] / dl, ty2 = d[1] / dl, ll = L * .3 * Math.sin(Math.PI * Math.min(1, u * 1.05)) * (1 - u * .35);
-      const rip = flt * Math.sin(t * (3 + flt * 22) - u * 7 + ph) * 1.6;
+      const tx2 = d[0] / dl, ty2 = d[1] / dl, ll = L * .4 * Math.sin(Math.PI * Math.min(1, u * 1.05)) * (1 - u * .3) * (1 - hold * .25);
+      const rip = flt * Math.sin(t * (4 + flt * 40) - u * 9 + ph) * (.5 + hold * .4);
       for (const sd of [-1, 1]) {
-        const back = .55 + rip * .5 * sd, nx = -ty2 * sd, ny = tx2 * sd;
+        const back = .6 + hold * .75 + rip * .35 * sd, nx = -ty2 * sd, ny = tx2 * sd;
         const lx = q[0] + (nx * Math.cos(back) - tx2 * Math.sin(back) * .9) * ll, ly = q[1] + (ny * Math.cos(back) - ty2 * Math.sin(back) * .9) * ll + ll * .35 * (1 - hold);
-        g.strokeStyle = css(sd > 0 ? leafC : leafHi, alpha); g.lineWidth = 1.3; g.beginPath(); g.moveTo(...q); g.lineTo(lx, ly); g.stroke();
+        g.strokeStyle = css(sd > 0 ? leafC : leafHi, alpha); g.lineWidth = 1.9; g.beginPath(); g.moveTo(...q); g.lineTo(lx, ly); g.stroke();
       }
     }
   };
@@ -466,9 +477,13 @@ function drawPalm(t, dt) {
   const down = side > 0 ? 0 : Math.PI;
   for (const f of palm.fronds) {
     if (f.grow <= .02) continue;
-    let target = down + (f.rest + Math.PI / 2) * .35;                                // fan out a little around downwind
+    const spread = mix(.35, .1, stream);                                              // the bundle tightens as the wind rises
+    let target = down + side * .12 + (f.rest + Math.PI / 2) * spread;                 // swept downwind, drooping slightly
     let a0 = f.rest, d = ((target - a0 + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-    const ang = a0 + d * stream + flut * Math.sin(t * (1.4 + kn * .09) + f.ph) * (.6 + .4 * Math.sin(t * .7 + f.ph * 2));
+    // a slow swing in light air; in strong wind they're pinned and only shiver, harder in the gusts
+    const swing = flut * (1 - stream * .85) * Math.sin(t * (1.4 + kn * .09) + f.ph) * (.6 + .4 * Math.sin(t * .7 + f.ph * 2));
+    const shiver = stream * (.04 + gusty * pulse * .004) * Math.sin(t * (14 + kn * .3) + f.ph * 3);
+    const ang = a0 + d * stream + swing + shiver;
     f.ang = ang;
     drawFrond(tx, ty, ang, leafL * f.len * (.15 + .85 * f.grow), f.droop, f.ph, flut, .4 + .6 * f.grow);
   }
@@ -500,12 +515,13 @@ function drawFlag(t) {
 function drawWeather(t, dt) {
   const s = S;
   // sand blowing over the beach
-  if (s.kn > 14) { const a = clamp((s.kn - 14) / 16) * .75, v = (s.wx || .2) * (60 + s.kn * 6);
-    g.strokeStyle = `rgba(245,232,200,${a})`; g.lineWidth = 1;
+  if (s.kn > 14) { const a = clamp((s.kn - 14) / 16) * .45, v = (s.wx || .2) * (60 + s.kn * 6);
+    g.save(); g.clip(sc.sandPath); g.strokeStyle = css(lit("#d9c398"), a); g.lineWidth = 1;
     for (const d of drift) { d.x += v * dt / W; if (d.x > 1.1) d.x = -.1; if (d.x < -.1) d.x = 1.1;
       const y = mix(Y(.12), H, d.y), dd = depth(y), x = d.x * W; if (x > X(.72) + (y - HZ) * .1) continue;
       const vz = s.wz * (4 + dd * 14) * (.5 + d.l);   // wind blowing away from us drags the streaks up the picture
-      g.beginPath(); g.moveTo(x, y); g.lineTo(x - Math.sign(v) * (8 + dd * 30) * (.5 + d.l) * Math.max(.3, Math.abs(s.wx)), y + vz); g.stroke(); } }
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x - Math.sign(v) * (8 + dd * 30) * (.5 + d.l) * Math.max(.3, Math.abs(s.wx)), y + vz); g.stroke(); }
+    g.restore(); }
   // rain, slanted by the wind
   if (s.rainmm >= .1) {
     const n = Math.min(rain.length, Math.round(30 + s.rainmm * 200)), slant = clamp(s.wx * s.kn / 22, -1.4, 1.4), fall = 1.2 + s.kn * .01;

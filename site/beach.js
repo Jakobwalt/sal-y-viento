@@ -1173,8 +1173,8 @@ const easeIO = k => .5 - .5 * Math.cos(Math.PI * clamp(k));                     
 const setWill = on => [...LAYERS, wrap].forEach(el => el.style.willChange = on ? "filter, opacity, transform" : "");
 
 // the map side of things, m: 0 = spot view, 1 = gone
-function mapPose(m) {
-  const z = easeIO(m);
+function mapPose(m, zm = m) {
+  const z = easeIO(zm);
   cam.x = mix(camBefore.x, camTarget.x, z); cam.y = mix(camBefore.y, camTarget.y, z);
   cam.z = Math.exp(mix(Math.log(camBefore.z), Math.log(camTarget.z), z)); applyCam();
   const blur = easeIO(clamp((m - .2) / .55)), fade = easeIO(clamp((m - .55) / .45));
@@ -1264,15 +1264,18 @@ const OPEN = { len: 9.6,
 const CLOSE = { len: 8.2,
   paint: () => 1,                            // the picture stays whole and simply crossfades into the map
   gull: t => clamp((t - .4) / 7.4),          // in from the other side and away again
-  map: t => 1 - clamp((t - .8) / 6.4) };     // the map comes back through the blur and zooms out .8–7.2 s
+  map: t => 1 - clamp((t - .8) / 6.4),       // the spot view comes back through the blur .8–7.2 s
+  zoom: () => 0,                             // already back at the spot's framing, hidden under the beach: no zooming while it shows
+  uiOff: 5.6 };                              // the forecast panels fade back in over the last part
 function run(plan, dir, done) {
   cancelAnimationFrame(anim); setWill(true);
   const t0 = performance.now();
   const step = now => {
     const t = (now - t0) / 1000;
-    mapPose(plan.map(t)); reveal = easeIO(plan.paint(t)); sceneHidden = wrap.style.opacity === "0";
+    const m = plan.map(t); mapPose(m, plan.zoom ? plan.zoom(t) : m); reveal = easeIO(plan.paint(t)); sceneHidden = wrap.style.opacity === "0";
     gull(plan.gull(t), dir, now);
     if (plan.ui) document.body.classList.toggle("beach-on", t > plan.ui);
+    if (plan.uiOff && t > plan.uiOff) document.body.classList.remove("beach");
     if (t < plan.len) anim = requestAnimationFrame(step); else { setWill(false); gull(0, dir, now); done(); }
   };
   anim = requestAnimationFrame(step);

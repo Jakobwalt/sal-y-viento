@@ -110,10 +110,10 @@ body.dive .back{opacity:1;pointer-events:auto;transform:none}
 body.dive .zoomers{opacity:0;pointer-events:none}
 
 /* spot info rising from the bottom */
-#info{position:fixed;z-index:6;left:0;right:0;bottom:0;max-height:100%;overflow:auto;padding:90px max(24px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 86px) max(24px,env(safe-area-inset-left,0px));
-  background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--spot) 90%,transparent) 58%);color:var(--foam);
+#info{position:fixed;z-index:6;inset:0;padding:84px max(24px,env(safe-area-inset-right,0px)) 0 max(24px,env(safe-area-inset-left,0px));color:var(--foam);
   transform:translateY(40px);opacity:0;pointer-events:none;transition:transform .7s cubic-bezier(.2,.8,.2,1),opacity .5s}
-body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
+body.dive.ready #info{transform:none;opacity:1}
+#info h2{pointer-events:none;text-shadow:0 2px 24px rgba(20,40,40,.25)}
 #info h2{font-family:var(--f-display);font-weight:300;font-size:clamp(2.8rem,7vw,5.4rem);line-height:.95;margin:0;letter-spacing:-.005em;text-wrap:balance}
 .small{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 26px;font-family:var(--f-mono);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
 .small span{display:inline-flex;align-items:center;gap:7px}
@@ -177,7 +177,17 @@ body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
 .days svg{width:14px;height:14px}
 .days small{opacity:.6}
 @media (max-width:760px){.tl-day{font-size:13px}.days button{grid-template-columns:4.6rem 4rem minmax(0,1fr)}.days .wv{display:none}}
-.fc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 44px;max-width:1240px;margin-top:22px}
+/* wind and waves side by side, floating over the spot on a soft blur with feathered edges; three days in view, the rest scrolls */
+.fc{position:absolute;left:max(18px,env(safe-area-inset-left,0px));right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 80px);
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;pointer-events:auto}
+.blk{padding:14px 18px 6px;background:color-mix(in srgb,var(--spot) 26%,transparent);backdrop-filter:blur(10px) saturate(1.05);-webkit-backdrop-filter:blur(10px) saturate(1.05);border-radius:22px;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 16px,#000 calc(100% - 16px),transparent),linear-gradient(180deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-composite:source-in;
+  mask-image:linear-gradient(90deg,transparent,#000 16px,#000 calc(100% - 16px),transparent),linear-gradient(180deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);mask-composite:intersect;
+  text-shadow:0 1px 8px rgba(20,40,40,.35)}
+.blk .rlab{margin-bottom:4px}
+.tbl{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-bottom:14px;-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 22px),transparent)}
+.tbl::-webkit-scrollbar{display:none}
+.hdr .row.hd{padding:2px 0 4px}
 .tbl .row{display:grid;grid-template-columns:5.4rem minmax(0,1fr);gap:12px;align-items:end;padding:9px 0;border-top:1px solid rgba(251,245,230,.14)}
 .tbl .row.hd{border:0;padding:0 0 4px}
 .tbl .row.dim .kn,.tbl .row.dim .gu,.tbl .row.dim .pd,.tbl .row.dim em{opacity:.72}
@@ -198,12 +208,14 @@ body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
 .tbl .row.dim[data-day]:hover .dlab em{opacity:1;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
 #i-later:empty{display:none}
 #i-later .later{margin-top:0}
-.later{margin:22px 0 8px;font-family:var(--f-mono);font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;opacity:.6}
+.later{margin:14px 0 4px;font-family:var(--f-mono);font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;opacity:.6}
 .later span{text-transform:none;letter-spacing:.04em}
 .tbl .row.late .strip div:not(.na){opacity:.55}
 .tbl .row.late .bar{background-image:repeating-linear-gradient(135deg,transparent 0 3px,rgba(255,255,255,.25) 3px 5px)}
 @media (max-width:760px){
-  .fc{grid-template-columns:minmax(0,1fr);gap:22px;margin-top:14px}
+  .fc{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;left:0;right:0;padding:0 12px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);scrollbar-width:none}
+  .fc::-webkit-scrollbar{display:none}
+  .blk{flex:0 0 90%;scroll-snap-align:center;padding:12px 14px 4px}
   .tbl .row{grid-template-columns:minmax(0,1fr);gap:6px;padding:8px 0}
   .tbl .row.hd{padding:0}
   .dlab{display:flex;align-items:baseline;gap:10px}
@@ -216,9 +228,7 @@ body.dive.ready #info{transform:none;opacity:1;pointer-events:auto}
   .strip svg{width:10px;height:10px}
   .strip .bar,.strip .stack{width:58%}
   .hrs{font-size:.52rem}
-  #info{bottom:calc(env(safe-area-inset-bottom,0px) + 70px);max-height:58%;
-    padding:22px 20px 18px;background:color-mix(in srgb,var(--spot) 88%,transparent);backdrop-filter:blur(6px);border-radius:14px 14px 0 0;
-    -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 14px),transparent)}
+  #info{padding:66px 20px 0}
   #info h2{font-size:2.3rem}
   body.dive .ctrl{opacity:0;pointer-events:none}
   .ctrl{transition:opacity .3s}
@@ -248,13 +258,15 @@ body.beach-on #beach-hud{opacity:1;transform:none}
 #bh-now small{font-size:.66rem;opacity:.85}
 #bh-now svg{width:13px;height:13px}
 #beach-fc{left:max(18px,env(safe-area-inset-left,0px));right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 80px);color:var(--foam);
-  background:linear-gradient(180deg,rgba(35,49,47,.10),rgba(35,49,47,.22));backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);border:1px solid rgba(251,245,230,.14);border-radius:8px;padding:6px 10px 4px;text-shadow:0 1px 8px rgba(24,36,34,.55);
+  background:rgba(30,46,46,.16);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:0;border-radius:22px;padding:12px 18px 6px;text-shadow:0 1px 8px rgba(24,36,34,.55);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 16px,#000 calc(100% - 16px),transparent),linear-gradient(180deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-composite:source-in;
+  mask-image:linear-gradient(90deg,transparent,#000 16px,#000 calc(100% - 16px),transparent),linear-gradient(180deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);mask-composite:intersect;
   opacity:0;transform:translateY(16px);pointer-events:none;transition:opacity .6s .35s,transform .6s .35s}
 body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
 .bf-scroll{max-height:min(24vh,150px);overflow:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .bf-grid{min-width:760px}
 .bf-row{display:grid;grid-template-columns:4.6rem repeat(24,minmax(0,1fr));gap:2px;align-items:end;padding:3px 0;border-top:1px solid rgba(251,245,230,.16)}
-.bf-hd{position:sticky;top:0;z-index:1;border:0;padding:0 0 3px;font-family:var(--f-mono);font-size:.54rem;text-align:center;background:rgba(35,49,47,.28);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:.95}
+.bf-hd{position:sticky;top:0;z-index:1;border:0;padding:0 0 3px;font-family:var(--f-mono);font-size:.54rem;text-align:center;background:none;opacity:.95}
 .bf-hd .cur{color:var(--wax)}
 .bf-day{position:sticky;left:0;z-index:1;align-self:stretch;display:flex;align-items:center;font-family:var(--f-display);font-style:italic;font-size:1rem;background:none;padding:0 6px 0 2px}
 .bf-row.now .bf-day{color:var(--wax)}
@@ -266,6 +278,7 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
 .bf-row button.ec{opacity:.55}
 .bf-row b{font-weight:500;font-size:.64rem}
 .bf-row i{font-style:normal;font-size:.5rem;opacity:.6}
+.bf-row i.w{color:#bcd6f2;opacity:.9}
 .bf-row em{display:block;width:50%;border-radius:2px 2px 0 0;opacity:.9;box-shadow:0 0 0 .5px rgba(35,49,47,.25)}
 .bf-row svg{width:8px;height:8px;opacity:.85}
 .bf-key{margin:4px 0 0;font-family:var(--f-mono);font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;opacity:.5}
@@ -605,9 +618,8 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
 <section id="info" aria-live="polite" aria-hidden="true">
   <h2 id="i-name">Spot</h2>
   <div class="fc">
-    <div class="blk"><div class="rlab rhead"><span>Wind · knots</span><button class="bv" id="i-beach" type="button" hidden>Beach view <span aria-hidden="true">↗</span></button></div><div class="tbl" id="i-wind"></div></div>
-    <div class="blk"><div class="rlab">Waves · metres · period</div><div class="tbl" id="i-wave"></div></div>
-    <div class="blk"><div class="tbl" id="i-later"></div></div>
+    <div class="blk"><div class="rlab rhead"><span>Wind · knots</span><button class="bv" id="i-beach" type="button" hidden>Beach view <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wind"></div><div class="tbl" id="i-wind"></div></div>
+    <div class="blk"><div class="rlab rhead"><span>Waves · metres · period</span></div><div class="hdr" id="h-wave"></div><div class="tbl" id="i-wave"></div></div>
   </div>
 </section>
 
@@ -915,6 +927,10 @@ const SKY={sun:'<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7
   cloud:'<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="5" cy="5" r="2.2" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M4 12h6.5a2.3 2.3 0 0 0 0-4.6 3.2 3.2 0 0 0-6.1.7A2 2 0 0 0 4 12Z" fill="currentColor"/></svg>',
   rain:'<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3.5 8h7a2.3 2.3 0 0 0 0-4.6 3.2 3.2 0 0 0-6.1.7A2 2 0 0 0 3.5 8Z" fill="currentColor"/><path d="M5 10l-.8 2.4M8 10l-.8 2.4M11 10l-.8 2.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>'};
 const arrow=deg=>`<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M7 1v12M3 9l4 4 4-4" stroke="currentColor" stroke-width="1.8" fill="none" transform="rotate(${deg} 7 7)"/></svg>`;
+// wave bars get their own cool colours (pale foam → blue → violet), so they stand apart from the sea and from the wind
+const WAVEC=[[0,[233,243,246]],[.6,[206,228,242]],[1.2,[168,202,240]],[2,[140,170,232]],[3,[146,140,222]],[4.5,[170,118,206]]];
+const waveCol=h=>{for(let i=0;i<WAVEC.length-1;i++){const [a,ca]=WAVEC[i],[b,cb]=WAVEC[i+1];if(h<=b){const k=Math.max(0,(h-a)/(b-a));return `rgb(${ca.map((c,n)=>Math.round(c+(cb[n]-c)*k))})`}}return `rgb(${WAVEC.at(-1)[1]})`};
+let infoKey="";
 function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.round(curT)-day*24;
   const all=Array.from({length:NDAYS},(_,k)=>hours(s,k)),ok=all.flat().filter(h=>!h.na);
   const gx=Math.max(30,...ok.map(h=>h.g)),wm=Math.max(2.5,...ok.map(h=>h.wh??0));
@@ -924,16 +940,21 @@ function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.rou
   const hd=`<div class="row hd"><div></div><div class="hrs">${all[0].map(h=>`<span class="${h.h===hr?"cur":""}">${h.h}</span>`).join("")}</div></div>`;
   const na='<div class="na"><span class="kn">·</span></div>';
   // first three days as before; the ECMWF outlook continues below (scroll); days without data are left out
-  const rows=(cells,withWx,has,from=0,to=3)=>{let lab=false;return all.map((hs,k)=>{if(k<from||k>=to||(k>=3&&!hs.some(has)))return "";const now=k===day,x=dayWx(s,k);
-    const sep=k>=3&&!lab?(lab=true,`<div class="later">Wind · ECMWF outlook <span>· further out, less certain</span></div>${hd}`):"";
+  const rows=(cells,withWx,has,from=0,to=NDAYS)=>{let lab=false;return all.map((hs,k)=>{if(k<from||k>=to||(k>=3&&!hs.some(has)))return "";const now=k===day,x=dayWx(s,k);
+    const sep=k>=3&&!lab&&withWx?(lab=true,`<div class="later">ECMWF outlook <span>· further out, less certain</span></div>`):"";
     return `${sep}<div class="row ${now?"now":"dim"}${k>=3?" late":""}" data-day="${k}" title="Show ${dayName(k)} on the map"><div class="dlab"><em>${dayName(k)}${withWx&&k<3&&hs.some(h=>h.ec)?'<b class="ectag" title="ECMWF outlook, beyond AEMET\'s 48 hours">ECMWF</b>':""}</em>${withWx&&x?`<span role="img" aria-label="${x.word}, ${x.hi} degrees${x.rain>=.5?`, ${mm(x.rain)} mm of rain`:""}">${SKY[x.sky]}${x.hi}°${x.rain>=.5?` ${x.sky==="rain"?"":SKY.rain}${mm(x.rain)} mm`:""}</span>`:""}</div>
       <div class="strip">${hs.map(h=>h.na?na:cells(h,now)).join("")}</div></div>`}).join("")};
-  const windCell=(h,now)=>{const s2=now?62:30;
+  const windCell=(h,now)=>{const s2=now?46:24;
     return `<div class="${now&&h.h===hr?"cur":""}${h.ec?" ec":""}"><span class="gu">${h.g}</span><span class="kn">${h.kn}</span><span class="stack" style="height:${Math.round(h.g/gx*s2)}px"><span class="gbar"></span><span class="bar" style="height:${Math.round(h.kn/h.g*100)}%;background:${barCol(h.g)}"></span></span>${h.dir!=null?arrow(h.dir):""}</div>`};
-  document.getElementById("i-wind").innerHTML=hd+rows(windCell,true,h=>!h.na);
-  // the outlook days sit in their own block: under the wind on wide screens, after the waves on phones
-  document.getElementById("i-later").innerHTML=rows(windCell,true,h=>!h.na,3,NDAYS);
-  document.getElementById("i-wave").innerHTML=hd+rows((h,now)=>h.wh==null?na:`<div class="${now&&h.h===hr?"cur":""}"><span class="kn">${h.wh.toFixed(1)}</span><span class="bar" style="height:${Math.round(h.wh/wm*(now?52:24))}px;background:rgb(${ramp(h.wh)})"></span>${now&&h.wd!=null?arrow(h.wd):""}<span class="pd">${h.pd??"–"}s</span></div>`,false,h=>!h.na&&h.wh!=null)}
+  const tw=document.getElementById("i-wind"),tv=document.getElementById("i-wave"),keep=[tw.scrollTop,tv.scrollTop];
+  document.getElementById("h-wind").innerHTML=document.getElementById("h-wave").innerHTML=hd;
+  tw.innerHTML=rows(windCell,true,h=>!h.na);
+  tv.innerHTML=rows((h,now)=>h.wh==null?na:`<div class="${now&&h.h===hr?"cur":""}"><span class="kn">${h.wh.toFixed(1)}</span><span class="bar" style="height:${Math.round(h.wh/wm*(now?40:20))}px;background:${waveCol(h.wh)}"></span>${now&&h.wd!=null?arrow(h.wd):""}<span class="pd">${h.pd??"–"}s</span></div>`,false,h=>!h.na&&h.wh!=null);
+  const key=s.id+":"+day;
+  for(const [k,t] of [[0,tw],[1,tv]]){const r=[...t.querySelectorAll(".row")].slice(0,3);
+    const h3=r.reduce((a,e)=>a+e.offsetHeight,0)+14;t.style.maxHeight=Math.min(h3,innerHeight*(innerWidth<760?.4:.46))+"px";
+    if(key!==infoKey){const n=t.querySelector(".row.now");t.scrollTop=n?Math.max(0,n.offsetTop-t.offsetTop+n.offsetHeight-t.clientHeight+16):0}else t.scrollTop=keep[k]}
+  infoKey=key}
 // a day row takes the map (and the timeline) to that day, same hour
 document.getElementById("info").addEventListener("click",e=>{const r=e.target.closest(".row[data-day]");if(!r||!selected)return;
   const d=+r.dataset.day,h=Math.round(curT)%24;setPlaying(false);setTime(Math.min(N-1,d*24+h))});

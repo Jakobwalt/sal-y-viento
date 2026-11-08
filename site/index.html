@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>Sal y Viento</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,6 +30,9 @@ body{margin:0;background:var(--sea);color:var(--ink);font-family:var(--f-body);f
 button{font:inherit;color:inherit}
 #map,#detail,#heat,#wind,#grain{position:fixed;inset:0;width:100%;height:100%;display:block}
 #map{touch-action:none;cursor:grab}
+html,body{touch-action:pan-x pan-y;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,.mk,input{touch-action:manipulation}
+#heat,#wind,#detail,#beach,#gull{touch-action:none}
 #map.drag{cursor:grabbing}
 #detail{pointer-events:none;clip-path:circle(0px at 50% 50%);visibility:hidden}
 #heat,#wind{pointer-events:none}
@@ -238,6 +241,22 @@ body.dive.ready #info{transform:none;opacity:1}
 }
 @media (max-width:760px){.rows{grid-template-columns:minmax(0,1fr)}#info{padding-top:60px}.legend{display:none}}
 @media (prefers-reduced-motion:reduce){#info,.back{transition:opacity .2s}}
+/* short, wide screens (phones held sideways): smaller title beside the back button, slimmer panels */
+@media (max-height:520px){
+  #info{padding-top:14px;padding-left:max(78px,env(safe-area-inset-left,0px))}
+  #info h2{font-size:1.9rem}
+  .fc{bottom:calc(env(safe-area-inset-bottom,0px) + 64px)}
+  .blk{padding:8px 14px 0;border-radius:16px}
+  .blk .rlab{font-size:.6rem;margin-bottom:0}
+  .tbl .row{padding:4px 0}
+  .dlab em{font-size:1rem}
+  .tl{height:46px}
+  #beach-hud h2{font-size:1.6rem}
+  #bh-now{font-size:.58rem;margin-top:4px}
+  #beach-fc{bottom:calc(env(safe-area-inset-bottom,0px) + 60px);padding:6px 14px 2px}
+  .bf-scroll{max-height:22vh}
+  .bf-key{display:none}
+}
 /* beach view */
 .rhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
 .bv{background:none;border:0;border-bottom:1px solid rgba(251,245,230,.35);padding:3px 0;color:var(--foam);cursor:pointer;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;opacity:.7;transition:opacity .2s}
@@ -298,7 +317,7 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
 <body>
 
 
-<svg id="map" role="img" aria-label="Map of the Costa de la Luz and the Strait of Gibraltar with wind, towns and spots" xmlns="http://www.w3.org/2000/svg">
+<svg id="map" preserveAspectRatio="none" role="img" aria-label="Map of the Costa de la Luz and the Strait of Gibraltar with wind, towns and spots" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <radialGradient id="deep" cx="50%" cy="55%" r="70%"><stop offset="0" stop-color="#4fa1a0"/><stop offset="1" stop-color="#3b8588"/></radialGradient>
     <path id="es" fill-rule="evenodd" clip-rule="evenodd"/>
@@ -561,7 +580,7 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
   </g>
 </svg>
 
-<svg id="detail" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+<svg id="detail" preserveAspectRatio="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
   <rect id="d-bg" x="-300" y="-300" width="900" height="900"/>
   <g id="d-rings" fill="none" stroke-linejoin="round"></g>
   <use href="#esd" id="d-land"/>
@@ -778,7 +797,7 @@ const signs=TOWNS.map(([n,lo,la,maj,af])=>{const d=document.createElement("div")
 
 /* ---------- camera ---------- */
 const svg=document.getElementById("map"),dsv=document.getElementById("detail"),cv=document.getElementById("wind"),ctx=cv.getContext("2d");
-let W=0,H=0,dpr=1,cam={x:0,y:0,z:8},fitZ=8,zMin=8,selected=null,layer="wind",diving=false;
+let W=0,H=0,dpr=1,cam={x:0,y:0,z:8},fitZ=8,zMin=8,selected=null,layer="wind",diving=false,divingSince=0;
 const B={x0:P(-6.42,0)[0],x1:P(-5.22,0)[0],y0:P(0,36.64)[1],y1:P(0,35.74)[1]};
 const D={x0:GEO.box[0],y0:GEO.box[1],x1:GEO.box[0]+GEO.box[2],y1:GEO.box[1]+GEO.box[3]};
 function fit(){zMin=Math.max(W/(D.x1-D.x0),H/(D.y1-D.y0));fitZ=Math.max(Math.min(W/(B.x1-B.x0),H/(B.y1-B.y0)),H/120,zMin);return{x:(B.x0+B.x1)/2,y:(B.y0+B.y1)/2,z:fitZ}}
@@ -952,7 +971,8 @@ function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.rou
   tv.innerHTML=rows((h,now)=>h.wh==null?na:`<div class="${now&&h.h===hr?"cur":""}"><span class="kn">${h.wh.toFixed(1)}</span><span class="bar" style="height:${Math.round(h.wh/wm*(now?40:20))}px;background:${waveCol(h.wh)}"></span>${now&&h.wd!=null?arrow(h.wd):""}<span class="pd">${h.pd??"–"}s</span></div>`,false,h=>!h.na&&h.wh!=null);
   const key=s.id+":"+day;
   for(const [k,t] of [[0,tw],[1,tv]]){const r=[...t.querySelectorAll(".row")].slice(0,3);
-    const h3=r.reduce((a,e)=>a+e.offsetHeight,0)+14;t.style.maxHeight=Math.min(h3,innerHeight*(innerWidth<760?.4:.46))+"px";
+    const h3=r.reduce((a,e)=>a+e.offsetHeight,0)+14;const nr=t.querySelector(".row.now")||r[0],one=nr?nr.offsetHeight+16:0;   // always at least one full day
+    t.style.maxHeight=Math.max(one,Math.min(h3,innerHeight*(innerHeight<520?.24:innerWidth<760?.4:.46)))+"px";
     if(key!==infoKey){const n=t.querySelector(".row.now");t.scrollTop=n?Math.max(0,n.offsetTop-t.offsetTop+n.offsetHeight-t.clientHeight+16):0}else t.scrollTop=keep[k]}
   infoKey=key}
 // a day row takes the map (and the timeline) to that day, same hour
@@ -983,7 +1003,7 @@ function buildDetail(s){const p=s.pal,[x,y]=P(s.lon,s.lat),[fx,fy]=P(...s.fc);
 function setReveal(r,blur){const [sx,sy]=selected?toScreen(...P(selected.lon,selected.lat)):[W/2,H/2];
   dsv.style.clipPath=`circle(${r}px at ${sx}px ${sy}px)`;dsv.style.visibility=r>0?"visible":"hidden";
   svg.style.filter=blur>0.01?`blur(${blur}px) saturate(${1-blur*.08})`:"";}
-function openSpot(s){if(diving)return;diving=true;selected=s;buildDetail(s);fillInfo(s);
+function openSpot(s){if(diving&&performance.now()-divingSince<6000)return;diving=true;divingSince=performance.now();selected=s;buildDetail(s);fillInfo(s);
   document.body.classList.add("dive");document.getElementById("signs").style.opacity=.0;document.getElementById("markers").style.opacity=0;document.getElementById("markers").style.pointerEvents="none";
   const [x,y]=P(s.lon,s.lat),z1=Math.max(fitZ*3.2,cam.z),narrow=W<=760,zD=narrow?Math.min(fitZ*10.5,H*.15/Math.max(.5,Math.hypot(x-P(...s.fc)[0],y-P(...s.fc)[1]))):fitZ*10.5;
   const ty=(narrow?(y+P(...s.fc)[1])/2:Math.max(y,P(...s.fc)[1]))+(H/2-H*(narrow?.2:.43))/zD,tx=narrow?x:Math.min(x,P(...s.fc)[0])+W*.04/zD;
@@ -991,13 +1011,21 @@ function openSpot(s){if(diving)return;diving=true;selected=s;buildDetail(s);fill
     tween(1150,(e,k)=>{cam.x=s0.x+(tx-s0.x)*e;cam.y=s0.y+(ty-s0.y)*e;cam.z=Math.exp(Math.log(s0.z)+(Math.log(zD)-Math.log(s0.z))*e);applyCam();
       setReveal(R*Math.pow(k,1.6),4*Math.sin(Math.PI*Math.min(1,k*1.4))*(1-k))},
       ()=>{setReveal(Math.hypot(W,H)*1.2,0);document.body.classList.add("ready");document.getElementById("info").setAttribute("aria-hidden","false");document.getElementById("back").focus({preventScroll:true});diving=false})});}
-function closeSpot(){if(!selected||diving)return;diving=true;const s=selected;document.body.classList.remove("ready");document.getElementById("info").setAttribute("aria-hidden","true");
+function closeSpot(){if(!selected||(diving&&performance.now()-divingSince<6000))return;diving=true;divingSince=performance.now();const s=selected;document.body.classList.remove("ready");document.getElementById("info").setAttribute("aria-hidden","true");
   const s0={...cam},[x,y]=P(s.lon,s.lat),z1=fitZ*3.2,R=Math.hypot(W,H);
   tween(800,(e,k)=>{cam.x=s0.x+(x-s0.x)*e;cam.y=s0.y+(y-s0.y)*e;cam.z=Math.exp(Math.log(s0.z)+(Math.log(z1)-Math.log(s0.z))*e);applyCam();setReveal(R*Math.pow(1-k,1.4),3*Math.sin(Math.PI*k)*k)},
     ()=>{setReveal(0,0);selected=null;document.body.classList.remove("dive");
       for(const id of ["signs","markers"]){const n=document.getElementById(id);n.style.opacity=1;n.style.pointerEvents=""}
       flyTo(fit(),850,()=>{diving=false;document.getElementById("mk-"+s.id).focus({preventScroll:true})})})}
-const goBack=()=>window.beachOpen&&beachOpen()?closeBeach():closeSpot();
+// Back: if a transition is still running, wait for it and then go back (instead of ignoring the tap)
+let backLoop=0;
+function goBack(){cancelAnimationFrame(backLoop);const t0=performance.now();
+  const attempt=()=>{
+    if(window.beachOpen&&beachOpen()){if(window.beachBusy&&beachBusy())return false;closeBeach();return true}
+    if(!selected)return true;
+    if(diving&&performance.now()-divingSince<6000)return false;
+    closeSpot();return true};
+  const loop=()=>{if(attempt()||performance.now()-t0>9000)return;backLoop=requestAnimationFrame(loop)};loop()}
 document.getElementById("back").onclick=goBack;
 document.getElementById("i-beach").onclick=()=>window.openBeach&&openBeach();
 addEventListener("keydown",e=>{if(e.key==="Escape")goBack()});
@@ -1081,9 +1109,15 @@ document.getElementById("z-in").onclick=()=>zoomBy(1.6);document.getElementById(
   for(let i=0;i<id.data.length;i+=4){const v=150+Math.random()*105;id.data.set([v,v*.97,v*.9,255],i)}c.putImageData(id,0,0);document.getElementById("grain").style.background=`url(${g.toDataURL()})`}
 
 /* ---------- boot ---------- */
-function resize(){W=innerWidth;H=innerHeight;dpr=Math.min(2,devicePixelRatio||1);cv.width=hv.width=W*dpr;cv.height=hv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+function resize(){const r=svg.getBoundingClientRect();W=Math.round(r.width)||innerWidth;H=Math.round(r.height)||innerHeight;dpr=Math.min(2,devicePixelRatio||1);cv.width=hv.width=W*dpr;cv.height=hv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
   const f=fit();if(!selected)cam=f;clampCam();lastCam="";applyCam();if(selected)setReveal(Math.hypot(W,H)*1.2,0);resetParts()}
-addEventListener("resize",resize);
+let rzq=0;const queueResize=()=>{cancelAnimationFrame(rzq);rzq=requestAnimationFrame(()=>{const r=svg.getBoundingClientRect();if(Math.round(r.width)!==W||Math.round(r.height)!==H)resize()})};
+addEventListener("resize",queueResize);addEventListener("orientationchange",()=>setTimeout(resize,250));
+window.visualViewport&&visualViewport.addEventListener("resize",queueResize);
+if(window.ResizeObserver)new ResizeObserver(queueResize).observe(svg);
+// iOS Safari ignores maximum-scale: stop its page pinch-zoom (the map has its own)
+document.addEventListener("gesturestart",e=>e.preventDefault(),{passive:false});
+document.addEventListener("dblclick",e=>{if(!e.target.closest("button,input,a"))e.preventDefault()},{passive:false});
 resize();setLayer(layer);setPlaying(false);buildTimeline();buildWaves();requestAnimationFrame(clock);
 const status=document.getElementById("status");
 loadForecast().then(()=>{VE=viewEnd();buildTimeline();lastHour=-1;waveT=-9;setTime(NOW);drawHeat();resetParts();

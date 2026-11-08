@@ -581,7 +581,8 @@ document.body.append(hud, panel);
 let W = 0, H = 0, dpr = 1, HZ = 0, sc = null, open = false, shoreP = [], scrubP = [], tufts = [], bushes = [], tracks = [], clouds = [], rain = [], drift = [], ripples = [], stars = [];
 const X = x => x * W, Y = y => HZ + y * H;
 function resize() {
-  W = innerWidth; H = innerHeight; dpr = Math.min(1.5, devicePixelRatio || 1);
+  const box = document.getElementById("map").getBoundingClientRect();
+  W = Math.round(box.width) || innerWidth; H = Math.round(box.height) || innerHeight; dpr = Math.min(1.5, devicePixelRatio || 1);
   cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
   HZ = H * (W / H < .8 ? (sc?.hzP ?? .3) : (sc?.hz ?? .4));
   if (sc) build();
@@ -1164,6 +1165,8 @@ window.beachTime = () => {   // called by the page whenever the time moves
 let camBefore = null, camTarget = null, busy = false, anim = 0;
 window.beachHas = has;
 window.beachOpen = () => open;
+let busySince = 0;
+window.beachBusy = () => { if (busy && performance.now() - busySince > 15000) busy = false; return busy; };   // never stuck for good
 const LAYERS = ["map", "detail", "heat", "wind"].map(id => document.getElementById(id));
 const sky = document.createElement("canvas");
 sky.id = "gull"; sky.setAttribute("aria-hidden", "true"); document.getElementById("grain").before(sky);
@@ -1233,7 +1236,7 @@ function drawGull(x, y, s, dir, lift, tilt) {
 }
 // where the gull is: u runs 0 → 1 across one pass (in from one side, hover in the middle, out the other)
 function gull(u, dir, now) {
-  const w = innerWidth, h = innerHeight, r = Math.min(2, devicePixelRatio || 1);
+  const w = W || innerWidth, h = H || innerHeight, r = Math.min(2, devicePixelRatio || 1);
   if (sky.width !== w * r || sky.height !== h * r) { sky.width = w * r; sky.height = h * r; }
   gc.setTransform(r, 0, 0, r, 0, 0); gc.clearRect(0, 0, w, h);
   if (u <= 0 || u >= 1) return;
@@ -1282,7 +1285,7 @@ function run(plan, dir, done) {
 }
 window.openBeach = () => {
   if (busy || open || !selected || !has(selected.id)) return;
-  busy = true; sc = SCENES[selected.id];
+  busy = true; busySince = performance.now(); sc = SCENES[selected.id];
   try { resize(); build(); } catch (e) { console.warn("beach", e); busy = false; return; }
   open = true; lastHourShown = -1; last = performance.now(); reveal = 0;
   S = state(curT); fillHud(); fillPanel();
@@ -1295,7 +1298,7 @@ window.openBeach = () => {
   run(OPEN, 1, () => { busy = false; scrollToDay(); document.getElementById("back").setAttribute("aria-label", "Back to the spot"); });
 };
 window.closeBeach = () => {
-  if (busy || !open) return; busy = true;
+  if (busy || !open) return; busy = true; busySince = performance.now();
   hud.setAttribute("aria-hidden", "true"); document.body.classList.remove("beach-on");
   const finish = () => { mapPose(0); for (const el of LAYERS) { el.style.filter = el.style.transform = el.style.opacity = ""; }
     document.body.classList.remove("beach"); wrap.classList.remove("on"); open = false; cancelAnimationFrame(raf); busy = false; reveal = 1; window.beachFull = false;

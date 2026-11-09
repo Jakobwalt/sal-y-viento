@@ -110,6 +110,7 @@ button,.mk,input{touch-action:manipulation}
 .zoomers button,.back{width:38px;height:38px;border:0;border-radius:4px;background:rgba(251,245,230,.5);backdrop-filter:blur(10px);color:var(--ink);box-shadow:0 8px 24px -16px rgba(20,40,40,.5);font-family:var(--f-mono);font-size:1rem;cursor:pointer}
 .back{z-index:8;top:calc(env(safe-area-inset-top,0px) + 18px);left:max(18px,env(safe-area-inset-left,0px));opacity:0;pointer-events:none;transform:translateX(-8px);transition:opacity .35s,transform .35s}
 body.dive .back{opacity:1;pointer-events:auto;transform:none}
+body.dive .mk,body.dive #signs{pointer-events:none!important}
 body.dive .zoomers{opacity:0;pointer-events:none}
 
 /* spot info rising from the bottom */
@@ -182,7 +183,9 @@ body.dive.ready #info{transform:none;opacity:1}
 @media (max-width:760px){.tl-day{font-size:13px}.days button{grid-template-columns:4.6rem 4rem minmax(0,1fr)}.days .wv{display:none}}
 /* wind and waves side by side, floating over the spot on a soft blur with feathered edges; three days in view, the rest scrolls */
 .fc{position:absolute;left:max(18px,env(safe-area-inset-left,0px));right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 80px);
-  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;pointer-events:auto}
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+#info .fc{pointer-events:none}
+body.dive.ready:not(.beach) #info .fc{pointer-events:auto}
 .blk{padding:14px 18px 6px;background:color-mix(in srgb,var(--spot) 26%,transparent);backdrop-filter:blur(10px) saturate(1.05);-webkit-backdrop-filter:blur(10px) saturate(1.05);border-radius:22px;
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 16px,#000 calc(100% - 16px),transparent),linear-gradient(180deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);-webkit-mask-composite:source-in;
   mask-image:linear-gradient(90deg,transparent,#000 16px,#000 calc(100% - 16px),transparent),linear-gradient(180deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);mask-composite:intersect;
@@ -825,7 +828,7 @@ function flyTo(t,ms=950,done,arc=true){const s={...cam},lz0=Math.log(s.z),lz1=Ma
 
 /* ---------- markers ---------- */
 const markersEls=SPOTS.map(s=>{const b=document.createElement("button");b.type="button";b.className="mk";b.id="mk-"+s.id;b.setAttribute("aria-label",s.name);b.title=s.name;
-  b.innerHTML=`<span class="dot"></span>`;b.onclick=e=>{e.stopPropagation();openSpot(s)};document.getElementById("markers").append(b);return{s,e:b}});
+  b.innerHTML=`<span class="dot"></span>`;b.onclick=e=>{e.stopPropagation();requestSpot(s)};document.getElementById("markers").append(b);return{s,e:b}});
 
 /* ---------- forecast data ----------
    data/meta.json, wind.bin, waves.bin, spots.json are written 4x a day by pipeline/build.py.
@@ -898,12 +901,12 @@ function paintHeatSrc(){const c=heatSrc.getContext("2d"),id=c.createImageData(G.
 const hv=document.getElementById("heat"),hctx=hv.getContext("2d");
 // wind strength as a light wash: calm stays clear, stronger wind warms the map
 const windSrc=document.createElement("canvas");windSrc.width=G.nx;windSrc.height=G.ny;
-const WRAMP=[[5,[255,255,255,0]],[7,[255,250,235,.16]],[10,[255,250,235,.26]],[12.5,[205,238,170,.42]],[17.5,[125,205,115,.52]],[22.5,[255,205,95,.62]],[27.5,[255,150,65,.75]],[32.5,[255,110,60,.85]],[37.5,[225,60,75,.92]],[44,[150,50,130,1]]];
+const WRAMP=[[5,[255,255,255,0]],[7,[255,250,235,.18]],[10,[250,246,228,.3]],[12.5,[178,226,140,.45]],[17.5,[96,184,96,.55]],[22.5,[255,205,95,.62]],[27.5,[255,150,65,.75]],[32.5,[255,110,60,.85]],[37.5,[225,60,75,.92]],[44,[150,50,130,1]]];
 function wcol(kn){if(kn<=WRAMP[0][0])return WRAMP[0][1];for(let i=0;i<WRAMP.length-1;i++){const [a,ca]=WRAMP[i],[b,cb]=WRAMP[i+1];if(kn<=b){const k=(kn-a)/(b-a);return ca.map((c,n)=>c+(cb[n]-c)*k)}}return WRAMP.at(-1)[1]}
 function paintWindSrc(){const c=windSrc.getContext("2d"),id=c.createImageData(G.nx,G.ny);
   for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,[r,g,b,a]=wcol(field(G.x0+i*G.st,G.y0+j*G.st,curT).g);id.data.set([r,g,b,a*255],k*4)}c.putImageData(id,0,0)}
 function drawHeat(){hctx.setTransform(1,0,0,1,0,0);hctx.clearRect(0,0,hv.width,hv.height);
-  if(layer!=="waves"){hv.style.opacity=(selected?.45:.72)*(isEc(curT)?.6:1);hv.style.mixBlendMode="screen";hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
+  if(layer!=="waves"){hv.style.opacity=(selected?.4:.62)*(isEc(curT)?.6:1);hv.style.mixBlendMode="normal";hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
     hctx.drawImage(windSrc,G.x0-G.st/2,G.y0-G.st/2,G.nx*G.st,G.ny*G.st);return}
   hv.style.opacity=.8;hv.style.mixBlendMode="normal";
   hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
@@ -1003,7 +1006,12 @@ function buildDetail(s){const p=s.pal,[x,y]=P(s.lon,s.lat),[fx,fy]=P(...s.fc);
 function setReveal(r,blur){const [sx,sy]=selected?toScreen(...P(selected.lon,selected.lat)):[W/2,H/2];
   dsv.style.clipPath=`circle(${r}px at ${sx}px ${sy}px)`;dsv.style.visibility=r>0?"visible":"hidden";
   svg.style.filter=blur>0.01?`blur(${blur}px) saturate(${1-blur*.08})`:"";}
-function openSpot(s){if(diving&&performance.now()-divingSince<6000)return;diving=true;divingSince=performance.now();selected=s;buildDetail(s);fillInfo(s);
+let spotLoop=0;
+function requestSpot(s){cancelAnimationFrame(spotLoop);const t0=performance.now();
+  const loop=()=>{if(selected===s)return;
+    const free=!selected&&!(diving&&performance.now()-divingSince<6000)&&!(window.beachOpen&&beachOpen());
+    if(free){openSpot(s);return}if(performance.now()-t0<9000)spotLoop=requestAnimationFrame(loop)};loop()}
+function openSpot(s){if(selected||(diving&&performance.now()-divingSince<6000))return;diving=true;divingSince=performance.now();selected=s;buildDetail(s);fillInfo(s);
   document.body.classList.add("dive");document.getElementById("signs").style.opacity=.0;document.getElementById("markers").style.opacity=0;document.getElementById("markers").style.pointerEvents="none";
   const [x,y]=P(s.lon,s.lat),z1=Math.max(fitZ*3.2,cam.z),narrow=W<=760,zD=narrow?Math.min(fitZ*10.5,H*.15/Math.max(.5,Math.hypot(x-P(...s.fc)[0],y-P(...s.fc)[1]))):fitZ*10.5;
   const ty=(narrow?(y+P(...s.fc)[1])/2:Math.max(y,P(...s.fc)[1]))+(H/2-H*(narrow?.2:.43))/zD,tx=narrow?x:Math.min(x,P(...s.fc)[0])+W*.04/zD;
@@ -1101,7 +1109,7 @@ svg.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId))return;const pre
 const up=e=>{pts.delete(e.pointerId);if(pts.size<2&&drag)drag.d=null;if(!pts.size){svg.classList.remove("drag");drag=null}};
 svg.addEventListener("pointerup",up);svg.addEventListener("pointercancel",up);
 svg.addEventListener("wheel",e=>{e.preventDefault();if(selected||diving)return;const [wx,wy]=toWorld(e.clientX,e.clientY);cam.z*=Math.exp(-e.deltaY*0.0015);clampCam();const [nx,ny]=toWorld(e.clientX,e.clientY);cam.x+=wx-nx;cam.y+=wy-ny;clampCam();applyCam()},{passive:false});
-const zoomBy=k=>{const t={x:cam.x,y:cam.y,z:Math.max(fitZ,Math.min(fitZ*14,cam.z*k))};flyTo(t,350,null,false)};
+const zoomBy=k=>{if(selected||diving)return;const t={x:cam.x,y:cam.y,z:Math.max(fitZ,Math.min(fitZ*14,cam.z*k))};flyTo(t,350,null,false)};
 document.getElementById("z-in").onclick=()=>zoomBy(1.6);document.getElementById("z-out").onclick=()=>zoomBy(1/1.6);
 
 /* ---------- grain ---------- */
@@ -1111,6 +1119,19 @@ document.getElementById("z-in").onclick=()=>zoomBy(1.6);document.getElementById(
 /* ---------- boot ---------- */
 function resize(){const r=svg.getBoundingClientRect();W=Math.round(r.width)||innerWidth;H=Math.round(r.height)||innerHeight;dpr=Math.min(2,devicePixelRatio||1);cv.width=hv.width=W*dpr;cv.height=hv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
   const f=fit();if(!selected)cam=f;clampCam();lastCam="";applyCam();if(selected)setReveal(Math.hypot(W,H)*1.2,0);resetParts()}
+/* Safety net: if a transition was ever cut short, put the page back into a consistent state. */
+function repairState(){
+  const now=performance.now(),beach=window.beachOpen&&beachOpen(),bBusy=window.beachBusy&&beachBusy();
+  if(diving&&!anim&&!bBusy&&now-divingSince>2500){       // nothing is animating, yet we think we're mid-transition
+    diving=false;
+    if(selected){setReveal(Math.hypot(W,H)*1.2,0);document.body.classList.add("dive","ready");document.getElementById("info").setAttribute("aria-hidden","false")}}
+  if(!selected&&!diving&&!beach){                          // on the overview: everything of the spot view must be gone
+    const b=document.body;if(b.classList.contains("dive")||b.classList.contains("ready")||b.classList.contains("beach")){b.classList.remove("dive","ready","beach","beach-on");setReveal(0,0)}
+    for(const id of ["signs","markers"]){const n=document.getElementById(id);if(n.style.opacity!=="1"&&n.style.opacity!==""){n.style.opacity=1;n.style.pointerEvents=""}}
+    for(const id of ["map","detail","heat","wind"]){const n=document.getElementById(id);if(n.style.filter||n.style.opacity){n.style.filter="";n.style.opacity="";n.style.transform=""}}
+    window.beachFull=false}
+}
+setInterval(repairState,1000);
 let rzq=0;const queueResize=()=>{cancelAnimationFrame(rzq);rzq=requestAnimationFrame(()=>{const r=svg.getBoundingClientRect();if(Math.round(r.width)!==W||Math.round(r.height)!==H)resize()})};
 addEventListener("resize",queueResize);addEventListener("orientationchange",()=>setTimeout(resize,250));
 window.visualViewport&&visualViewport.addEventListener("resize",queueResize);

@@ -264,6 +264,78 @@ body.dive.ready:not(.beach) #info .fc{pointer-events:auto}
 .rhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
 .bv{background:none;border:0;border-bottom:1px solid rgba(251,245,230,.35);padding:3px 0;color:var(--foam);cursor:pointer;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;opacity:.7;transition:opacity .2s}
 .bv:hover{opacity:1}.bv[hidden]{display:none}
+/* wave details: the waves panel takes the page, the wind table folds into a bar */
+.wmini{display:none}
+body.swell #info .fc{top:180px;bottom:calc(env(safe-area-inset-bottom,0px) + 112px);grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:10px}
+body.swell #b-wind{padding:6px 18px}
+body.swell #b-wind>.rhead,body.swell #b-wind>.hdr,body.swell #b-wind>.tbl,body.swell #b-wave>.hdr,body.swell #b-wave>.tbl{display:none}
+body.swell .wmini{display:flex;align-items:center;gap:14px;width:100%;background:none;border:0;padding:6px 0;color:var(--foam);cursor:pointer;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.06em;text-align:left}
+.wm-l{text-transform:uppercase;letter-spacing:.14em;opacity:.8;font-size:.62rem}
+.wm-now{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}.wm-now b{font-size:.9rem;font-weight:500}.wm-now small{opacity:.75;font-size:.62rem}.wm-now svg{width:13px;height:13px}
+.wm-strip{flex:1;display:flex;height:6px;gap:1px;min-width:40px;opacity:.9}.wm-strip i{flex:1;border-radius:1px}.wm-strip i.c{box-shadow:0 0 0 1.5px var(--wax);position:relative;z-index:1}
+.wm-go{white-space:nowrap;border-bottom:1px solid rgba(251,245,230,.35);text-transform:uppercase;letter-spacing:.16em;font-size:.6rem;opacity:.75}
+.wmini:hover .wm-go{opacity:1}
+body.swell #b-wave{display:flex;flex-direction:column;min-height:0;padding-bottom:10px}
+body.swell #b-wave{background:color-mix(in srgb,var(--spot) 58%,transparent)}
+body.swell #b-wind{background:color-mix(in srgb,var(--spot) 46%,transparent)}
+.sw{flex:1;min-height:0;display:flex;flex-direction:column;--lw:118px;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.sw[hidden]{display:none}
+.sw-key{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;font-size:.6rem;letter-spacing:.08em;opacity:.85;margin:2px 0 8px}
+.sw-key span{display:inline-flex;align-items:center;gap:6px}
+.sw-key i{display:inline-block;width:16px;height:9px;border-radius:9px 9px 0 0}
+.sw-key .k-p{background:rgb(78,143,196);box-shadow:inset 0 0 0 1px rgba(251,245,230,.9)}
+.sw-key .k-s{background:rgba(78,143,196,.42);box-shadow:inset 0 0 0 1px rgba(251,245,230,.85)}
+.sw-key .k-t{background:rgba(78,143,196,.26);outline:1px dashed rgba(251,245,230,.6);outline-offset:-1px}
+.sw-key .k-per i{width:54px;height:6px;border-radius:3px;background:linear-gradient(90deg,rgb(205,230,226),rgb(138,196,214),rgb(78,143,196),rgb(58,94,174),rgb(64,55,143))}
+.sw-key .note{opacity:.7;font-style:italic;letter-spacing:.02em}
+.sw-key .k-per{margin-left:auto}
+.sw-body{flex:1;min-height:0;display:grid;grid-template-columns:var(--lw) minmax(0,1fr);overflow-y:auto;overflow-x:hidden;scrollbar-width:none;overscroll-behavior:contain}
+.sw-body::-webkit-scrollbar{display:none}
+.sw-scroll{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;cursor:pointer;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 22px),transparent)}
+.sw-scroll::-webkit-scrollbar{display:none}
+.sw-in{position:relative;width:calc(var(--n) * var(--cw))}
+.sw-r{display:grid;grid-template-columns:repeat(var(--n),var(--cw));align-items:center;justify-items:center}
+.sw-r>span{display:flex;align-items:center;justify-content:center;gap:2px;width:100%;height:100%}
+.sw-r .nt,.sw-r .nt{opacity:.5}
+.r-day{height:20px}.r-hr{height:18px}.r-graph{height:var(--gh);display:block}.r-big{height:36px}.r-mid{height:30px}.r-sm{height:20px}.r-en{height:26px}.r-wind{height:34px;margin-top:6px}.r-src{height:22px}
+.sw-l.r-big,.sw-r.r-big,.sw-l.r-mid,.sw-r.r-mid{margin-top:6px}
+.sw-l.r-wind{margin-top:6px}
+.sw-r>.sw-day{justify-self:stretch;display:block;border-left:1px solid rgba(251,245,230,.28);padding-left:8px;font-family:var(--f-display);font-size:1rem;line-height:20px;white-space:nowrap}
+.sw-day em{position:sticky;left:6px}
+.sw-day:first-child{border-left:0}
+.r-hr span{font-size:.58rem;opacity:.6}.r-hr span.cur{opacity:1;color:var(--wax)}
+.sw-g{display:block}
+.bd{display:inline-grid;place-items:center;min-width:28px;height:24px;padding:0 4px;border-radius:12px;color:var(--ink);font-size:.7rem;font-weight:600;letter-spacing:-.02em}
+.bd.ghost{min-width:24px;height:20px;border-radius:10px;background:none;color:var(--foam);font-weight:500;font-size:.64rem;box-shadow:inset 0 0 0 1px rgba(251,245,230,.6)}
+.r-mid:nth-of-type(n) i,.r-big i{opacity:.4;font-style:normal}
+.dp{display:inline-flex;align-items:center;gap:2px;font-size:.6rem;opacity:.9;white-space:nowrap}.dp svg{width:10px;height:10px;flex:none}
+.en{font-size:.6rem;font-weight:600;height:20px!important;letter-spacing:-.02em}
+.en.f{border-radius:10px 0 0 10px}.en.l{border-radius:0 10px 10px 0}.en.f.l{border-radius:10px}
+.en.nt{opacity:.6}
+.wd{flex-direction:column;gap:1px!important;font-size:.56rem;opacity:.85}.wd i{display:block;width:16px;height:3px;border-radius:2px}.wd svg{width:10px;height:10px}.wd small{font-size:.56rem}
+.sw-r>.src{justify-self:stretch;display:block;border-top:2px solid rgba(251,245,230,.55);padding-top:3px;font-size:.54rem;letter-spacing:.08em;opacity:.7;white-space:nowrap;margin:0 1px}
+.src em{position:sticky;left:6px;font-style:normal}
+.src.s-ibi{border-top-style:solid;opacity:.6}.src.s-out{border-top-style:dashed;opacity:.5}
+.sw-now{position:absolute;top:20px;bottom:0;left:0;width:0;border-left:1.5px solid var(--wax);pointer-events:none;transition:transform .25s ease}
+.sw-l{position:relative;display:flex;flex-direction:column;justify-content:center;gap:1px;padding-right:10px}
+.sw-l b{font-weight:500;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase}
+.sw-l small{font-size:.56rem;opacity:.65;letter-spacing:.04em}
+.sw-l.r-sm small{opacity:.5}
+.sw-l.r-graph span{position:absolute;right:10px;font-size:.56rem;opacity:.6;transform:translateY(-50%)}
+.sw-empty{font-size:.7rem;opacity:.8}
+@media (max-width:760px){
+  body.swell #info .fc{display:grid;grid-template-rows:auto minmax(0,max-content);align-content:start;overflow:visible;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);left:10px;right:10px;padding:0;gap:8px;scroll-snap-type:none}
+  body.swell #info .blk{flex:none}
+  body.swell #b-wind{padding:4px 12px}
+  body.swell .wmini{gap:10px;font-size:.6rem}.wm-now small{display:none}
+  .sw{--lw:74px}
+  .sw-key{font-size:.54rem;gap:3px 10px}.sw-key .k-per{display:none}
+  .sw-l b{font-size:.56rem;letter-spacing:.04em}.sw-l small{font-size:.5rem}
+  .bd{min-width:26px;height:22px;font-size:.62rem;padding:0 3px}.bd.ghost{min-width:22px;height:18px;font-size:.58rem}
+  .dp{font-size:.54rem}.dp svg{width:9px;height:9px}
+  .en{font-size:.52rem}
+}
+@media (max-height:520px){body.swell .ctrl{opacity:0;pointer-events:none}.sw-key{display:none}.r-big{height:30px}.r-mid{height:26px}.r-sm{height:18px}}
 #beach{position:fixed;inset:0;z-index:5;opacity:0;pointer-events:none;transform-origin:50% 100%;visibility:hidden}
 #beach.on{pointer-events:auto;visibility:visible}
 #beach canvas{display:block}
@@ -640,8 +712,8 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
 <section id="info" aria-live="polite" aria-hidden="true">
   <h2 id="i-name">Spot</h2>
   <div class="fc">
-    <div class="blk"><div class="rlab rhead"><span>Wind · knots</span><button class="bv" id="i-beach" type="button" hidden>Beach view <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wind"></div><div class="tbl" id="i-wind"></div></div>
-    <div class="blk"><div class="rlab rhead"><span>Waves · metres · period</span></div><div class="hdr" id="h-wave"></div><div class="tbl" id="i-wave"></div></div>
+    <div class="blk" id="b-wind"><div class="rlab rhead"><span>Wind · knots</span><button class="bv" id="i-beach" type="button" hidden>Beach view <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wind"></div><div class="tbl" id="i-wind"></div><button class="wmini" id="i-wmini" type="button" tabindex="-1"></button></div>
+    <div class="blk" id="b-wave"><div class="rlab rhead"><span id="i-wlab">Waves · metres · period</span><button class="bv" id="i-swell" type="button" aria-expanded="false">Wave details <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wave"></div><div class="tbl" id="i-wave"></div><div class="sw" id="sw" hidden></div></div>
   </div>
 </section>
 
@@ -971,13 +1043,13 @@ function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.rou
   const tw=document.getElementById("i-wind"),tv=document.getElementById("i-wave"),keep=[tw.scrollTop,tv.scrollTop];
   document.getElementById("h-wind").innerHTML=document.getElementById("h-wave").innerHTML=hd;
   tw.innerHTML=rows(windCell,true,h=>!h.na);
-  tv.innerHTML=rows((h,now)=>h.wh==null?na:`<div class="${now&&h.h===hr?"cur":""}"><span class="kn">${h.wh.toFixed(1)}</span><span class="bar" style="height:${Math.round(h.wh/wm*(now?40:20))}px;background:${waveCol(h.wh)}"></span>${now&&h.wd!=null?arrow(h.wd):""}<span class="pd">${h.pd??"–"}s</span></div>`,false,h=>!h.na&&h.wh!=null);
+  tv.innerHTML=rows((h,now)=>h.wh==null?na:`<div class="${now&&h.h===hr?"cur":""}"><span class="kn">${h.wh.toFixed(1)}</span><span class="bar" style="height:${Math.round(h.wh/wm*(now?40:20))}px;background:${waveCol(h.wh)}"></span>${h.wd!=null?arrow(h.wd):""}<span class="pd">${h.pd??"–"}s</span></div>`,false,h=>!h.na&&h.wh!=null);
   const key=s.id+":"+day;
   for(const [k,t] of [[0,tw],[1,tv]]){const r=[...t.querySelectorAll(".row")].slice(0,3);
     const h3=r.reduce((a,e)=>a+e.offsetHeight,0)+14;const nr=t.querySelector(".row.now")||r[0],one=nr?nr.offsetHeight+16:0;   // always at least one full day
     t.style.maxHeight=Math.max(one,Math.min(h3,innerHeight*(innerHeight<520?.24:innerWidth<760?.4:.46)))+"px";
     if(key!==infoKey){const n=t.querySelector(".row.now");t.scrollTop=n?Math.max(0,n.offsetTop-t.offsetTop+n.offsetHeight-t.clientHeight+16):0}else t.scrollTop=keep[k]}
-  infoKey=key}
+  infoKey=key;window.swellFill&&swellFill(s)}
 // a day row takes the map (and the timeline) to that day, same hour
 document.getElementById("info").addEventListener("click",e=>{const r=e.target.closest(".row[data-day]");if(!r||!selected)return;
   const d=+r.dataset.day,h=Math.round(curT)%24;setPlaying(false);setTime(Math.min(N-1,d*24+h))});
@@ -1019,7 +1091,7 @@ function openSpot(s){if(selected||(diving&&performance.now()-divingSince<6000))r
     tween(1150,(e,k)=>{cam.x=s0.x+(tx-s0.x)*e;cam.y=s0.y+(ty-s0.y)*e;cam.z=Math.exp(Math.log(s0.z)+(Math.log(zD)-Math.log(s0.z))*e);applyCam();
       setReveal(R*Math.pow(k,1.6),4*Math.sin(Math.PI*Math.min(1,k*1.4))*(1-k))},
       ()=>{setReveal(Math.hypot(W,H)*1.2,0);document.body.classList.add("ready");document.getElementById("info").setAttribute("aria-hidden","false");document.getElementById("back").focus({preventScroll:true});diving=false})});}
-function closeSpot(){if(!selected||(diving&&performance.now()-divingSince<6000))return;diving=true;divingSince=performance.now();const s=selected;document.body.classList.remove("ready");document.getElementById("info").setAttribute("aria-hidden","true");
+function closeSpot(){if(!selected||(diving&&performance.now()-divingSince<6000))return;window.swellClose&&swellClose(true);diving=true;divingSince=performance.now();const s=selected;document.body.classList.remove("ready");document.getElementById("info").setAttribute("aria-hidden","true");
   const s0={...cam},[x,y]=P(s.lon,s.lat),z1=fitZ*3.2,R=Math.hypot(W,H);
   tween(800,(e,k)=>{cam.x=s0.x+(x-s0.x)*e;cam.y=s0.y+(y-s0.y)*e;cam.z=Math.exp(Math.log(s0.z)+(Math.log(z1)-Math.log(s0.z))*e);applyCam();setReveal(R*Math.pow(1-k,1.4),3*Math.sin(Math.PI*k)*k)},
     ()=>{setReveal(0,0);selected=null;document.body.classList.remove("dive");
@@ -1036,7 +1108,7 @@ function goBack(){cancelAnimationFrame(backLoop);const t0=performance.now();
   const loop=()=>{if(attempt()||performance.now()-t0>9000)return;backLoop=requestAnimationFrame(loop)};loop()}
 document.getElementById("back").onclick=goBack;
 document.getElementById("i-beach").onclick=()=>window.openBeach&&openBeach();
-addEventListener("keydown",e=>{if(e.key==="Escape")goBack()});
+addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(window.swellOpen&&swellOpen()&&!(window.beachOpen&&beachOpen())){swellClose();return}goBack()});
 
 /* ---------- timeline ---------- */
 const tlRange=document.getElementById("tl-range"),tlPlay=document.getElementById("tl-play");
@@ -1129,7 +1201,7 @@ function repairState(){
     const b=document.body;if(b.classList.contains("dive")||b.classList.contains("ready")||b.classList.contains("beach")){b.classList.remove("dive","ready","beach","beach-on");setReveal(0,0)}
     for(const id of ["signs","markers"]){const n=document.getElementById(id);if(n.style.opacity!=="1"&&n.style.opacity!==""){n.style.opacity=1;n.style.pointerEvents=""}}
     for(const id of ["map","detail","heat","wind"]){const n=document.getElementById(id);if(n.style.filter||n.style.opacity){n.style.filter="";n.style.opacity="";n.style.transform=""}}
-    window.beachFull=false}
+    window.beachFull=false;if(b.classList.contains("swell")&&window.swellClose)swellClose(true)}
 }
 setInterval(repairState,1000);
 let rzq=0;const queueResize=()=>{cancelAnimationFrame(rzq);rzq=requestAnimationFrame(()=>{const r=svg.getBoundingClientRect();if(Math.round(r.width)!==W||Math.round(r.height)!==H)resize()})};
@@ -1151,6 +1223,7 @@ loadForecast().then(()=>{VE=viewEnd();buildTimeline();lastHour=-1;waveT=-9;setTi
 if(!reduce)requestAnimationFrame(tick);
 </script>
 <script src="beach.js?v=dev"></script>
+<script src="swell.js?v=dev"></script>
 
 </body>
 </html>

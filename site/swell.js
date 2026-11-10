@@ -84,7 +84,7 @@ const dirPer=v=>v?`<span class="dp" title="${v.d!=null?`from ${comp(v.d)} ${Math
 function render(s,ghFit){if(!s)return;cols=collect(s);key=s.id+":"+(FC&&FC.meta.generated);
   const box=$("sw"),narrow=innerWidth<760,short=innerHeight<560,cw=narrow?32:42,GH=ghFit||(short?92:narrow?120:140);
   if(!cols.length){box.innerHTML=`<p class="sw-empty">No wave forecast for this spot right now.</p>`;return}
-  const split=cols.some(c=>c.split),hasS=cols.some(c=>c.s),pic=!narrow,gr=pic?graph(cw,GH):null;
+  const split=cols.some(c=>c.split),hasS=cols.some(c=>c.s),pic=!narrow,gr=pic?graph(cw,GH):null,hasTide=!!tideRange(FC.spots[s.id]);
   const R=(cls,lab,sub,cells)=>({cls,lab,sub,cells}),FROM=narrow?"from · s":"from · period";
   const rows=[
     R("r-day","","",()=>{let h="",i=0;while(i<cols.length){const d=cols[i].d;let j=i;while(j<cols.length&&cols[j].d===d)j++;h+=`<span class="sw-day" style="grid-column:${i+1}/${j+1}"><em>${dayName(d)}</em></span>`;i=j}return h}),
@@ -96,6 +96,7 @@ function render(s,ghFit){if(!s)return;cols=collect(s);key=s.id+":"+(FC&&FC.meta.
       return `<span class="en${c.first?" f":""}${cols[i+1]&&!cols[i+1].first?"":" l"}${c.night?" nt":""}" style="background:rgb(${rgb});color:${dark?"#fbf5e6":"#23312f"}" title="${eRange(e)}">${eLab(e)}</span>`}).join("")),
     ...(!split?[]:[R("r-mid","Secondary","metres",()=>cols.map(c=>`<span class="${c.night?"nt":""}">${hasS?badge(c.s,false):""}</span>`).join("")),
     R("r-sm","",FROM,()=>cols.map(c=>`<span class="${c.night?"nt":""}">${dirPer(c.s)}</span>`).join(""))]),
+    ...(hasTide?[R("r-tide","Tide","high · low",()=>tideRow(s,cw))]:[]),
     R("r-wind","Wind","knots",()=>cols.map(c=>c.w?`<span class="wd${c.night?" nt":""}" title="${c.w.kn} kn, gusts ${c.w.g} kn${c.w.d!=null?`, from ${comp(c.w.d)}`:""}"><i style="background:${barCol(c.w.g)}"></i>${c.w.d!=null?arrow(c.w.d):""}<small>${c.w.kn}</small></span>`:"<span></span>").join("")),
     R("r-src","Source","",()=>{let h="",i=0;while(i<cols.length){const m=cols[i].m;let j=i;while(j<cols.length&&cols[j].m===m)j++;if(m)h+=`<span class="src s-${m}" style="grid-column:${i+1}/${j+1}"><em>${SRC[m]||m}</em></span>`;i=j}return h})];
   const labs=rows.map(r=>`<div class="sw-l ${r.cls}">${r.cls==="r-graph"?gr.ticks.map(t=>`<span style="top:${t.y.toFixed(0)}px">${t.t}m</span>`).join(""):r.lab?`<b>${r.lab}</b>${r.sub?`<small>${r.sub}</small>`:""}`:r.sub?`<small>${r.sub}</small>`:""}</div>`).join("");
@@ -111,6 +112,18 @@ function render(s,ghFit){if(!s)return;cols=collect(s);key=s.id+":"+(FC&&FC.meta.
   // let the drawing take whatever height is left (or give some back on short screens)
   if(!ghFit&&pic){const b=$("sw-body"),l=b.querySelector(".sw-labs"),spare=Math.round(b.getBoundingClientRect().bottom-l.lastElementChild.getBoundingClientRect().bottom-4);
     if(spare>12||(spare<-8&&GH>96)){const g2=Math.round(Math.max(90,Math.min(180,GH+spare-6)));if(Math.abs(g2-GH)>6)render(s,g2)}}}
+// the tide as one curve under the columns (each day's 06–21 stretch), with high and low water marked
+function tideRow(s,cw){const o=FC.spots[s.id],rg=tideRange(o),H=54,top=15,bot=H-15,W=cols.length*cw;
+  const Y=v=>bot-(v-rg[0])/Math.max(.2,rg[1]-rg[0])*(bot-top);let g=`<svg class="sw-tide" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">`;
+  let i=0;while(i<cols.length){const d=cols[i].d;let j=i;while(j<cols.length&&cols[j].d===d)j++;
+    const a=cols[i].T-.5,b=cols[j-1].T+.5,X=t=>(i+(t-a))*cw,pts=[];
+    for(let t=a;t<=b+1e-6;t+=.25){const v=tideAt(o,t);if(v!=null)pts.push([X(t),Y(v)])}
+    if(pts.length>1){const line="M"+pts.map(p=>p[0].toFixed(1)+" "+p[1].toFixed(1)).join("L");
+      g+=`<path d="${line}L${pts.at(-1)[0].toFixed(1)} ${bot+6}L${pts[0][0].toFixed(1)} ${bot+6}Z" fill="rgba(251,245,230,.1)"/><path d="${line}" fill="none" stroke="rgba(251,245,230,.8)" stroke-width="1.4"/>`;
+      for(const e of tideTurns(o,a,b)){const x=X(e.t),y=Y(e.h);
+        g+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.4" fill="${e.hi?"#fbf5e6":"none"}" stroke="#fbf5e6" stroke-width="1.2"/><text x="${x.toFixed(1)}" y="${(e.hi?y-6:y+12).toFixed(1)}" text-anchor="middle">${hm(e.t)} <tspan>${tsign(e.h)}</tspan></text>`}}
+    i=j}
+  return g+"</svg>"}
 const SRC={pde:"Puertos del Estado",gib:"Strait model · fine",ibi:"IBI regional · 2.5 km",out:"Outlook · global"};
 
 function nowX(cw){if(!cols.length)return 0;let i=0;for(let k=0;k<cols.length;k++)if(cols[k].T<=curT+1e-6)i=k;const c=cols[i];
@@ -131,7 +144,7 @@ function place(){const f=fcEl();if(!open){f.style.top="";return}
 
 function apply(on){open=on;document.body.classList.toggle("swell",on);$("sw").hidden=!on;
   const b=$("i-swell");b.setAttribute("aria-expanded",on);b.innerHTML=on?'Wind &amp; waves <span aria-hidden="true">↙</span>':'Wave details <span aria-hidden="true">↗</span>';
-  $("i-wlab").textContent=on?"Wave details · swell trains":"Waves · metres · period";$("i-wmini").tabIndex=on?0:-1;
+  $("i-wlab").textContent=on?"Wave details · swell trains":"Waves · metres · period · tide";$("i-wmini").tabIndex=on?0:-1;
   // the map behind follows: waves while the details are open, back to what it was after
   if(on){if(prevLayer==null){prevLayer=layer;if(layer!=="waves")setLayer("waves")}}
   else if(prevLayer!=null){const p=prevLayer;prevLayer=null;if(layer!==p)setLayer(p)}

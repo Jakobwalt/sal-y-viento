@@ -1126,12 +1126,16 @@ function fillHud() {
     `<span>${dayName(d)} · ${hh}:00${s.ec ? ' <b class="ectag">ECMWF</b>' : ""}</span>` +
     `<span class="bk">${Math.round(s.kn)} <small>kn</small>${s.dir != null ? arrow(s.dir) : ""}<small>${s.dir != null ? cardinal(s.dir) : ""}${WINDNAME(s.dir)} · gusts ${Math.round(s.gust)}</small></span>` +
     `<span>${s.temp != null ? Math.round(s.temp) + "°" : ""} · ${sky}${s.rainmm >= .1 ? ` ${s.rainmm.toFixed(1)} mm` : ""}</span>` +
-    (s.wh != null ? `<span>${s.wh.toFixed(1)} m · ${Math.round(s.wp)} s</span>` : "");
+    (s.wh != null ? `<span>${s.wh.toFixed(1)} m · ${Math.round(s.wp)} s</span>` : "") + tideHud();
+}
+function tideHud() {
+  const o = FC && selected && FC.spots[selected.id], tn = o && typeof tideNow === "function" ? tideNow(o, curT) : null; if (!tn) return "";
+  return `<span class="bt">${tn.rising ? TUP : TDN}tide ${tn.rising ? "rising" : "falling"}${tn.next ? ` · ${tn.next.hi ? "high" : "low"} ${hm(tn.next.t)}` : ""}</span>`;
 }
 function fillPanel() {
   const o = FC && FC.spots[selected.id]; if (!o) { panel.innerHTML = ""; return; }
   const cur = Math.round(curT), days = Math.ceil(N / 24);
-  const gx = Math.max(30, ...o.gust.filter(v => v != null));
+  const gx = Math.max(30, ...o.gust.filter(v => v != null)), trg = typeof tideRange === "function" ? tideRange(o) : null;
   let html = '<div class="bf-scroll"><div class="bf-grid"><div class="bf-row bf-hd"><span></span>' +
     Array.from({ length: 24 }, (_, h) => `<span class="${h === cur % 24 ? "cur" : ""}">${String(h).padStart(2, "0")}</span>`).join("") + "</div>";
   for (let d = 0; d < days; d++) {
@@ -1142,9 +1146,11 @@ function fillPanel() {
         `<i class="g">${gu}</i><b>${kn}</b><em style="height:${Math.round(2 + kn / gx * 11)}px;background:${barCol(gu)}"></em>` +
         `${o.dir[T] != null ? arrow(o.dir[T]) : ""}<i class="w">${wh != null ? wh.toFixed(1) : ""}</i></button>`;
     }).join("");
-    html += `<div class="bf-row${d === Math.floor(cur / 24) ? " now" : ""}" data-d="${d}"><span class="bf-day">${dayName(d)}</span>${cells}</div>`;
+    const tc = typeof tidePath === "function" && trg ? tidePath(o, d * 24 - .5, d * 24 + 23.5, 240, 12, trg) : null;
+    const tl = tc ? `<svg class="bf-tide" viewBox="0 0 240 12" preserveAspectRatio="none" aria-hidden="true"><path d="${tc.area}" fill="rgba(251,245,230,.12)"/><path d="${tc.line}" fill="none" stroke="rgba(251,245,230,.65)" stroke-width="1.1" vector-effect="non-scaling-stroke"/></svg>` : "";
+    html += `<div class="bf-row${d === Math.floor(cur / 24) ? " now" : ""}" data-d="${d}"><span class="bf-day">${dayName(d)}</span>${cells}${tl}</div>`;
   }
-  panel.innerHTML = html + '</div></div><p class="bf-key">knots · gusts above · waves in metres below</p>';
+  panel.innerHTML = html + '</div></div><p class="bf-key">knots · gusts above · waves in metres below · tide line underneath</p>';
 }
 panel.addEventListener("click", e => { const b = e.target.closest("button[data-t]"); if (b) { setPlaying(false); setTime(+b.dataset.t); } });
 function scrollToDay() { const r = panel.querySelector(".bf-row.now"), sc2 = panel.querySelector(".bf-scroll"); if (r && sc2) sc2.scrollTop = r.offsetTop - sc2.querySelector(".bf-hd").offsetHeight - 2;

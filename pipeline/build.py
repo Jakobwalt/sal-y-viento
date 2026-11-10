@@ -22,6 +22,7 @@ import numpy as np
 import requests
 
 from . import config as C
+from . import tide
 
 H = dt.timedelta(hours=1)
 MISSING_I8 = -128
@@ -210,6 +211,51 @@ def reuse_live(base_url, out):
     (out / "spots.json").write_text(json.dumps(sp, separators=(",", ":")))
 
 
+# ---------------------------------------------------------------- tide
+def tide_is_stale(meta, now):
+    f = ((meta or {}).get("sources", {}).get("tide") or {}).get("fetched")
+    try:
+        return not f or now - dt.datetime.fromisoformat(f) > tide.FRESH
+    except ValueError:
+        return True
+
+
+def tide_fill(spots_out, times, now, report, prev_meta, force):
+    """Put an hourly "tide" list into every spot. Fetched at most about once a day; in between,
+    the previous values (already carried over by time) stay. Returns the meta entry."""
+    gaps = sum(v is None for o in spots_out.values() for v in o["tide"])
+    if not (force or tide_is_stale(prev_meta, now) or gaps > 24 * len(spots_out)):
+        return (prev_meta or {}).get("sources", {}).get("tide")
+    try:
+        vals, rep = tide.fetch(times[0], times[-1]); report["tide"] = rep
+        for sid, o in spots_out.items():
+            new = vals.get(sid) or []
+            o["tide"] = [new[k] if k < len(new) and new[k] is not None else o["tide"][k] for k in range(len(times))]
+        log(f"tide: {rep['values']} values")
+        return {"name": "Météo-France SMOC via Open-Meteo", "fetched": now.isoformat()}
+    except Exception as e:
+        report.setdefault("errors", {})["tide"] = repr(e); log(f"tide FAILED ({e})")
+        return (prev_meta or {}).get("sources", {}).get("tide")
+
+
+def tide_only(base_url, out, now):
+    """Nothing new from the forecast sources, but the tide is a day old: copy the live data and
+    refresh only the tide (one small request)."""
+    reuse_live(base_url, out)
+    meta = json.loads((out / "meta.json").read_text()); sp = json.loads((out / "spots.json").read_text())
+    t0 = dt.datetime.fromisoformat(meta["t0"]); times = [t0 + i * H for i in range(meta["hours"])]
+    for o in sp["spots"].values():
+        o["tide"] = (o.get("tide") or [None] * len(times))[:len(times)] + [None] * max(0, len(times) - len(o.get("tide") or []))
+    report = {"generated": now.isoformat(), "errors": {}}
+    entry = tide_fill(sp["spots"], times, now, report, meta, True)
+    if not entry or report["errors"].get("tide"):
+        return False
+    meta.setdefault("sources", {})["tide"] = entry
+    (out / "spots.json").write_text(json.dumps(sp, separators=(",", ":")))
+    (out / "meta.json").write_text(json.dumps(meta, indent=1))
+    return True
+
+
 # ---------------------------------------------------------------- main
 def main(argv=None):
     ap = argparse.ArgumentParser()
@@ -244,6 +290,12 @@ def main(argv=None):
     same_day = bool(prev) and prev["times"][0] == t0
     log(f"source check: {sig}\n        live build: {old}")
     if (not args.force and same_day and sig.get("aemet") and all(sig.get(k) and sig.get(k) == old.get(k) for k in sig)):
+        if args.previous and tide_is_stale(prev["meta"], now):
+            try:
+                if tide_only(args.previous, Path(args.out), now):
+                    log("no new forecast runs; refreshed only the tide"); set_output("changed", "true"); return 0
+            except Exception as e:
+                log(f"tide-only refresh failed ({e})")
         log(f"no new runs since the last build ({sig}); nothing fetched, nothing to deploy")
         set_output("changed", "false")
         return 0
@@ -335,7 +387,7 @@ def main(argv=None):
     spots_out = {}
     for sid, s in C.SPOTS.items():
         plon, plat = s["point"]; blon, blat = s["beach"]
-        o = {k: [] for k in ("kn", "gust", "dir", "temp", "rain", "cloud", "wh", "wp", "wd")}
+        o = {k: [] for k in ("kn", "gust", "dir", "temp", "rain", "cloud", "wh", "wp", "wd", "tide")}
         pv = prev["spots"].get(sid) if prev else None
         for k, t in enumerate(times):
             j_prev = pv_i.get(t) if pv else None
@@ -363,6 +415,7 @@ def main(argv=None):
             else:
                 for key in ("temp", "rain", "cloud"):
                     o[key].append(take_prev(key))
+            o["tide"].append(take_prev("tide") if pv and "tide" in pv else None)
             if src_wave[k] is not None:
                 o["wh"].append(r1(wave_value(WH[k], s), 2))
                 o["wp"].append(r1(wave_value(WP[k], s)))
@@ -371,6 +424,8 @@ def main(argv=None):
                 for key in ("wh", "wp", "wd"):
                     o[key].append(take_prev(key))
         spots_out[sid] = o
+
+    tide_entry = tide_fill(spots_out, times, now, report, prev["meta"] if prev else None, args.force)
 
     # ------------------------------------------------ write
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
@@ -398,11 +453,12 @@ def main(argv=None):
             "ecmwf": {"name": "ECMWF IFS 9 km via Open-Meteo", "ok": bool(ec),
                       "outlook_from": next((times[i].isoformat() for i in range(max((i for i, m in enumerate(model) if m == "aemet"), default=-1) + 1, T) if model[i] == "ecmwf"), None)},
             "waves": {"name": "Puertos del Estado IBI + Strait wave models", "run": wv.run.isoformat() if wv else None},
+            "tide": tide_entry,
         },
         "signatures": sig,
         "model": model,
         "coverage": {"wind": [s is not None for s in src_wind], "waves": [s is not None for s in src_wave]},
-        "credit": "Forecast data: AEMET, ECMWF (CC BY 4.0), Puertos del Estado. Direction via Open-Meteo.",
+        "credit": "Forecast data: AEMET, ECMWF (CC BY 4.0), Puertos del Estado, Météo-France SMOC (tide). Direction and tide via Open-Meteo.",
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=1))
     first = next((i for i, x in enumerate(src_wind) if x), 0)

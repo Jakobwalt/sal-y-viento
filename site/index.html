@@ -205,6 +205,11 @@ body.dive.ready:not(.beach) #info .fc{pointer-events:auto}
 .dlab span{display:flex;gap:6px;align-items:center;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.06em;opacity:.85}
 .dlab svg{width:13px;height:13px}
 .dlab span{white-space:nowrap}
+.tdl{display:flex!important;flex-wrap:wrap;gap:1px 7px!important;font-family:var(--f-mono);font-size:.58rem!important;opacity:.85!important;white-space:normal!important}
+.tdt{display:inline-flex;align-items:center;gap:3px}.tdt svg{width:7px!important;height:7px!important}
+.tbl .row .tdc{grid-column:2;display:block;width:100%;height:16px;margin-top:-4px}
+.tbl .row.dim .tdc{height:12px}
+@media (max-width:760px){.tbl .row .tdc{grid-column:1}}
 .strip div.ec{opacity:.5}
 .strip div.ec .bar{background-image:repeating-linear-gradient(135deg,transparent 0 3px,rgba(255,255,255,.25) 3px 5px)}
 .ectag{display:inline-block;font-weight:400;margin-left:7px;vertical-align:2px;font-family:var(--f-mono);font-style:normal;font-size:.5rem;letter-spacing:.14em;padding:1px 4px;border:1px solid currentColor;border-radius:2px;opacity:.75}
@@ -306,6 +311,9 @@ body.swell #b-wind{background:color-mix(in srgb,var(--spot) 46%,transparent)}
 .sw-day:first-child{border-left:0}
 .r-hr span{font-size:.58rem;opacity:.6}.r-hr span.cur{opacity:1;color:var(--wax)}
 .sw-g{display:block}
+.r-tide{height:56px;margin-top:6px}.sw-l.r-tide{margin-top:6px}
+.sw-r.r-tide{display:block}.sw-tide{display:block}
+.sw-tide text{font-family:var(--f-mono);font-size:9px;fill:#fbf5e6;opacity:.9}.sw-tide tspan{opacity:.65}
 .ht{font-size:.82rem;font-weight:600;letter-spacing:-.01em;color:var(--foam)}
 .ht.sec{font-size:.7rem;font-weight:500;opacity:.85}
 .pp{display:inline-block;font-style:normal;font-size:.58rem;font-weight:600;line-height:1;padding:3px 4px 2px;border-radius:7px;letter-spacing:-.02em}
@@ -378,6 +386,8 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
 .bf-row i.w{color:#bcd6f2;opacity:.9}
 .bf-row em{display:block;width:50%;border-radius:2px 2px 0 0;opacity:.9;box-shadow:0 0 0 .5px rgba(35,49,47,.25)}
 .bf-row svg{width:8px;height:8px;opacity:.85}
+.bf-row .bf-tide{grid-column:2/-1;display:block;width:100%;height:10px;margin-top:-1px}
+#bh-now .bt svg{width:8px;height:8px}
 .bf-key{margin:4px 0 0;font-family:var(--f-mono);font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;opacity:.5}
 @media (max-width:760px){
   #beach-hud h2{font-size:1.9rem}
@@ -695,6 +705,8 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
       <dd>ECMWF IFS 9 km: wind, gusts, temperature, rain and cloud, where AEMET's 48 hours end. Shown fainter and marked ECMWF<span id="src-ecmwf"></span></dd>
       <dt>Waves</dt>
       <dd><a href="https://opendap.puertos.es/thredds/catalog.html" target="_blank" rel="noopener">Puertos del Estado</a>: IBI regional model (~8 km) and the finer Strait of Gibraltar model<span id="src-waves"></span></dd>
+      <dt>Tide</dt>
+      <dd><a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener">Open-Meteo</a>: Météo-France SMOC sea level (~8 km), relative to mean sea level; a guide to the timing and size of the tide, not a harbour tide table</dd>
     </dl>
     <p>Spot forecasts use a point about 3 km offshore for wind and about 500 m offshore for waves. Refreshed four times a day. Relief is illustrative.</p>
   </div>
@@ -716,7 +728,7 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
   <h2 id="i-name">Spot</h2>
   <div class="fc">
     <div class="blk" id="b-wind"><div class="rlab rhead"><span>Wind · knots</span><button class="bv" id="i-beach" type="button" hidden>Beach view <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wind"></div><div class="tbl" id="i-wind"></div><button class="wmini" id="i-wmini" type="button" tabindex="-1"></button></div>
-    <div class="blk" id="b-wave"><div class="rlab rhead"><span id="i-wlab">Waves · metres · period</span><button class="bv" id="i-swell" type="button" aria-expanded="false">Wave details <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wave"></div><div class="tbl" id="i-wave"></div><div class="sw" id="sw" hidden></div></div>
+    <div class="blk" id="b-wave"><div class="rlab rhead"><span id="i-wlab">Waves · metres · period · tide</span><button class="bv" id="i-swell" type="button" aria-expanded="false">Wave details <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wave"></div><div class="tbl" id="i-wave"></div><div class="sw" id="sw" hidden></div></div>
   </div>
 </section>
 
@@ -1027,11 +1039,31 @@ const arrow=deg=>`<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M7 1v12M3
 // wave bars get their own cool colours (pale foam → blue → violet), so they stand apart from the sea and from the wind
 const WAVEC=[[0,[233,243,246]],[.6,[206,228,242]],[1.2,[168,202,240]],[2,[140,170,232]],[3,[146,140,222]],[4.5,[170,118,206]]];
 const waveCol=h=>{for(let i=0;i<WAVEC.length-1;i++){const [a,ca]=WAVEC[i],[b,cb]=WAVEC[i+1];if(h<=b){const k=Math.max(0,(h-a)/(b-a));return `rgb(${ca.map((c,n)=>Math.round(c+(cb[n]-c)*k))})`}}return `rgb(${WAVEC.at(-1)[1]})`};
+/* ---------- tide: hourly sea level per spot (metres, relative to mean sea level) ---------- */
+const fmtHM=new Intl.DateTimeFormat("en-GB",{timeZone:TZ,hour:"2-digit",minute:"2-digit",hourCycle:"h23"});
+const hm=t=>fmtHM.format(atHour(t));
+function tideAt(o,t){const a=o&&o.tide;if(!a)return null;const i=Math.floor(t),f=t-i,x=a[i],y=a[i+1];if(x==null)return f>.5&&y!=null?y:null;return y==null?x:x+(y-x)*f}
+// high and low water between two hours (fractional), refined with a parabola through the hourly values
+function tideTurns(o,from,to){const a=o&&o.tide,out=[];if(!a)return out;
+  for(let i=Math.max(1,Math.floor(from)-1);i<=Math.min(a.length-2,Math.ceil(to)+1);i++){const p=a[i-1],c=a[i],n=a[i+1];if(p==null||c==null||n==null)continue;
+    const hi=c>p&&c>=n,lo=c<p&&c<=n;if(!hi&&!lo)continue;
+    const den=p-2*c+n,dx=den?Math.max(-.5,Math.min(.5,(p-n)/(2*den))):0,t=i+dx,h=c-(p-n)*dx/4,last=out.at(-1);
+    if(last&&last.hi===hi&&t-last.t<4)continue;if(t>=from&&t<=to)out.push({t,h,hi})}
+  return out}
+const tideRange=o=>{const v=((o&&o.tide)||[]).filter(x=>x!=null);return v.length>3?[Math.min(...v),Math.max(...v)]:null};
+function tideNow(o,t){const h=tideAt(o,t);if(h==null)return null;const nx=tideTurns(o,t,t+9)[0];return{h,rising:nx?nx.hi:(tideAt(o,t+.5)??h)>h,next:nx}}
+const tsign=h=>(h>=0?"+":"−")+Math.abs(h).toFixed(1);
+const TUP='<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8H1Z" fill="currentColor"/></svg>',TDN='<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 8.5 1 2h8Z" fill="currentColor"/></svg>';
+// a tide curve over hours [a, b], drawn into a w×h box (viewBox units)
+function tidePath(o,a,b,w,h,rg){if(!rg)return null;const pts=[];
+  for(let t=a;t<=b+1e-6;t+=.25){const v=tideAt(o,t);if(v==null)continue;pts.push([(t-a)/(b-a)*w,h-1.5-(v-rg[0])/Math.max(.2,rg[1]-rg[0])*(h-3)])}
+  if(pts.length<2)return null;const line="M"+pts.map(p=>p[0].toFixed(1)+" "+p[1].toFixed(1)).join("L");
+  return{line,area:line+`L${pts.at(-1)[0].toFixed(1)} ${h}L${pts[0][0].toFixed(1)} ${h}Z`}}
 let infoKey="";
 function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.round(curT)-day*24;
   const all=Array.from({length:NDAYS},(_,k)=>hours(s,k)),ok=all.flat().filter(h=>!h.na);
   const gx=Math.max(30,...ok.map(h=>h.g)),wm=Math.max(2.5,...ok.map(h=>h.wh??0));
-  const mm=r=>r<10?r.toFixed(1):Math.round(r);
+  const mm=r=>r<10?r.toFixed(1):Math.round(r),o=FC&&FC.spots[s.id],trg=tideRange(o);
   document.getElementById("i-name").textContent=s.name;
   document.getElementById("i-beach").hidden=!(window.beachHas&&beachHas(s.id));
   const hd=`<div class="row hd"><div></div><div class="hrs">${all[0].map(h=>`<span class="${h.h===hr?"cur":""}">${h.h}</span>`).join("")}</div></div>`;
@@ -1039,8 +1071,10 @@ function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.rou
   // first three days as before; the ECMWF outlook continues below (scroll); days without data are left out
   const rows=(cells,withWx,has,from=0,to=NDAYS)=>{let lab=false;return all.map((hs,k)=>{if(k<from||k>=to||(k>=3&&!hs.some(has)))return "";const now=k===day,x=dayWx(s,k);
     const sep=k>=3&&!lab&&withWx?(lab=true,`<div class="later">ECMWF outlook <span>· further out, less certain</span></div>`):"";
-    return `${sep}<div class="row ${now?"now":"dim"}${k>=3?" late":""}" data-day="${k}" title="Show ${dayName(k)} on the map"><div class="dlab"><em>${dayName(k)}${withWx&&k<3&&hs.some(h=>h.ec)?'<b class="ectag" title="ECMWF outlook, beyond AEMET\'s 48 hours">ECMWF</b>':""}</em>${withWx&&x?`<span role="img" aria-label="${x.word}, ${x.hi} degrees${x.rain>=.5?`, ${mm(x.rain)} mm of rain`:""}">${SKY[x.sky]}${x.hi}°${x.rain>=.5?` ${x.sky==="rain"?"":SKY.rain}${mm(x.rain)} mm`:""}</span>`:""}</div>
-      <div class="strip">${hs.map(h=>h.na?na:cells(h,now)).join("")}</div></div>`}).join("")};
+    const tideTxt=!withWx&&o?tideTurns(o,k*24+6,k*24+22).map(e=>`<span class="tdt">${e.hi?TUP:TDN}${hm(e.t)}</span>`).join(""):"";
+    const tc=!withWx&&o?tidePath(o,k*24+8.5,k*24+20.5,120,18,trg):null;
+    return `${sep}<div class="row ${now?"now":"dim"}${k>=3?" late":""}" data-day="${k}" title="Show ${dayName(k)} on the map"><div class="dlab"><em>${dayName(k)}${withWx&&k<3&&hs.some(h=>h.ec)?'<b class="ectag" title="ECMWF outlook, beyond AEMET\'s 48 hours">ECMWF</b>':""}</em>${withWx&&x?`<span role="img" aria-label="${x.word}, ${x.hi} degrees${x.rain>=.5?`, ${mm(x.rain)} mm of rain`:""}">${SKY[x.sky]}${x.hi}°${x.rain>=.5?` ${x.sky==="rain"?"":SKY.rain}${mm(x.rain)} mm`:""}</span>`:""}${tideTxt?`<span class="tdl" title="High and low water">${tideTxt}</span>`:""}</div>
+      <div class="strip">${hs.map(h=>h.na?na:cells(h,now)).join("")}</div>${tc?`<svg class="tdc" viewBox="0 0 120 18" preserveAspectRatio="none" aria-hidden="true"><path d="${tc.area}" fill="rgba(251,245,230,.12)"/><path d="${tc.line}" fill="none" stroke="rgba(251,245,230,.85)" stroke-width="1.3" vector-effect="non-scaling-stroke"/></svg>`:""}</div>`}).join("")};
   const windCell=(h,now)=>{const s2=now?46:24;
     return `<div class="${now&&h.h===hr?"cur":""}${h.ec?" ec":""}"><span class="gu">${h.g}</span><span class="kn">${h.kn}</span><span class="stack" style="height:${Math.round(h.g/gx*s2)}px"><span class="gbar"></span><span class="bar" style="height:${Math.round(h.kn/h.g*100)}%;background:${barCol(h.g)}"></span></span>${h.dir!=null?arrow(h.dir):""}</div>`};
   const tw=document.getElementById("i-wind"),tv=document.getElementById("i-wave"),keep=[tw.scrollTop,tv.scrollTop];

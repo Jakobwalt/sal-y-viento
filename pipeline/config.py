@@ -23,8 +23,9 @@ SPOTS = {
     "balneario": {"name": "Balneario",     "beach": (-5.6163, 36.0192), "point": (-5.6465, 36.0075)},
 }
 
-# Waves are read closer in: about a third of the way from the beach to the wind point (~1 km off).
-WAVE_FRACTION = 0.35
+# Waves are read close in: about a seventh of the way from the beach to the wind point (~500 m off).
+# Where the wave model has no sea cell that close, the nearest sea cell is used (see build.wave_value).
+WAVE_FRACTION = 0.15
 for _s in SPOTS.values():
     (_bx, _by), (_px, _py) = _s["beach"], _s["point"]
     _s["wave_point"] = (_bx + (_px - _bx) * WAVE_FRACTION, _by + (_py - _by) * WAVE_FRACTION)

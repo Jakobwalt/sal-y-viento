@@ -1,8 +1,9 @@
 /* Wave details: the waves panel of the spot view opens to the full page.
-   One column per hour (06–21), a drawn wave for every swell train, then the numbers:
-   primary swell (height, direction, period, energy), secondary and tertiary swell, and the wind in brief.
+   One column per hour (06–21). On larger screens a drawn wave per three hours shows the height
+   (primary swell solid, secondary as a ghost behind it); then the numbers: primary swell (height,
+   direction, period, energy), secondary swell, and the wind in brief. While open, the map shows waves.
    The wind table folds into a slim bar; tapping it (or "Wind & waves") brings the tables back.
-   Reads the per-spot arrays in spots.json; if the swell partitions (s1h…s3d) are not there yet,
+   Reads the per-spot arrays in spots.json; if the swell partitions (s1h…s2d) are not there yet,
    the combined sea (wh/wp/wd) stands in for the primary swell. */
 (()=>{
 const $=id=>document.getElementById(id);
@@ -20,11 +21,11 @@ const eRange=e=>{const a=eStep(e),b=a+(e<1000?50:100);return `${a.toLocaleString
 const ECUT=[200,500,1000,2000,3000,5000,8000,12000];
 const ECOL=["233,238,232","251,245,230","196,230,160","118,194,112","243,194,90","240,151,62","238,106,57","200,52,68","125,42,110"];
 const eCol=e=>{let i=0;while(i<ECUT.length&&e>=ECUT[i])i++;return ECOL[i]};
-// longer period, deeper blue
+// period colour (on the period number only): longer period, deeper blue
 const PCOL=[[5,[205,230,226]],[8,[138,196,214]],[11,[78,143,196]],[14,[58,94,174]],[17,[64,55,143]]];
 const pCol=t=>{if(t==null)return "rgb(138,196,214)";for(let i=0;i<PCOL.length-1;i++){const [a,ca]=PCOL[i],[b,cb]=PCOL[i+1];if(t<=b){const k=Math.max(0,(t-a)/(b-a));return `rgb(${ca.map((c,n)=>Math.round(c+(cb[n]-c)*k))})`}}return `rgb(${PCOL.at(-1)[1]})`};
 
-let open=false,key="",cols=[],busy=0,lastNow=-1;
+let open=false,key="",cols=[],busy=0,lastNow=-1,prevLayer=null;
 
 /* ---------- data ---------- */
 function at(o,k,T){const a=o[k];return a&&a[T]!=null?a[T]:null}
@@ -32,7 +33,7 @@ function cell(o,T){
   const split=Array.isArray(o.s1h);
   const p=split?{h:at(o,"s1h",T),t:at(o,"s1p",T),d:at(o,"s1d",T)}:{h:at(o,"wh",T),t:at(o,"wp",T),d:at(o,"wd",T)};
   const tr=(a,b,c)=>{const h=at(o,a,T);return h!=null&&h>=.05?{h,t:at(o,b,T),d:at(o,c,T)}:null};
-  return{T,split,p:p.h!=null?p:null,s:tr("s2h","s2p","s2d"),t:tr("s3h","s3p","s3d"),
+  return{T,split,p:p.h!=null?p:null,s:tr("s2h","s2p","s2d"),
     w:at(o,"kn",T)==null?null:{kn:at(o,"kn",T),g:Math.max(at(o,"gust",T)??0,at(o,"kn",T)),d:at(o,"dir",T)},
     m:at(o,"wm",T)||(p.h!=null?"pde":null)}}
 // sunrise / sunset as hours since T0 (NOAA's simple solar equations; a few minutes is plenty here)
@@ -55,60 +56,61 @@ const WAVE=[[0,0],[.22,.02,.42,.45,.58,.86],[.66,1.02,.84,1.04,.94,.88],[.99,.8,
 function wavePath(x0,base,w,h){const P=(u,v)=>`${(x0+u*w).toFixed(1)} ${(base-v*h).toFixed(1)}`;
   return "M"+P(...WAVE[0])+WAVE.slice(1).map(s=>"C"+P(s[0],s[1])+" "+P(s[2],s[3])+" "+P(s[4],s[5])).join("")+"Z"}
 function backLine(x0,base,w,h){const P=(u,v)=>`${(x0+u*w).toFixed(1)} ${(base-v*h).toFixed(1)}`;return `M${P(.08,0)}C${P(.28,.04)} ${P(.44,.45)} ${P(.58,.86)}C${P(.66,1.02)} ${P(.84,1.04)} ${P(.93,.89)}`}
-function graph(cw,GH){const n=cols.length,W=n*cw,base=GH-8,top=14;
-  const hmax=Math.max(2,...cols.flatMap(c=>[c.p?.h??0,c.s?.h??0,c.t?.h??0]))*1.05;
-  const Y=h=>Math.sqrt(Math.max(0,h)/hmax)*(base-top);           // square-root scale: small waves stay readable next to big ones
-  const ticks=[.5,1,2,3,5,8].filter(t=>t<=hmax);
-  let g=`<svg class="sw-g" width="${W}" height="${GH}" viewBox="0 0 ${W} ${GH}" aria-hidden="true"><defs><linearGradient id="sw-sheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`;
+function graph(cw,GH){const n=cols.length,W=n*cw,base=GH-8,top=12;
+  // three-hour blocks within each day (06–08, 09–11 … 18–21); the mean height of each block
+  const blk=c=>Math.min(4,Math.floor((hourOf(c.T)-H0)/3));
+  const groups=[];cols.forEach((c,i)=>{const g=groups.at(-1);if(g&&g.d===c.d&&blk(c)===g.k)g.n++;else groups.push({i,n:1,d:c.d,k:blk(c)})});
+  const mean=(g,k)=>{const v=cols.slice(g.i,g.i+g.n).map(c=>c[k]?.h).filter(x=>x!=null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null};
+  groups.forEach(g=>{g.p=mean(g,"p");g.s=mean(g,"s")});
+  const hmax=Math.max(1.5,...groups.flatMap(g=>[g.p??0,g.s??0]))*1.08,Y=h=>Math.max(0,h)/hmax*(base-top);
+  const ticks=[.5,1,1.5,2,3,4,5,6,8,10].filter(t=>t<=hmax&&(hmax<2.6||t>=1)&&(hmax<5||t%1===0)&&(hmax<7||t%2===0));
+  let g=`<svg class="sw-g" width="${W}" height="${GH}" viewBox="0 0 ${W} ${GH}" aria-hidden="true"><defs><linearGradient id="sw-sheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>`;
   cols.forEach((c,i)=>{if(c.night)g+=`<rect x="${i*cw}" y="0" width="${cw}" height="${GH}" fill="rgba(16,28,44,.16)"/>`;if(c.first&&i)g+=`<line x1="${i*cw}" x2="${i*cw}" y1="2" y2="${GH}" stroke="rgba(251,245,230,.28)"/>`});
-  for(const t of ticks)g+=`<line x1="0" x2="${W}" y1="${(base-Y(t)).toFixed(1)}" y2="${(base-Y(t)).toFixed(1)}" stroke="rgba(251,245,230,.13)" stroke-dasharray="2 5"/>`;
+  for(const t of ticks)g+=`<line x1="0" x2="${W}" y1="${(base-Y(t)).toFixed(1)}" y2="${(base-Y(t)).toFixed(1)}" stroke="rgba(251,245,230,.14)" stroke-dasharray="2 5"/>`;
   g+=`<line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="rgba(251,245,230,.4)"/>`;
-  cols.forEach((c,i)=>{const cx=i*cw+cw*.5;
-    const trains=[["p",c.p,0],["s",c.s,-.16],["t",c.t,.16]].filter(x=>x[1]).sort((a,b)=>b[1].h-a[1].h);
-    for(const [k,v,off] of trains){const h=Y(v.h);
-      if(h<3){g+=`<path d="M${cx-cw*.4} ${base-1}q${cw*.2} -3 ${cw*.4} 0t${cw*.4} 0" fill="none" stroke="rgba(251,245,230,.7)" stroke-width="1.2"/>`;continue}
-      const w=Math.min(cw*4,Math.max(cw*1.15,h*1.05)),x0=cx+off*cw-w*.74,d=wavePath(x0,base,w,h);
-      if(k==="p"){g+=`<path d="${d}" fill="${pCol(v.t)}" stroke="rgba(251,245,230,.92)" stroke-width="1.1"/><path d="${d}" fill="url(#sw-sheen)"/>`;
-        // engraved water lines inside the face, like an old print
-        if(h>14)for(const f of [.7,.42])g+=`<path d="${backLine(x0+w*(1-f)*.62,base,w*f,h*f)}" fill="none" stroke="rgba(251,245,230,${f>.5?.42:.3})" stroke-width=".9"/>`}
-      else g+=`<path d="${d}" fill="${pCol(v.t)}" fill-opacity="${k==="s"?.42:.26}" stroke="rgba(251,245,230,${k==="s"?.85:.6})" stroke-width="1" ${k==="t"?'stroke-dasharray="2.5 2"':""}/>`}});
+  for(const gr of groups){const gw=gr.n*cw,x=gr.i*cw;
+    for(const [k,v] of [["s",gr.s],["p",gr.p]]){if(v==null)continue;const h=Y(v),w=Math.min(gw*1.25,Math.max(cw*2.4,h*1.05)),x0=x+(gw-w)/2+(k==="s"?-w*.12:0);
+      if(h<4){g+=`<path d="M${x0} ${base-1}q${w/4} -4 ${w/2} 0t${w/2} 0" fill="none" stroke="rgba(251,245,230,${k==="p"?.8:.5})" stroke-width="1.3"/>`;continue}
+      const d=wavePath(x0,base,w,h);
+      if(k==="p"){g+=`<path d="${d}" fill="rgb(112,166,204)" stroke="rgba(251,245,230,.92)" stroke-width="1.1"/><path d="${d}" fill="url(#sw-sheen)"/>`;
+        if(h>16)for(const f of [.7,.42])g+=`<path d="${backLine(x0+w*(1-f)*.62,base,w*f,h*f)}" fill="none" stroke="rgba(251,245,230,${f>.5?.4:.28})" stroke-width=".9"/>`}
+      else g+=`<path d="${d}" fill="rgba(251,245,230,.16)" stroke="rgba(251,245,230,.75)" stroke-width="1" stroke-dasharray="3 2"/>`}}
   return{svg:g+"</svg>",ticks:ticks.map(t=>({t,y:base-Y(t)})),base}}
 
-const badge=(v,big)=>v?`<b class="bd${big?"":" ghost"}" style="${big?`background:${waveCol(v.h)}`:""}" title="${v.h.toFixed(1)} m${v.t!=null?` · ${Math.round(v.t)} s`:""}${v.d!=null?` · from ${comp(v.d)} ${Math.round(v.d)}°`:""}">${v.h<10?v.h.toFixed(1):Math.round(v.h)}</b>`:"<i>·</i>";
-const dirPer=v=>v?`<span class="dp" title="${v.d!=null?`from ${comp(v.d)} ${Math.round(v.d)}°`:""}">${v.d!=null?arrow(v.d):""}${v.t!=null?Math.round(v.t)+"s":""}</span>`:"";
+const badge=(v,big)=>v?`<b class="ht${big?"":" sec"}" title="${v.h.toFixed(1)} m${v.t!=null?` · ${Math.round(v.t)} s`:""}${v.d!=null?` · from ${comp(v.d)} ${Math.round(v.d)}°`:""}">${v.h<10?v.h.toFixed(1):Math.round(v.h)}</b>`:"<i>·</i>";
+const perPill=t=>`<i class="pp" style="background:${pCol(t)};color:${t>=10.5?"#fbf5e6":"#23312f"}">${Math.round(t)}s</i>`;
+const dirPer=v=>v?`<span class="dp" title="${v.d!=null?`from ${comp(v.d)} ${Math.round(v.d)}°`:""}${v.t!=null?` · ${Math.round(v.t)} s`:""}">${v.d!=null?arrow(v.d):""}${v.t!=null?perPill(v.t):""}</span>`:"";
 
 function render(s,ghFit){if(!s)return;cols=collect(s);key=s.id+":"+(FC&&FC.meta.generated);
   const box=$("sw"),narrow=innerWidth<760,short=innerHeight<560,cw=narrow?32:42,GH=ghFit||(short?92:narrow?120:140);
   if(!cols.length){box.innerHTML=`<p class="sw-empty">No wave forecast for this spot right now.</p>`;return}
-  const split=cols.some(c=>c.split),hasS=cols.some(c=>c.s),hasT=cols.some(c=>c.t),gr=graph(cw,GH);
+  const split=cols.some(c=>c.split),hasS=cols.some(c=>c.s),pic=!narrow,gr=pic?graph(cw,GH):null;
   const R=(cls,lab,sub,cells)=>({cls,lab,sub,cells}),FROM=narrow?"from · s":"from · period";
   const rows=[
     R("r-day","","",()=>{let h="",i=0;while(i<cols.length){const d=cols[i].d;let j=i;while(j<cols.length&&cols[j].d===d)j++;h+=`<span class="sw-day" style="grid-column:${i+1}/${j+1}"><em>${dayName(d)}</em></span>`;i=j}return h}),
     R("r-hr","","",()=>cols.map(c=>`<span class="${c.night?"nt":""}">${String(hourOf(c.T)).padStart(2,"0")}</span>`).join("")),
-    R("r-graph","","",null),
+    ...(pic?[R("r-graph","","",null)]:[]),
     R("r-big",split?"Primary swell":"Waves",split?"metres":"metres · combined sea",()=>cols.map(c=>`<span class="${c.night?"nt":""}">${badge(c.p,true)}</span>`).join("")),
     R("r-sm","",FROM,()=>cols.map(c=>`<span class="${c.night?"nt":""}">${dirPer(c.p)}</span>`).join("")),
     R("r-en","Energy",split?"kJ · primary":"kJ",()=>cols.map((c,i)=>{const e=c.p?energy(c.p.h,c.p.t):null;if(e==null)return "<span></span>";const rgb=eCol(e),dark=["200,52,68","125,42,110","238,106,57"].includes(rgb);
       return `<span class="en${c.first?" f":""}${cols[i+1]&&!cols[i+1].first?"":" l"}${c.night?" nt":""}" style="background:rgb(${rgb});color:${dark?"#fbf5e6":"#23312f"}" title="${eRange(e)}">${eLab(e)}</span>`}).join("")),
     ...(!split?[]:[R("r-mid","Secondary","metres",()=>cols.map(c=>`<span class="${c.night?"nt":""}">${hasS?badge(c.s,false):""}</span>`).join("")),
-    R("r-sm","",FROM,()=>cols.map(c=>`<span class="${c.night?"nt":""}">${dirPer(c.s)}</span>`).join("")),
-    R("r-mid","Tertiary","metres",()=>cols.map(c=>`<span class="${c.night?"nt":""}">${hasT?badge(c.t,false):""}</span>`).join("")),
-    R("r-sm","",FROM,()=>cols.map(c=>`<span class="${c.night?"nt":""}">${dirPer(c.t)}</span>`).join(""))]),
+    R("r-sm","",FROM,()=>cols.map(c=>`<span class="${c.night?"nt":""}">${dirPer(c.s)}</span>`).join(""))]),
     R("r-wind","Wind","knots",()=>cols.map(c=>c.w?`<span class="wd${c.night?" nt":""}" title="${c.w.kn} kn, gusts ${c.w.g} kn${c.w.d!=null?`, from ${comp(c.w.d)}`:""}"><i style="background:${barCol(c.w.g)}"></i>${c.w.d!=null?arrow(c.w.d):""}<small>${c.w.kn}</small></span>`:"<span></span>").join("")),
     R("r-src","Source","",()=>{let h="",i=0;while(i<cols.length){const m=cols[i].m;let j=i;while(j<cols.length&&cols[j].m===m)j++;if(m)h+=`<span class="src s-${m}" style="grid-column:${i+1}/${j+1}"><em>${SRC[m]||m}</em></span>`;i=j}return h})];
   const labs=rows.map(r=>`<div class="sw-l ${r.cls}">${r.cls==="r-graph"?gr.ticks.map(t=>`<span style="top:${t.y.toFixed(0)}px">${t.t}m</span>`).join(""):r.lab?`<b>${r.lab}</b>${r.sub?`<small>${r.sub}</small>`:""}`:r.sub?`<small>${r.sub}</small>`:""}</div>`).join("");
   const body=rows.map(r=>`<div class="sw-r ${r.cls}">${r.cls==="r-graph"?gr.svg:r.cells()}</div>`).join("");
   const sl=$("sw-scroll")?.scrollLeft,st=$("sw-body")?.scrollTop;
   box.style.setProperty("--cw",cw+"px");box.style.setProperty("--n",cols.length);box.style.setProperty("--gh",GH+"px");
-  box.innerHTML=`<div class="sw-key">${split?`<span><i class="k-p"></i>Primary</span>${hasS?`<span><i class="k-s"></i>Secondary</span>`:""}${hasT?`<span><i class="k-t"></i>Tertiary</span>`:""}`:`<span><i class="k-p"></i>Combined sea</span><span class="note">Swell trains arrive with the next data update</span>`}<span class="k-per">period <i></i> short → long</span></div>
+  box.innerHTML=`<div class="sw-key">${split?`<span><i class="k-p"></i>Primary</span>${hasS?`<span><i class="k-s"></i>Secondary</span>`:""}`:`<span><i class="k-p"></i>Combined sea</span><span class="note">Swell trains arrive with the next data update</span>`}<span class="k-per">period <i></i> short → long</span><span class="k-3h">drawn per 3 hours</span></div>
     <div class="sw-body" id="sw-body"><div class="sw-labs">${labs}</div><div class="sw-scroll" id="sw-scroll"><div class="sw-in">${body}<div class="sw-now" id="sw-now"></div></div></div></div>`;
   const sc=$("sw-scroll");
   sc.addEventListener("click",e=>{if(e.target.closest("a,button"))return;const r=sc.querySelector(".sw-in").getBoundingClientRect(),i=Math.floor((e.clientX-r.left)/cw);const c=cols[i];if(!c)return;setPlaying(false);setTime(c.T)});
   if(sl!=null&&!isNaN(sl)){sc.scrollLeft=sl;$("sw-body").scrollTop=st||0}else{const x=nowX(cw);sc.scrollLeft=Math.max(0,x-sc.clientWidth*.22)}
   lastNow=-1;mark();
   // let the drawing take whatever height is left (or give some back on short screens)
-  if(!ghFit){const b=$("sw-body"),l=b.querySelector(".sw-labs"),spare=Math.round(b.getBoundingClientRect().bottom-l.lastElementChild.getBoundingClientRect().bottom-4);
-    if(spare>12||(spare<-8&&GH>96)){const g2=Math.round(Math.max(90,Math.min(narrow?150:210,GH+spare-6)));if(Math.abs(g2-GH)>6)render(s,g2)}}}
+  if(!ghFit&&pic){const b=$("sw-body"),l=b.querySelector(".sw-labs"),spare=Math.round(b.getBoundingClientRect().bottom-l.lastElementChild.getBoundingClientRect().bottom-4);
+    if(spare>12||(spare<-8&&GH>96)){const g2=Math.round(Math.max(90,Math.min(180,GH+spare-6)));if(Math.abs(g2-GH)>6)render(s,g2)}}}
 const SRC={pde:"Puertos del Estado",gib:"Strait model · fine",ibi:"IBI regional · 2.5 km",out:"Outlook · global"};
 
 function nowX(cw){if(!cols.length)return 0;let i=0;for(let k=0;k<cols.length;k++)if(cols[k].T<=curT+1e-6)i=k;const c=cols[i];
@@ -130,6 +132,9 @@ function place(){const f=fcEl();if(!open){f.style.top="";return}
 function apply(on){open=on;document.body.classList.toggle("swell",on);$("sw").hidden=!on;
   const b=$("i-swell");b.setAttribute("aria-expanded",on);b.innerHTML=on?'Wind &amp; waves <span aria-hidden="true">↙</span>':'Wave details <span aria-hidden="true">↗</span>';
   $("i-wlab").textContent=on?"Wave details · swell trains":"Waves · metres · period";$("i-wmini").tabIndex=on?0:-1;
+  // the map behind follows: waves while the details are open, back to what it was after
+  if(on){if(prevLayer==null){prevLayer=layer;if(layer!=="waves")setLayer("waves")}}
+  else if(prevLayer!=null){const p=prevLayer;prevLayer=null;if(layer!==p)setLayer(p)}
   place();if(on&&selected){render(selected);mini(selected)}}
 function toggle(on,instant){if(on===open&&!busy)return;const f=fcEl();clearTimeout(busy);
   f.getAnimations&&f.getAnimations().forEach(a=>a.cancel());

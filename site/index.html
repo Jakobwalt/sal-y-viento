@@ -283,8 +283,9 @@ body.swell #b-wind{background:color-mix(in srgb,var(--spot) 46%,transparent)}
 .sw-key{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;font-size:.6rem;letter-spacing:.08em;opacity:.85;margin:2px 0 8px}
 .sw-key span{display:inline-flex;align-items:center;gap:6px}
 .sw-key i{display:inline-block;width:16px;height:9px;border-radius:9px 9px 0 0}
-.sw-key .k-p{background:rgb(78,143,196);box-shadow:inset 0 0 0 1px rgba(251,245,230,.9)}
-.sw-key .k-s{background:rgba(78,143,196,.42);box-shadow:inset 0 0 0 1px rgba(251,245,230,.85)}
+.sw-key .k-p{background:rgb(112,166,204);box-shadow:inset 0 0 0 1px rgba(251,245,230,.9)}
+.sw-key .k-s{background:rgba(251,245,230,.16);outline:1px dashed rgba(251,245,230,.75);outline-offset:-1px}
+.sw-key .k-3h{opacity:.6}
 .sw-key .k-t{background:rgba(78,143,196,.26);outline:1px dashed rgba(251,245,230,.6);outline-offset:-1px}
 .sw-key .k-per i{width:54px;height:6px;border-radius:3px;background:linear-gradient(90deg,rgb(205,230,226),rgb(138,196,214),rgb(78,143,196),rgb(58,94,174),rgb(64,55,143))}
 .sw-key .note{opacity:.7;font-style:italic;letter-spacing:.02em}
@@ -305,8 +306,9 @@ body.swell #b-wind{background:color-mix(in srgb,var(--spot) 46%,transparent)}
 .sw-day:first-child{border-left:0}
 .r-hr span{font-size:.58rem;opacity:.6}.r-hr span.cur{opacity:1;color:var(--wax)}
 .sw-g{display:block}
-.bd{display:inline-grid;place-items:center;min-width:28px;height:24px;padding:0 4px;border-radius:12px;color:var(--ink);font-size:.7rem;font-weight:600;letter-spacing:-.02em}
-.bd.ghost{min-width:24px;height:20px;border-radius:10px;background:none;color:var(--foam);font-weight:500;font-size:.64rem;box-shadow:inset 0 0 0 1px rgba(251,245,230,.6)}
+.ht{font-size:.82rem;font-weight:600;letter-spacing:-.01em;color:var(--foam)}
+.ht.sec{font-size:.7rem;font-weight:500;opacity:.85}
+.pp{display:inline-block;font-style:normal;font-size:.58rem;font-weight:600;line-height:1;padding:3px 4px 2px;border-radius:7px;letter-spacing:-.02em}
 .r-mid:nth-of-type(n) i,.r-big i{opacity:.4;font-style:normal}
 .dp{display:inline-flex;align-items:center;gap:2px;font-size:.6rem;opacity:.9;white-space:nowrap}.dp svg{width:10px;height:10px;flex:none}
 .en{font-size:.6rem;font-weight:600;height:20px!important;letter-spacing:-.02em}
@@ -331,7 +333,8 @@ body.swell #b-wind{background:color-mix(in srgb,var(--spot) 46%,transparent)}
   .sw{--lw:74px}
   .sw-key{font-size:.54rem;gap:3px 10px}.sw-key .k-per{display:none}
   .sw-l b{font-size:.56rem;letter-spacing:.04em}.sw-l small{font-size:.5rem}
-  .bd{min-width:26px;height:22px;font-size:.62rem;padding:0 3px}.bd.ghost{min-width:22px;height:18px;font-size:.58rem}
+  .ht{font-size:.74rem}.ht.sec{font-size:.64rem}.pp{font-size:.52rem;padding:2px 3px 1px}
+  .sw-key span:not(.note){display:none}
   .dp{font-size:.54rem}.dp svg{width:9px;height:9px}
   .en{font-size:.52rem}
 }
@@ -693,7 +696,7 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
       <dt>Waves</dt>
       <dd><a href="https://opendap.puertos.es/thredds/catalog.html" target="_blank" rel="noopener">Puertos del Estado</a>: IBI regional model (~8 km) and the finer Strait of Gibraltar model<span id="src-waves"></span></dd>
     </dl>
-    <p>Spot forecasts use a point about 3 km offshore for wind and about 1 km offshore for waves. Refreshed four times a day. Relief is illustrative.</p>
+    <p>Spot forecasts use a point about 3 km offshore for wind and about 500 m offshore for waves. Refreshed four times a day. Relief is illustrative.</p>
   </div>
 </div>
 <button class="ui back" id="back" type="button" aria-label="Back to the whole coast">←</button>
@@ -758,7 +761,7 @@ const SPOTS=[
  {id:"valde",name:"Valdevaqueros",sym:"dune",pal:{sea:"#23827f",ring:"#46a099",shallow:"#8fcfbc",land:"#f0d7a2",ink:"#2c2a1d"}},
  {id:"lances",name:"Los Lances",sym:"lifeguard",lm:[-5.6395,36.0500],pal:{sea:"#1f7a8c",ring:"#3f97a6",shallow:"#8ecfd0",land:"#f3e3bd",ink:"#173037"}},
  {id:"balneario",name:"Balneario",sym:"castle",pal:{sea:"#245f86",ring:"#437ea3",shallow:"#7eb0cb",land:"#fbf7ee",ink:"#162637"}}
-].map(s=>{const v=SP[s.id];return{...s,lon:v[0],lat:v[1],fc:[v[2],v[3]],wp:[v[0]+(v[2]-v[0])*.35,v[1]+(v[3]-v[1])*.35]}});  // wave point ~1 km off
+].map(s=>{const v=SP[s.id];return{...s,lon:v[0],lat:v[1],fc:[v[2],v[3]],wp:[v[0]+(v[2]-v[0])*.15,v[1]+(v[3]-v[1])*.15]}});  // wave point ~500 m off
 /* ---------- flags that stream downwind ---------- */
 const FLAGS=[],FLAGPOLES={castle:{px:66,py:3,len:14,h:8,fill:"#ee6a39"},lifeguard:{px:70,py:9,len:16,h:10,fill:"#f3c25a"}};
 function addFlags(group,sym,x0,y0,size){const f=FLAGPOLES[sym];if(!f)return;const k=size/100,x=x0+f.px*k,y=y0+f.py*k,len=f.len*k,h=f.h*k;
@@ -1189,7 +1192,9 @@ document.getElementById("z-in").onclick=()=>zoomBy(1.6);document.getElementById(
   for(let i=0;i<id.data.length;i+=4){const v=150+Math.random()*105;id.data.set([v,v*.97,v*.9,255],i)}c.putImageData(id,0,0);document.getElementById("grain").style.background=`url(${g.toDataURL()})`}
 
 /* ---------- boot ---------- */
-function resize(){const r=svg.getBoundingClientRect();W=Math.round(r.width)||innerWidth;H=Math.round(r.height)||innerHeight;dpr=Math.min(2,devicePixelRatio||1);cv.width=hv.width=W*dpr;cv.height=hv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+// layout size of the map, ignoring CSS transforms (the beach transition scales the map; measuring it then put markers off)
+function svgSize(){const w=svg.clientWidth,h=svg.clientHeight;if(w&&h)return[w,h];const r=svg.getBoundingClientRect();return[r.width,r.height]}
+function resize(){const [rw,rh]=svgSize();W=Math.round(rw)||innerWidth;H=Math.round(rh)||innerHeight;dpr=Math.min(2,devicePixelRatio||1);cv.width=hv.width=W*dpr;cv.height=hv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
   const f=fit();if(!selected)cam=f;clampCam();lastCam="";applyCam();if(selected)setReveal(Math.hypot(W,H)*1.2,0);resetParts()}
 /* Safety net: if a transition was ever cut short, put the page back into a consistent state. */
 function repairState(){
@@ -1204,7 +1209,7 @@ function repairState(){
     window.beachFull=false;if(b.classList.contains("swell")&&window.swellClose)swellClose(true)}
 }
 setInterval(repairState,1000);
-let rzq=0;const queueResize=()=>{cancelAnimationFrame(rzq);rzq=requestAnimationFrame(()=>{const r=svg.getBoundingClientRect();if(Math.round(r.width)!==W||Math.round(r.height)!==H)resize()})};
+let rzq=0;const queueResize=()=>{cancelAnimationFrame(rzq);rzq=requestAnimationFrame(()=>{const [rw,rh]=svgSize();if(Math.round(rw)!==W||Math.round(rh)!==H)resize()})};
 addEventListener("resize",queueResize);addEventListener("orientationchange",()=>setTimeout(resize,250));
 window.visualViewport&&visualViewport.addEventListener("resize",queueResize);
 if(window.ResizeObserver)new ResizeObserver(queueResize).observe(svg);

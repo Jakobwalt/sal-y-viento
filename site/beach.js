@@ -1150,11 +1150,26 @@ function fillPanel() {
     const tl = tc ? `<svg class="bf-tide" viewBox="0 0 240 12" preserveAspectRatio="none" aria-hidden="true"><path d="${tc.area}" fill="rgba(251,245,230,.12)"/><path d="${tc.line}" fill="none" stroke="rgba(251,245,230,.65)" stroke-width="1.1" vector-effect="non-scaling-stroke"/></svg>` : "";
     html += `<div class="bf-row${d === Math.floor(cur / 24) ? " now" : ""}" data-d="${d}"><span class="bf-day">${dayName(d)}</span>${cells}${tl}</div>`;
   }
+  // re-rendering must not move the table: keep where the reader scrolled to
+  const old = panel.querySelector(".bf-scroll"), keep = old ? [old.scrollLeft, old.scrollTop] : null;
   panel.innerHTML = html + '</div></div><p class="bf-key">knots · gusts above · waves in metres below · tide line underneath</p>';
+  const sc2 = panel.querySelector(".bf-scroll");
+  if (panelFresh) placePanel(); else if (keep && sc2) { sc2.scrollLeft = keep[0]; sc2.scrollTop = keep[1]; }
+}
+// first view after opening: today's row, hours 09–19; tried until the panel has a size (it fades in)
+let panelFresh = false;
+function placePanel(tries = 0) {
+  const sc2 = panel.querySelector(".bf-scroll");
+  if (!open || !sc2) { panelFresh = false; return; }
+  if (!sc2.clientWidth) { if (tries < 120) requestAnimationFrame(() => placePanel(tries + 1)); return; }
+  panelFresh = false;
+  const hd = sc2.querySelector(".bf-hd"), lab = hd && hd.children[0], c9 = hd && hd.children[1 + 9];
+  if (c9) sc2.scrollLeft = Math.max(0, c9.getBoundingClientRect().left - sc2.querySelector(".bf-grid").getBoundingClientRect().left - (lab ? lab.offsetWidth : 0) - 2);
+  scrollToDay();
 }
 panel.addEventListener("click", e => { const b = e.target.closest("button[data-t]"); if (b) { setPlaying(false); setTime(+b.dataset.t); } });
 function scrollToDay() { const r = panel.querySelector(".bf-row.now"), sc2 = panel.querySelector(".bf-scroll"); if (r && sc2) sc2.scrollTop = r.offsetTop - sc2.querySelector(".bf-hd").offsetHeight - 2;
-  const c = panel.querySelector("button.cur"); if (c && sc2) sc2.scrollLeft = Math.max(0, c.offsetLeft - sc2.clientWidth / 2); }
+}
 
 window.beachTime = () => {   // called by the page whenever the time moves
   if (!open) return;
@@ -1293,7 +1308,7 @@ window.openBeach = () => {
   if (busy || open || !selected || !has(selected.id)) return;
   busy = true; busySince = performance.now(); sc = SCENES[selected.id];
   try { resize(); build(); } catch (e) { console.warn("beach", e); busy = false; return; }
-  open = true; lastHourShown = -1; last = performance.now(); reveal = 0;
+  open = true; lastHourShown = -1; last = performance.now(); reveal = 0; panelFresh = true;
   S = state(curT); fillHud(); fillPanel();
   const [bx, by] = P(selected.lon, selected.lat);
   camBefore = { ...cam }; camTarget = { x: bx, y: by, z: cam.z * 7 };

@@ -104,6 +104,8 @@ button,.mk,input{touch-action:manipulation}
 .ktk{position:relative;display:block;width:198px;height:10px}
 .ktk b{position:absolute;font-weight:400;font-size:.6rem;transform:translateX(-50%)}
 .ktk b:nth-child(1){left:11.11%}.ktk b:nth-child(2){left:22.22%}.ktk b:nth-child(3){left:44.44%}.ktk b:nth-child(4){left:66.66%}.ktk b:nth-child(5){left:88.88%}
+.pill{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;align-items:center;min-width:300px;height:22px;padding:0 6px;border-radius:11px;font-family:var(--f-mono);font-size:.66rem;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45);box-shadow:0 1px 4px rgba(0,0,0,.18),inset 0 0 0 1px rgba(255,255,255,.18)}
+.pill b{font-weight:500;text-align:center}.pill b:first-child{opacity:.85}
 .legend .ramp{width:110px;height:6px;border-radius:3px;margin:0;background:linear-gradient(90deg,#215f68,#3f9896,#78c4af,#f3c25a,#ee6a39)}
 .sample{font-family:var(--f-mono);font-size:.64rem;color:var(--foam);opacity:.85;text-transform:uppercase;letter-spacing:.08em}
 .zoomers{bottom:calc(env(safe-area-inset-bottom,0px) + 84px);right:max(18px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:6px;transition:opacity .3s}
@@ -247,7 +249,7 @@ body.dive.ready:not(.beach) #info .fc{pointer-events:auto}
   .tl-chip{bottom:calc(100% + 30px)}
   body.dive .tl-chip{display:none}
 }
-@media (max-width:760px){.rows{grid-template-columns:minmax(0,1fr)}#info{padding-top:60px}.legend{display:none}}
+@media (max-width:760px){.rows{grid-template-columns:minmax(0,1fr)}#info{padding-top:60px}.pill{min-width:0;width:min(270px,calc(100vw - 120px));height:18px;font-size:.56rem;padding:0 3px}}
 @media (prefers-reduced-motion:reduce){#info,.back{transition:opacity .2s}}
 /* short, wide screens (phones held sideways): smaller title beside the back button, slimmer panels */
 @media (max-height:520px){
@@ -690,8 +692,8 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
     <button id="l-wind" type="button" aria-pressed="true">Wind</button>
     <button id="l-wave" type="button" aria-pressed="false">Waves</button>
   </div>
-  <div class="legend" id="lg-wind"><span class="kscale" aria-label="Colour shows gusts in knots: calm under 5, white 5 to 10, greens 10 to 20, then yellow to purple up to 40 and over"><span class="ksw"></span><span class="ktk"><b>5</b><b>10</b><b>20</b><b>30</b><b>40</b></span></span><span>gusts<br>kn</span></div>
-  <div class="legend" id="lg-wave" hidden><span>0</span><i class="ramp"></i><span>3 m</span></div>
+  <div class="legend" id="lg-wind"><span class="pill" id="pill-wind" role="img" aria-label="Wind colour scale, gusts in knots"><b>kt</b><b>0</b><b>5</b><b>10</b><b>20</b><b>30</b><b>40</b><b>60</b></span></div>
+  <div class="legend" id="lg-wave" hidden><span class="pill" id="pill-wave" role="img" aria-label="Wave height colour scale in metres"><b>m</b><b>0</b><b>0.5</b><b>1</b><b>1.5</b><b>2</b><b>3</b><b>5</b></span></div>
   <div class="sample" id="status" aria-live="polite"></div>
   <button class="srcbtn" id="srcbtn" type="button" aria-expanded="false" aria-controls="srcpanel">Sources</button>
   <div class="srcpanel" id="srcpanel" hidden>
@@ -956,13 +958,15 @@ function field(x,y,t=curT){if(!FC)return{vx:1,vy:0,kn:0,g:0};
   const s=gridSample(lonOf(x),latOf(y),t,readWind);if(!s)return{vx:1,vy:0,kn:0,g:0};
   // kn = mean wind (drives the motion), g = gusts (drive the colour)
   const m=Math.hypot(s[0],s[1]),g=Math.max(m,s[2]||0);return m<.05?{vx:1,vy:0,kn:0,g}:{vx:s[0]/m,vy:-s[1]/m,kn:m,g}}
-// <5 calm (no colour) · 5–10 white · 10–15 / 15–20 greens · 20 yellow → 40+ plum
-const KN=[5,10,15,20,25,30,35,40];
-const SEA=["200,214,212","251,245,230","196,230,160","118,194,112","243,194,90","240,151,62","238,106,57","200,52,68","125,42,110"];
-const LND=["35,49,47","35,49,47","58,108,58","84,140,56","176,112,30","196,86,31","201,64,36","160,40,55","94,31,90"];
-const kstep=kn=>{let i=0;while(i<KN.length&&kn>=KN[i])i++;return i};
-const colFor=(kn,land)=>(land?LND:SEA)[kstep(kn)];
-const barCol=kn=>kn<5?"rgba(233,223,198,.35)":`rgb(${SEA[kstep(kn)]})`;
+// Windy's wind colours (their scale in m/s, here in knots): calm blue-violet → blue → teal → greens → olive →
+// brown → wine → magenta → violet. Colour always shows the gusts.
+const WINDY=[[0,[98,113,183]],[1.9,[57,97,159]],[5.8,[74,148,169]],[9.7,[77,141,123]],[13.6,[83,165,83]],[17.5,[53,159,53]],[21.4,[167,157,81]],
+  [25.3,[159,127,58]],[29.2,[161,108,92]],[33,[129,58,78]],[36.9,[175,80,136]],[40.8,[117,74,147]],[46.7,[109,97,163]],[52.5,[68,105,141]],[56.4,[92,144,152]],[70,[125,68,165]]];
+const lerpRamp=(R,v)=>{if(!(v>R[0][0]))return R[0][1];for(let i=0;i<R.length-1;i++){const [a,ca]=R[i],[b,cb]=R[i+1];if(v<=b){const k=(v-a)/(b-a);return ca.map((c,n)=>Math.round(c+(cb[n]-c)*k))}}return R.at(-1)[1]};
+const windyRGB=kn=>lerpRamp(WINDY,kn);
+// particles stay foam white over the coloured wash (as on Windy); a little dimmer over land
+const colFor=(kn,land)=>land?"240,236,222":"251,245,230";
+const barCol=kn=>`rgb(${windyRGB(kn)})`;
 
 /* ---------- wave field ---------- */
 const G={st:0.8};G.x0=D.x0;G.y0=D.y0;G.nx=Math.ceil((D.x1-D.x0)/G.st)+1;G.ny=Math.ceil((D.y1-D.y0)/G.st)+1;
@@ -981,21 +985,27 @@ function buildWaves(){waveT=curT;GH.fill(0);GX.fill(0);GY.fill(0);GV.fill(0);
   paintHeatSrc();paintWindSrc()}
 function waveAt(x,y){const fi=(x-G.x0)/G.st,fj=(y-G.y0)/G.st,i=Math.max(0,Math.min(G.nx-2,fi|0)),j=Math.max(0,Math.min(G.ny-2,fj|0)),u=Math.min(1,Math.max(0,fi-i)),v=Math.min(1,Math.max(0,fj-j));
   const L=A=>{const k=j*G.nx+i;return A[k]*(1-u)*(1-v)+A[k+1]*u*(1-v)+A[k+G.nx]*(1-u)*v+A[k+G.nx+1]*u*v};return{h:L(GH),dx:L(GX),dy:L(GY)}}
-const RAMP=[[0,[33,95,104]],[.8,[63,152,150]],[1.5,[120,196,175]],[2.2,[243,194,90]],[3,[238,106,57]]];
-const ramp=h=>{for(let i=0;i<RAMP.length-1;i++){const [a,ca]=RAMP[i],[b,cb]=RAMP[i+1];if(h<=b){const k=Math.max(0,(h-a)/(b-a));return ca.map((c,n)=>Math.round(c+(cb[n]-c)*k))}}return RAMP.at(-1)[1]};
+// wave height in the same colour family and stepping as the wind scale
+const WRAMPW=[[0,[98,113,183]],[.5,[57,97,159]],[1,[74,148,169]],[1.5,[77,141,123]],[2,[83,165,83]],[2.5,[167,157,81]],[3,[159,127,58]],[4,[161,108,92]],[5,[175,80,136]],[7,[117,74,147]],[9,[125,68,165]]];
+const ramp=h=>lerpRamp(WRAMPW,h);
+// the legend pills: evenly spaced labels like Windy's (the scale between them is not linear)
+function paintPill(id,R,vals){const el=document.getElementById(id);if(!el)return;const n=vals.length+1,st=[];
+  st.push(`rgb(${lerpRamp(R,vals[0])}) 0%`);vals.forEach((v,i)=>{const at=(i+1.5)/n*100;st.push(`rgb(${lerpRamp(R,v)}) ${at.toFixed(1)}%`);
+    if(i<vals.length-1)for(const f of [.33,.66]){const w=v+(vals[i+1]-v)*f;st.push(`rgb(${lerpRamp(R,w)}) ${(at+f/n*100).toFixed(1)}%`)}});
+  st.push(`rgb(${lerpRamp(R,vals.at(-1))}) 100%`);el.style.background=`linear-gradient(90deg,${st.join(",")})`}
+paintPill("pill-wind",WINDY,[0,5,10,20,30,40,60]);paintPill("pill-wave",WRAMPW,[0,.5,1,1.5,2,3,5]);
 const heatSrc=document.createElement("canvas");heatSrc.width=G.nx;heatSrc.height=G.ny;
 function paintHeatSrc(){const c=heatSrc.getContext("2d"),id=c.createImageData(G.nx,G.ny);for(let k=0;k<GH.length;k++){const [r,g,b]=ramp(GH[k]);id.data.set([r,g,b,GL[k]?0:235],k*4)}c.putImageData(id,0,0)}
 const hv=document.getElementById("heat"),hctx=hv.getContext("2d");
 // wind strength as a light wash: calm stays clear, stronger wind warms the map
 const windSrc=document.createElement("canvas");windSrc.width=G.nx;windSrc.height=G.ny;
-const WRAMP=[[5,[255,255,255,0]],[7,[255,250,235,.18]],[10,[250,246,228,.3]],[12.5,[178,226,140,.45]],[17.5,[96,184,96,.55]],[22.5,[255,205,95,.62]],[27.5,[255,150,65,.75]],[32.5,[255,110,60,.85]],[37.5,[225,60,75,.92]],[44,[150,50,130,1]]];
-function wcol(kn){if(kn<=WRAMP[0][0])return WRAMP[0][1];for(let i=0;i<WRAMP.length-1;i++){const [a,ca]=WRAMP[i],[b,cb]=WRAMP[i+1];if(kn<=b){const k=(kn-a)/(b-a);return ca.map((c,n)=>c+(cb[n]-c)*k)}}return WRAMP.at(-1)[1]}
+function wcol(kn){return [...windyRGB(kn),1]}
 function paintWindSrc(){const c=windSrc.getContext("2d"),id=c.createImageData(G.nx,G.ny);
   for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,[r,g,b,a]=wcol(field(G.x0+i*G.st,G.y0+j*G.st,curT).g);id.data.set([r,g,b,a*255],k*4)}c.putImageData(id,0,0)}
 function drawHeat(){hctx.setTransform(1,0,0,1,0,0);hctx.clearRect(0,0,hv.width,hv.height);
-  if(layer!=="waves"){hv.style.opacity=(selected?.4:.62)*(isEc(curT)?.6:1);hv.style.mixBlendMode="normal";hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
+  if(layer!=="waves"){hv.style.opacity=(selected?.5:.78)*(isEc(curT)?.75:1);hv.style.mixBlendMode="normal";hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
     hctx.drawImage(windSrc,G.x0-G.st/2,G.y0-G.st/2,G.nx*G.st,G.ny*G.st);return}
-  hv.style.opacity=.8;hv.style.mixBlendMode="normal";
+  hv.style.opacity=selected?.6:.85;hv.style.mixBlendMode="normal";
   hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
   hctx.drawImage(heatSrc,G.x0-G.st/2,G.y0-G.st/2,G.nx*G.st,G.ny*G.st);hctx.globalCompositeOperation="destination-out";hctx.fill(LAND,"evenodd");hctx.globalCompositeOperation="source-over"}
 
@@ -1015,7 +1025,7 @@ function tick(){
   else{const dv=selected&&!diving;fadeTrails(.045);const am=(dv?.7:1)*(isEc(curT)?.55:1);
     for(const p of parts){const f=field(p.x,p.y),v=f.kn*0.045/cam.z,nx=p.x+f.vx*v,ny=p.y+f.vy*v,[a,b]=toScreen(p.x,p.y),[c,d]=toScreen(nx,ny),land=onLand(p.x,p.y),
       fade=Math.min(1,p.age/40,(p.life-p.age)/40);
-      ctx.strokeStyle=`rgba(${colFor(f.g,land)},${(land?.5:.8)*fade*am*(f.g<5?.4:1)})`;ctx.lineWidth=f.g>35?1.6:f.g>25?1.3:1;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();
+      ctx.strokeStyle=`rgba(${colFor(f.g,land)},${(land?.45:.75)*fade*am*(f.g<5?.5:1)})`;ctx.lineWidth=f.g>35?1.6:f.g>25?1.3:1;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();
       p.x=nx;p.y=ny;p.age++;if(p.age>p.life||c<-20||c>W+20||d<-20||d>H+20)spawn(p)}}
   requestAnimationFrame(tick)}
 function drawStatic(){ctx.clearRect(0,0,W,H);if(layer==="waves")return;const step=46;ctx.lineCap="round";

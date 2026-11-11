@@ -124,7 +124,7 @@ function tideRow(s,cw){const o=FC.spots[s.id],rg=tideRange(o),H=54,top=15,bot=H-
         g+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.4" fill="${e.hi?"#fbf5e6":"none"}" stroke="#fbf5e6" stroke-width="1.2"/><text x="${x.toFixed(1)}" y="${(e.hi?y-6:y+12).toFixed(1)}" text-anchor="middle">${hm(e.t)} <tspan>${tsign(e.h)}</tspan></text>`}}
     i=j}
   return g+"</svg>"}
-const SRC={pde:"Puertos del Estado",gib:"Strait model · fine",ibi:"IBI regional · 2.5 km",out:"Outlook · global"};
+const SRC={pde:"Puertos del Estado · fine",mf:"Météo-France MFWAM · outlook",gib:"Strait model · fine",ibi:"IBI regional · 2.5 km",out:"Outlook · global"};
 
 function nowX(cw){if(!cols.length)return 0;let i=0;for(let k=0;k<cols.length;k++)if(cols[k].T<=curT+1e-6)i=k;const c=cols[i];
   return (i+Math.max(0,Math.min(1,curT-c.T+.5)))*cw}

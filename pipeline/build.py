@@ -23,6 +23,7 @@ import requests
 
 from . import config as C
 from . import tide
+from . import marine
 
 H = dt.timedelta(hours=1)
 MISSING_I8 = -128
@@ -334,6 +335,20 @@ def main(argv=None):
     except Exception as e:
         report["errors"]["waves"] = repr(e); log("waves FAILED"); traceback.print_exc()
 
+    # the wave outlook and the swell trains (one request); Puertos del Estado stays first where it has data
+    mr = None
+    try:
+        mr = marine.fetch(t0, end); report["marine"] = mr.report
+        log(f"marine: {mr.model}, {len(mr.times)} hours, trains {mr.report['trains']}")
+    except Exception as e:
+        report["errors"]["marine"] = repr(e); log(f"marine FAILED ({e})")
+    # where the sea is, from the Puertos grid (MFWAM values are interpolated and would spill onto land)
+    land = None
+    if wv is not None and len(wv.times):
+        land = np.isnan(wv.h).all(0)
+    elif prev and prev.get("waves") is not None and len(prev["waves"][0]):
+        land = np.isnan(prev["waves"][0]).all(0)
+
     if not ae and not ec and not wv:
         log("All sources failed; keeping the site as it is."); return 1
 
@@ -341,6 +356,9 @@ def main(argv=None):
     ae_i = idx(ae.times) if ae else {}
     ec_i = idx(ec.times) if ec else {}
     wv_i = idx(wv.times) if wv else {}
+    mr_i = idx(mr.times) if mr else {}
+    prev_wmodel = (prev["meta"].get("wave_model") if prev else None) or []
+    wmodel = []
     pv_i = idx(prev["times"]) if prev else {}
 
     nan = lambda: np.full((T, C.NY, C.NX), np.nan, np.float32)
@@ -374,20 +392,30 @@ def main(argv=None):
             src_wind.append("prev"); model.append(prev_model[pj] if pj < len(prev_model) else "aemet")
         else:
             src_wind.append(None); model.append(None)
-        # waves
+        # waves: Puertos del Estado (new, then from the live build), then MFWAM's outlook, then any older outlook
+        pw_ok = prev and prev.get("waves") and t in pv_i and pv_i[t] < len(prev["waves"][0]) \
+            and not np.isnan(prev["waves"][0][pv_i[t]]).all()
+        pw = (prev_wmodel[pv_i[t]] if pw_ok and pv_i[t] < len(prev_wmodel) else "pde") if pw_ok else None
         if wv and t in wv_i:
-            j = wv_i[t]; WH[k], WP[k], WD[k] = wv.h[j], wv.period[j], wv.dir_from[j]; src_wave.append("new")
-        elif prev and prev.get("waves") and t in pv_i and pv_i[t] < len(prev["waves"][0]) \
-                and not np.isnan(prev["waves"][0][pv_i[t]]).all():
-            j = pv_i[t]; WH[k], WP[k], WD[k] = (a[j] for a in prev["waves"]); src_wave.append("prev")
+            j = wv_i[t]; WH[k], WP[k], WD[k] = wv.h[j], wv.period[j], wv.dir_from[j]; src_wave.append("new"); wmodel.append("pde")
+        elif pw_ok and pw == "pde":
+            j = pv_i[t]; WH[k], WP[k], WD[k] = (a[j] for a in prev["waves"]); src_wave.append("prev"); wmodel.append("pde")
+        elif mr and t in mr_i and land is not None and not np.isnan(mr.h[mr_i[t]]).all():
+            j = mr_i[t]
+            WH[k], WP[k], WD[k] = (np.where(land, np.nan, a[j]).astype(np.float32) for a in (mr.h, mr.period, mr.dir_from))
+            src_wave.append("mf"); wmodel.append("mf")
+        elif pw_ok:
+            j = pv_i[t]; WH[k], WP[k], WD[k] = (a[j] for a in prev["waves"]); src_wave.append("prev"); wmodel.append(pw)
         else:
-            src_wave.append(None)
+            src_wave.append(None); wmodel.append(None)
 
     # ------------------------------------------------ per-spot hourly values
     spots_out = {}
     for sid, s in C.SPOTS.items():
         plon, plat = s["point"]; blon, blat = s["beach"]
-        o = {k: [] for k in ("kn", "gust", "dir", "temp", "rain", "cloud", "wh", "wp", "wd", "tide")}
+        o = {k: [] for k in ("kn", "gust", "dir", "temp", "rain", "cloud", "wh", "wp", "wd", "tide",
+                             "s1h", "s1p", "s1d", "s2h", "s2p", "s2d", "wm")}
+        ms = mr.spots.get(sid) if mr else None
         pv = prev["spots"].get(sid) if prev else None
         for k, t in enumerate(times):
             j_prev = pv_i.get(t) if pv else None
@@ -416,13 +444,28 @@ def main(argv=None):
                 for key in ("temp", "rain", "cloud"):
                     o[key].append(take_prev(key))
             o["tide"].append(take_prev("tide") if pv and "tide" in pv else None)
-            if src_wave[k] is not None:
+            jm = mr_i.get(t) if ms else None
+            if src_wave[k] == "mf" and ms["wh"][jm] is not None:      # MFWAM at the spot's own wave point
+                o["wh"].append(r1(ms["wh"][jm], 2)); o["wp"].append(r1(ms["wp"][jm])); o["wd"].append(r1(ms["wd"][jm], 0))
+            elif src_wave[k] is not None:
                 o["wh"].append(r1(wave_value(WH[k], s), 2))
                 o["wp"].append(r1(wave_value(WP[k], s)))
                 o["wd"].append(r1(wave_value(WD[k], s), 0))
+            elif jm is not None and ms["wh"][jm] is not None:          # no grid to put it on, but the spot has it
+                o["wh"].append(r1(ms["wh"][jm], 2)); o["wp"].append(r1(ms["wp"][jm])); o["wd"].append(r1(ms["wd"][jm], 0))
+                wmodel[k] = wmodel[k] or "mf"
             else:
                 for key in ("wh", "wp", "wd"):
                     o[key].append(take_prev(key))
+            o["wm"].append(wmodel[k] if o["wh"][-1] is not None else None)
+            # swell trains: MFWAM's, scaled to the total height we show
+            if jm is not None:
+                p1, p2 = marine.split_trains(ms["trains"][jm], o["wh"][-1])
+                for pre, tr in (("s1", p1), ("s2", p2)):
+                    o[pre + "h"].append(r1(tr[0], 2)); o[pre + "p"].append(r1(tr[1])); o[pre + "d"].append(r1(tr[2], 0))
+            else:
+                for key in ("s1h", "s1p", "s1d", "s2h", "s2p", "s2d"):
+                    o[key].append(take_prev(key) if pv and key in pv else None)
         spots_out[sid] = o
 
     tide_entry = tide_fill(spots_out, times, now, report, prev["meta"] if prev else None, args.force)
@@ -452,13 +495,15 @@ def main(argv=None):
                       "last": ae.times[-1].isoformat() if ae else None},
             "ecmwf": {"name": "ECMWF IFS 9 km via Open-Meteo", "ok": bool(ec),
                       "outlook_from": next((times[i].isoformat() for i in range(max((i for i, m in enumerate(model) if m == "aemet"), default=-1) + 1, T) if model[i] == "ecmwf"), None)},
-            "waves": {"name": "Puertos del Estado IBI + Strait wave models", "run": wv.run.isoformat() if wv else None},
+            "waves": {"name": "Puertos del Estado IBI + Strait wave models", "run": wv.run.isoformat() if wv else None,
+                      "outlook": mr.model if mr else None},
             "tide": tide_entry,
         },
         "signatures": sig,
         "model": model,
+        "wave_model": wmodel,
         "coverage": {"wind": [s is not None for s in src_wind], "waves": [s is not None for s in src_wave]},
-        "credit": "Forecast data: AEMET, ECMWF (CC BY 4.0), Puertos del Estado, Météo-France SMOC (tide). Direction and tide via Open-Meteo.",
+        "credit": "Forecast data: AEMET, ECMWF (CC BY 4.0), Puertos del Estado, Météo-France MFWAM (wave outlook, swell trains) and SMOC (tide). Direction, outlook and tide via Open-Meteo.",
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=1))
     first = next((i for i, x in enumerate(src_wind) if x), 0)
@@ -467,7 +512,7 @@ def main(argv=None):
     (out / "report.json").write_text(json.dumps(report, indent=1, default=str))
     set_output("changed", "true")
     log(f"wrote {T} hours from {t0.isoformat()} to {out}  "
-        f"(wind new {src_wind.count('new')}, ecmwf {src_wind.count('ecmwf')}, prev {src_wind.count('prev')}; waves new {src_wave.count('new')}, prev {src_wave.count('prev')})")
+        f"(wind new {src_wind.count('new')}, ecmwf {src_wind.count('ecmwf')}, prev {src_wind.count('prev')}; waves new {src_wave.count('new')}, prev {src_wave.count('prev')}, outlook {src_wave.count('mf')})")
     return 0
 
 

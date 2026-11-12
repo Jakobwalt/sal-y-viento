@@ -714,9 +714,9 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
       <dt>Outlook beyond 48 h</dt>
       <dd>ECMWF IFS 9 km: wind, gusts, temperature, rain and cloud, where AEMET's 48 hours end. Shown fainter and marked ECMWF<span id="src-ecmwf"></span></dd>
       <dt>Waves</dt>
-      <dd><a href="https://opendap.puertos.es/thredds/catalog.html" target="_blank" rel="noopener">Puertos del Estado</a>: IBI regional model (~8 km) and the finer Strait of Gibraltar model<span id="src-waves"></span></dd>
+      <dd><a href="https://opendap.puertos.es/thredds/catalog.html" target="_blank" rel="noopener">Puertos del Estado</a>: IBI regional model (~8 km) and the finer Strait of Gibraltar model, about 3 days; then <a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener">Météo-France MFWAM</a> (~8 km) to day 10, which also gives the swell trains<span id="src-waves"></span></dd>
       <dt>Tide</dt>
-      <dd><a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener">Open-Meteo</a>: Météo-France SMOC sea level (~8 km), relative to mean sea level; a guide to the timing and size of the tide, not a harbour tide table</dd>
+      <dd><a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener">Open-Meteo</a>: Météo-France SMOC sea level (~8 km), relative to mean sea level; a guide to the timing and size of the tide, not a harbour tide table<span id="src-tide"></span></dd>
     </dl>
     <p>Spot forecasts use a point about 3 km offshore for wind and about 500 m offshore for waves. Refreshed four times a day. Relief is illustrative.</p>
   </div>
@@ -1293,8 +1293,12 @@ loadForecast().then(()=>{VE=viewEnd();buildTimeline();lastHour=-1;waveT=-9;setTi
     status.textContent="Updated "+fmtStamp.format(new Date(FC.meta.generated));
     const src=FC.meta.sources||{};
     if(src.aemet&&src.aemet.first)document.getElementById("src-aemet").textContent=`Run valid from ${fmtStamp.format(new Date(src.aemet.first))}`;
-    if(src.ecmwf&&src.ecmwf.outlook_from)document.getElementById("src-ecmwf").textContent=`From ${fmtStamp.format(new Date(src.ecmwf.outlook_from))}`;
-    if(src.waves&&src.waves.run)document.getElementById("src-waves").textContent=`Run of ${fmtStamp.format(new Date(src.waves.run))}`;if(selected)fillInfo(selected)})
+    const st=x=>fmtStamp.format(new Date(x));
+    if(src.ecmwf){const up=src.ecmwf.fetched||(src.ecmwf.ok?FC.meta.generated:null);   // older builds did not record the fetch time
+      document.getElementById("src-ecmwf").textContent=[up?`Updated ${st(up)}`:"",src.ecmwf.outlook_from?`takes over from AEMET at ${st(src.ecmwf.outlook_from)}`:""].filter(Boolean).join(" · ")}
+    if(src.waves){const w=src.waves;document.getElementById("src-waves").textContent=[w.run?`Run of ${st(w.run)}`:"",
+      w.outlook_from?`Météo-France MFWAM outlook from ${st(w.outlook_from)}${w.outlook_fetched?` (updated ${st(w.outlook_fetched)})`:""}`:""].filter(Boolean).join(" · ")}
+    if(src.tide&&src.tide.fetched)document.getElementById("src-tide").textContent=`Updated ${st(src.tide.fetched)}`;if(selected)fillInfo(selected)})
   .catch(e=>{console.warn("forecast",e);status.textContent="Forecast unavailable, try again later"});
 if(!reduce)requestAnimationFrame(tick);
 </script>

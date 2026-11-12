@@ -105,7 +105,8 @@ button,.mk,input{touch-action:manipulation}
 .ktk b{position:absolute;font-weight:400;font-size:.6rem;transform:translateX(-50%)}
 .ktk b:nth-child(1){left:11.11%}.ktk b:nth-child(2){left:22.22%}.ktk b:nth-child(3){left:44.44%}.ktk b:nth-child(4){left:66.66%}.ktk b:nth-child(5){left:88.88%}
 .pill{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;align-items:center;min-width:300px;height:22px;padding:0 6px;border-radius:11px;font-family:var(--f-mono);font-size:.66rem;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45);box-shadow:0 1px 4px rgba(0,0,0,.18),inset 0 0 0 1px rgba(255,255,255,.18)}
-.pill b{font-weight:500;text-align:center}.pill b:first-child{opacity:.85}
+.pill b{font-weight:500;text-align:center}
+#lg-wind{flex-direction:column;align-items:flex-end;gap:3px}.pnote{font-size:.56rem;letter-spacing:.06em;opacity:.85}.pill b:first-child{opacity:.85}
 .legend .ramp{width:110px;height:6px;border-radius:3px;margin:0;background:linear-gradient(90deg,#215f68,#3f9896,#78c4af,#f3c25a,#ee6a39)}
 .sample{font-family:var(--f-mono);font-size:.64rem;color:var(--foam);opacity:.85;text-transform:uppercase;letter-spacing:.08em}
 .zoomers{bottom:calc(env(safe-area-inset-bottom,0px) + 84px);right:max(18px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:6px;transition:opacity .3s}
@@ -692,7 +693,7 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
     <button id="l-wind" type="button" aria-pressed="true">Wind</button>
     <button id="l-wave" type="button" aria-pressed="false">Waves</button>
   </div>
-  <div class="legend" id="lg-wind"><span class="pill" id="pill-wind" role="img" aria-label="Wind colour scale, gusts in knots"><b>kt</b><b>0</b><b>5</b><b>10</b><b>20</b><b>30</b><b>40</b><b>60</b></span></div>
+  <div class="legend" id="lg-wind"><span class="pill" id="pill-wind" role="img" aria-label="Wind colour scale in knots: the map colour is the mean wind, the streaks show the gusts"><b>kt</b><b>0</b><b>5</b><b>10</b><b>20</b><b>30</b><b>40</b><b>60</b></span><span class="pnote">colour = wind · streaks = gusts</span></div>
   <div class="legend" id="lg-wave" hidden><span class="pill" id="pill-wave" role="img" aria-label="Wave height colour scale in metres"><b>m</b><b>0</b><b>0.5</b><b>1</b><b>1.5</b><b>2</b><b>3</b><b>5</b></span></div>
   <div class="sample" id="status" aria-live="polite"></div>
   <button class="srcbtn" id="srcbtn" type="button" aria-expanded="false" aria-controls="srcpanel">Sources</button>
@@ -964,9 +965,12 @@ const WINDY=[[0,[98,113,183]],[1.9,[57,97,159]],[5.8,[74,148,169]],[9.7,[77,141,
   [25.3,[159,127,58]],[29.2,[161,108,92]],[33,[129,58,78]],[36.9,[175,80,136]],[40.8,[117,74,147]],[46.7,[109,97,163]],[52.5,[68,105,141]],[56.4,[92,144,152]],[70,[125,68,165]]];
 const lerpRamp=(R,v)=>{if(!(v>R[0][0]))return R[0][1];for(let i=0;i<R.length-1;i++){const [a,ca]=R[i],[b,cb]=R[i+1];if(v<=b){const k=(v-a)/(b-a);return ca.map((c,n)=>Math.round(c+(cb[n]-c)*k))}}return R.at(-1)[1]};
 const windyRGB=kn=>lerpRamp(WINDY,kn);
-// particles stay foam white over the coloured wash (as on Windy); a little dimmer over land
-const colFor=(kn,land)=>land?"240,236,222":"251,245,230";
+// two channels: the wash is the mean wind, the streaks carry the gusts (their colour, lifted a little
+// towards white so a streak still reads over a wash of nearly the same colour)
+const colFor=(g,land)=>windyRGB(g).map(c=>Math.round(c+(255-c)*(land?.42:.32))).join(",");
 const barCol=kn=>`rgb(${windyRGB(kn)})`;
+// how strongly the wash covers the map: light wind lets the map through; over land it always lets more through
+const washA=(kn,land)=>Math.min(1,.38+Math.max(0,kn)*.042)*(land?.55:1);
 
 /* ---------- wave field ---------- */
 const G={st:0.8};G.x0=D.x0;G.y0=D.y0;G.nx=Math.ceil((D.x1-D.x0)/G.st)+1;G.ny=Math.ceil((D.y1-D.y0)/G.st)+1;
@@ -1001,7 +1005,7 @@ const hv=document.getElementById("heat"),hctx=hv.getContext("2d");
 const windSrc=document.createElement("canvas");windSrc.width=G.nx;windSrc.height=G.ny;
 function wcol(kn){return [...windyRGB(kn),1]}
 function paintWindSrc(){const c=windSrc.getContext("2d"),id=c.createImageData(G.nx,G.ny);
-  for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,[r,g,b,a]=wcol(field(G.x0+i*G.st,G.y0+j*G.st,curT).g);id.data.set([r,g,b,a*255],k*4)}c.putImageData(id,0,0)}
+  for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,kn=field(G.x0+i*G.st,G.y0+j*G.st,curT).kn,[r,g,b]=wcol(kn);id.data.set([r,g,b,washA(kn,GL[k])*255],k*4)}c.putImageData(id,0,0)}
 function drawHeat(){hctx.setTransform(1,0,0,1,0,0);hctx.clearRect(0,0,hv.width,hv.height);
   if(layer!=="waves"){hv.style.opacity=(selected?.5:.78)*(isEc(curT)?.75:1);hv.style.mixBlendMode="normal";hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
     hctx.drawImage(windSrc,G.x0-G.st/2,G.y0-G.st/2,G.nx*G.st,G.ny*G.st);return}
@@ -1025,7 +1029,7 @@ function tick(){
   else{const dv=selected&&!diving;fadeTrails(.045);const am=(dv?.7:1)*(isEc(curT)?.55:1);
     for(const p of parts){const f=field(p.x,p.y),v=f.kn*0.045/cam.z,nx=p.x+f.vx*v,ny=p.y+f.vy*v,[a,b]=toScreen(p.x,p.y),[c,d]=toScreen(nx,ny),land=onLand(p.x,p.y),
       fade=Math.min(1,p.age/40,(p.life-p.age)/40);
-      ctx.strokeStyle=`rgba(${colFor(f.g,land)},${(land?.45:.75)*fade*am*(f.g<5?.5:1)})`;ctx.lineWidth=f.g>35?1.6:f.g>25?1.3:1;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();
+      ctx.strokeStyle=`rgba(${colFor(f.g,land)},${(land?.6:.85)*fade*am*(f.g<5?.55:1)})`;ctx.lineWidth=f.g>35?1.6:f.g>25?1.3:1;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();
       p.x=nx;p.y=ny;p.age++;if(p.age>p.life||c<-20||c>W+20||d<-20||d>H+20)spawn(p)}}
   requestAnimationFrame(tick)}
 function drawStatic(){ctx.clearRect(0,0,W,H);if(layer==="waves")return;const step=46;ctx.lineCap="round";
@@ -1086,7 +1090,7 @@ function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.rou
     return `${sep}<div class="row ${now?"now":"dim"}${k>=3?" late":""}" data-day="${k}" title="Show ${dayName(k)} on the map"><div class="dlab"><em>${dayName(k)}${withWx&&k<3&&hs.some(h=>h.ec)?'<b class="ectag" title="ECMWF outlook, beyond AEMET\'s 48 hours">ECMWF</b>':""}</em>${withWx&&x?`<span role="img" aria-label="${x.word}, ${x.hi} degrees${x.rain>=.5?`, ${mm(x.rain)} mm of rain`:""}">${SKY[x.sky]}${x.hi}°${x.rain>=.5?` ${x.sky==="rain"?"":SKY.rain}${mm(x.rain)} mm`:""}</span>`:""}${tideTxt?`<span class="tdl" title="High and low water">${tideTxt}</span>`:""}</div>
       <div class="strip">${hs.map(h=>h.na?na:cells(h,now)).join("")}</div>${tc?`<svg class="tdc" viewBox="0 0 120 18" preserveAspectRatio="none" aria-hidden="true"><path d="${tc.area}" fill="rgba(251,245,230,.12)"/><path d="${tc.line}" fill="none" stroke="rgba(251,245,230,.85)" stroke-width="1.3" vector-effect="non-scaling-stroke"/></svg>`:""}</div>`}).join("")};
   const windCell=(h,now)=>{const s2=now?46:24;
-    return `<div class="${now&&h.h===hr?"cur":""}${h.ec?" ec":""}"><span class="gu">${h.g}</span><span class="kn">${h.kn}</span><span class="stack" style="height:${Math.round(h.g/gx*s2)}px"><span class="gbar"></span><span class="bar" style="height:${Math.round(h.kn/h.g*100)}%;background:${barCol(h.g)}"></span></span>${h.dir!=null?arrow(h.dir):""}</div>`};
+    return `<div class="${now&&h.h===hr?"cur":""}${h.ec?" ec":""}"><span class="gu">${h.g}</span><span class="kn">${h.kn}</span><span class="stack" style="height:${Math.round(h.g/gx*s2)}px"><span class="gbar"></span><span class="bar" style="height:${Math.round(h.kn/h.g*100)}%;background:${barCol(h.kn)}"></span></span>${h.dir!=null?arrow(h.dir):""}</div>`};
   const tw=document.getElementById("i-wind"),tv=document.getElementById("i-wave"),keep=[tw.scrollTop,tv.scrollTop];
   document.getElementById("h-wind").innerHTML=document.getElementById("h-wave").innerHTML=hd;
   tw.innerHTML=rows(windCell,true,h=>!h.na);

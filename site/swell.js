@@ -97,7 +97,7 @@ function render(s,ghFit){if(!s)return;cols=collect(s);key=s.id+":"+(FC&&FC.meta.
     ...(!split?[]:[R("r-mid","Secondary","metres",()=>cols.map(c=>`<span class="${c.night?"nt":""}">${hasS?badge(c.s,false):""}</span>`).join("")),
     R("r-sm","",FROM,()=>cols.map(c=>`<span class="${c.night?"nt":""}">${dirPer(c.s)}</span>`).join(""))]),
     ...(hasTide?[R("r-tide","Tide","high · low",()=>tideRow(s,cw))]:[]),
-    R("r-wind","Wind","knots",()=>cols.map(c=>c.w?`<span class="wd${c.night?" nt":""}" title="${c.w.kn} kn, gusts ${c.w.g} kn${c.w.d!=null?`, from ${comp(c.w.d)}`:""}"><i style="background:${barCol(c.w.g)}"></i>${c.w.d!=null?arrow(c.w.d):""}<small>${c.w.kn}</small></span>`:"<span></span>").join("")),
+    R("r-wind","Wind","knots",()=>cols.map(c=>c.w?`<span class="wd${c.night?" nt":""}" title="${c.w.kn} kn, gusts ${c.w.g} kn${c.w.d!=null?`, from ${comp(c.w.d)}`:""}"><i style="background:${barCol(c.w.kn)}"></i>${c.w.d!=null?arrow(c.w.d):""}<small>${c.w.kn}</small></span>`:"<span></span>").join("")),
     R("r-src","Source","",()=>{let h="",i=0;while(i<cols.length){const m=cols[i].m;let j=i;while(j<cols.length&&cols[j].m===m)j++;if(m)h+=`<span class="src s-${m}" style="grid-column:${i+1}/${j+1}"><em>${SRC[m]||m}</em></span>`;i=j}return h})];
   const labs=rows.map(r=>`<div class="sw-l ${r.cls}">${r.cls==="r-graph"?gr.ticks.map(t=>`<span style="top:${t.y.toFixed(0)}px">${t.t}m</span>`).join(""):r.lab?`<b>${r.lab}</b>${r.sub?`<small>${r.sub}</small>`:""}`:r.sub?`<small>${r.sub}</small>`:""}</div>`).join("");
   const body=rows.map(r=>`<div class="sw-r ${r.cls}">${r.cls==="r-graph"?gr.svg:r.cells()}</div>`).join("");
@@ -135,7 +135,7 @@ function mark(){const m=$("sw-now");if(!m||!cols.length)return;const cw=parseFlo
 
 function mini(s){const o=FC&&FC.spots[s.id],el=$("i-wmini");if(!o){el.innerHTML="";return}
   const T=Math.round(curT),kn=o.kn[T],g=Math.max(o.gust[T]??kn??0,kn??0),d=o.dir[T],from=Math.max(0,Math.floor(curT/24)*24),seg=[];
-  for(let k=from;k<Math.min(N,from+72);k++)seg.push(o.kn[k]==null?"transparent":barCol(Math.max(o.gust[k]??o.kn[k],o.kn[k])));
+  for(let k=from;k<Math.min(N,from+72);k++)seg.push(o.kn[k]==null?"transparent":barCol(o.kn[k]));
   el.innerHTML=`<span class="wm-l">Wind</span>${kn!=null?`<span class="wm-now">${d!=null?arrow(d):""}<b>${kn}</b><small>kn · gusts ${g}${d!=null?` · from ${comp(d)}`:""}</small></span>`:""}<span class="wm-strip" aria-hidden="true">${seg.map((c,i)=>`<i style="background:${c}"${i===T-from?' class="c"':""}></i>`).join("")}</span><span class="wm-go">Show wind <span aria-hidden="true">↙</span></span>`;
   el.setAttribute("aria-label","Show the wind table again")}
 

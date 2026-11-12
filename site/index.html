@@ -128,6 +128,33 @@ body.dive .zoomers{opacity:0;pointer-events:none}
   transform:translateY(40px);opacity:0;pointer-events:none;transition:transform .7s cubic-bezier(.2,.8,.2,1),opacity .5s}
 body.dive.ready #info{transform:none;opacity:1}
 #info h2{pointer-events:none;text-shadow:0 2px 24px rgba(20,40,40,.25)}
+/* the probe: tap anywhere on the map */
+#probe{position:fixed;left:0;top:0;z-index:4;pointer-events:none;will-change:transform}
+#probe[hidden]{display:none}
+body.dive #probe{display:none}
+.pb-dot{position:absolute;left:-6px;top:-6px;width:12px;height:12px;border-radius:50%;background:var(--kite);border:2px solid var(--foam);box-sizing:border-box;box-shadow:0 2px 8px rgba(20,40,40,.35)}
+.pb-stem{position:absolute;left:0;bottom:4px;width:1px;height:46px;background:linear-gradient(var(--ink),rgba(35,49,47,.2));transform-origin:bottom}
+.pb-wrap{position:absolute;left:-1px;bottom:50px}
+#probe.flip .pb-wrap{left:auto;right:-1px}
+.pb-card{position:relative;pointer-events:auto;display:grid;gap:2px;min-width:150px;padding:9px 14px 9px 12px;border:0;border-left:2px solid var(--ink);border-radius:0 4px 4px 0;background:rgba(251,245,230,.78);backdrop-filter:blur(10px) saturate(1.2);-webkit-backdrop-filter:blur(10px) saturate(1.2);box-shadow:0 10px 26px -14px rgba(20,40,40,.55);color:var(--ink);text-align:left;cursor:pointer;font:inherit}
+#probe.flip .pb-card{border-left:0;border-right:2px solid var(--ink);border-radius:4px 0 0 4px;text-align:right}
+#probe.flip .pb-big,#probe.flip .pb-row{justify-content:flex-end}
+#probe.flip .pb-x{right:auto;left:-10px}
+.pb-k{font-family:var(--f-mono);font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;opacity:.7}
+.pb-big{display:flex;align-items:baseline;gap:5px}
+.pb-big b{font-family:var(--f-display);font-weight:400;font-size:2.1rem;line-height:.9}
+.pb-big small{font-family:var(--f-mono);font-size:.66rem;opacity:.75}
+.pb-dir{display:inline-flex;align-items:center;gap:3px;margin-left:4px;font-family:var(--f-mono);font-size:.66rem}.pb-dir svg{width:12px;height:12px}
+.pb-row{display:flex;gap:8px;font-family:var(--f-mono);font-size:.6rem;opacity:.8;white-space:nowrap}
+.pb-row i{font-style:normal;display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:3px;vertical-align:-1px}
+.pb-go{font-family:var(--f-mono);font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;margin-top:4px;opacity:.8;border-top:1px solid rgba(35,49,47,.18);padding-top:5px}
+.pb-card:hover .pb-go{opacity:1}
+.pb-x{position:absolute;top:-10px;right:-10px;pointer-events:auto;width:22px;height:22px;border-radius:50%;border:0;background:rgba(251,245,230,.85);color:var(--ink);font-size:.9rem;line-height:1;cursor:pointer;box-shadow:0 2px 8px -2px rgba(20,40,40,.4)}
+.ihead{display:inline-flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:100%}
+.ihead h2{align-self:flex-start}
+.isub{margin:0;align-self:flex-start;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;opacity:.8;pointer-events:none}
+.isub[hidden]{display:none}
+#i-beach{pointer-events:auto;margin-top:2px}
 #info h2{font-family:var(--f-display);font-weight:300;font-size:clamp(2.8rem,7vw,5.4rem);line-height:.95;margin:0;letter-spacing:-.005em;text-wrap:balance}
 .small{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 26px;font-family:var(--f-mono);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
 .small span{display:inline-flex;align-items:center;gap:7px}
@@ -282,17 +309,19 @@ body.dive.ready:not(.beach) #info .fc{pointer-events:auto}
 /* wave details: the waves panel takes the page, the wind table folds into a bar */
 .wmini{display:none}
 body.swell #info .fc{top:180px;bottom:calc(env(safe-area-inset-bottom,0px) + 112px);grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:10px}
-body.swell #b-wind{padding:6px 18px}
-body.swell #b-wind>.rhead,body.swell #b-wind>.hdr,body.swell #b-wind>.tbl,body.swell #b-wave>.hdr,body.swell #b-wave>.tbl{display:none}
-body.swell .wmini{display:flex;align-items:center;gap:14px;width:100%;background:none;border:0;padding:6px 0;color:var(--foam);cursor:pointer;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.06em;text-align:left}
+/* one panel opens (dx-waves: waves, dx-wind: wind), the other folds into a bar */
+body.dx-waves #b-wind,body.dx-wind #b-wave{padding:6px 18px}
+body.dx-wind #b-wave{order:-1}
+body.dx-waves #b-wind>.rhead,body.dx-waves #b-wind>.hdr,body.dx-waves #b-wind>.tbl,body.dx-waves #b-wave>.hdr,body.dx-waves #b-wave>.tbl,
+body.dx-wind #b-wave>.rhead,body.dx-wind #b-wave>.hdr,body.dx-wind #b-wave>.tbl,body.dx-wind #b-wind>.hdr,body.dx-wind #b-wind>.tbl{display:none}
+body.dx-waves #i-wmini,body.dx-wind #i-vmini{display:flex;align-items:center;gap:14px;width:100%;background:none;border:0;padding:6px 0;color:var(--foam);cursor:pointer;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.06em;text-align:left}
 .wm-l{text-transform:uppercase;letter-spacing:.14em;opacity:.8;font-size:.62rem}
 .wm-now{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}.wm-now b{font-size:.9rem;font-weight:500}.wm-now small{opacity:.75;font-size:.62rem}.wm-now svg{width:13px;height:13px}
 .wm-strip{flex:1;display:flex;height:6px;gap:1px;min-width:40px;opacity:.9}.wm-strip i{flex:1;border-radius:1px}.wm-strip i.c{box-shadow:0 0 0 1.5px var(--wax);position:relative;z-index:1}
 .wm-go{white-space:nowrap;border-bottom:1px solid rgba(251,245,230,.35);text-transform:uppercase;letter-spacing:.16em;font-size:.6rem;opacity:.75}
 .wmini:hover .wm-go{opacity:1}
-body.swell #b-wave{display:flex;flex-direction:column;min-height:0;padding-bottom:10px}
-body.swell #b-wave{background:color-mix(in srgb,var(--spot) 58%,transparent)}
-body.swell #b-wind{background:color-mix(in srgb,var(--spot) 46%,transparent)}
+body.dx-waves #b-wave,body.dx-wind #b-wind{display:flex;flex-direction:column;min-height:0;padding-bottom:10px;background:color-mix(in srgb,var(--spot) 58%,transparent)}
+body.dx-waves #b-wind,body.dx-wind #b-wave{background:color-mix(in srgb,var(--spot) 46%,transparent)}
 .sw{flex:1;min-height:0;display:flex;flex-direction:column;--lw:118px;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 .sw[hidden]{display:none}
 .sw-key{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;font-size:.6rem;letter-spacing:.08em;opacity:.85;margin:2px 0 8px}
@@ -321,6 +350,13 @@ body.swell #b-wind{background:color-mix(in srgb,var(--spot) 46%,transparent)}
 .sw-day:first-child{border-left:0}
 .r-hr span{font-size:.58rem;opacity:.6}.r-hr span.cur{opacity:1;color:var(--wax)}
 .sw-g{display:block}
+.kp{display:inline-block;min-width:24px;padding:3px 5px 2px;border-radius:9px;color:#fff;font-size:.72rem;font-weight:600;text-align:center;text-shadow:0 1px 1px rgba(0,0,0,.25);box-shadow:inset 0 0 0 1px rgba(251,245,230,.35)}
+.r-wx{height:40px}.sw-l.r-wx{margin-top:4px}.sw-r.r-wx{margin-top:4px}
+.wxc{flex-direction:column;gap:1px!important;font-size:.58rem}.wxc .sk svg{width:13px;height:13px;display:block}.wxc small{font-size:.58rem}.wxc .rn{color:#bfe0ff;font-size:.52rem}.wxc .rn::after{content:" mm";opacity:.7}
+.cp{font-size:.5rem;opacity:.75;margin-left:1px}
+.wvh{font-weight:600}
+.sw-key .k-bar{width:9px;height:12px;border-radius:2px;background:rgb(83,165,83);box-shadow:inset 0 0 0 1px rgba(251,245,230,.5)}
+.sw-key .k-cap{width:12px;height:2px;border-radius:1px;background:#fbf5e6}
 .r-tide{height:56px;margin-top:6px}.sw-l.r-tide{margin-top:6px}
 .sw-r.r-tide{display:block}.sw-tide{display:block}
 .sw-tide text{font-family:var(--f-mono);font-size:9px;fill:#fbf5e6;opacity:.9}.sw-tide tspan{opacity:.65}
@@ -346,7 +382,7 @@ body.swell #b-wind{background:color-mix(in srgb,var(--spot) 46%,transparent)}
 @media (max-width:760px){
   body.swell #info .fc{display:grid;grid-template-rows:auto minmax(0,max-content);align-content:start;overflow:visible;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);left:10px;right:10px;padding:0;gap:8px;scroll-snap-type:none}
   body.swell #info .blk{flex:none}
-  body.swell #b-wind{padding:4px 12px}
+  body.dx-waves #b-wind,body.dx-wind #b-wave{padding:4px 12px}
   body.swell .wmini{gap:10px;font-size:.6rem}.wm-now small{display:none}
   .sw{--lw:74px}
   .sw-key{font-size:.54rem;gap:3px 10px}.sw-key .k-per{display:none}
@@ -734,11 +770,12 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
 </div>
 <div class="ui zoomers"><button id="z-in" type="button" aria-label="Zoom in">+</button><button id="z-out" type="button" aria-label="Zoom out">−</button></div>
 
+<div id="probe" hidden><div class="pb-wrap"><button class="pb-card" id="pb-card" type="button"><span class="pb-k" id="pb-k">Wind</span><span class="pb-big"><b id="pb-v">–</b><small id="pb-u">kn</small><span class="pb-dir" id="pb-dir"></span></span><span class="pb-row" id="pb-row"></span><span class="pb-go">Open forecast <span aria-hidden="true">↗</span></span></button><button class="pb-x" id="pb-x" type="button" aria-label="Close">×</button></div><span class="pb-stem" aria-hidden="true"></span><span class="pb-dot" aria-hidden="true"></span></div>
 <section id="info" aria-live="polite" aria-hidden="true">
-  <h2 id="i-name">Spot</h2>
+  <div class="ihead" id="i-head"><h2 id="i-name">Spot</h2><p class="isub" id="i-sub" hidden></p><button class="bv bvb" id="i-beach" type="button" hidden>Beach view <span aria-hidden="true">↗</span></button></div>
   <div class="fc">
-    <div class="blk" id="b-wind"><div class="rlab rhead"><span>Wind · knots</span><button class="bv" id="i-beach" type="button" hidden>Beach view <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wind"></div><div class="tbl" id="i-wind"></div><button class="wmini" id="i-wmini" type="button" tabindex="-1"></button></div>
-    <div class="blk" id="b-wave"><div class="rlab rhead"><span id="i-wlab">Waves · metres · period · tide</span><button class="bv" id="i-swell" type="button" aria-expanded="false">Wave details <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wave"></div><div class="tbl" id="i-wave"></div><div class="sw" id="sw" hidden></div></div>
+    <div class="blk" id="b-wind"><div class="rlab rhead"><span id="i-klab">Wind · knots</span><button class="bv" id="i-wdet" type="button" aria-expanded="false">Wind details <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wind"></div><div class="tbl" id="i-wind"></div><button class="wmini" id="i-wmini" type="button" tabindex="-1"></button><div class="sw" id="wx" hidden></div></div>
+    <div class="blk" id="b-wave"><div class="rlab rhead"><span id="i-wlab">Waves · metres · period · tide</span><button class="bv" id="i-swell" type="button" aria-expanded="false">Wave details <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wave"></div><div class="tbl" id="i-wave"></div><div class="sw" id="sw" hidden></div><button class="wmini" id="i-vmini" type="button" tabindex="-1"></button></div>
   </div>
 </section>
 
@@ -915,7 +952,7 @@ function applyCam(){
   markersEls.forEach(({s,e})=>{const [x,y]=toScreen(...P(s.lon,s.lat));e.style.transform=`translate(${x}px,${y}px)`});
   const showMinor=cam.z>fitZ*1.15||W>1100;
   signs.forEach(o=>{const [x,y]=toScreen(...o.w);o.d.style.transform=`translate(${x}px,${y}px) translateY(-50%)`;o.d.hidden=!o.maj&&!showMinor});
-  whaleCheck();if(parts.length&&Math.abs(Math.log(cam.z/partZ))>.3){partZ=cam.z;for(const p of parts)spawn(p)}const key=cam.x.toFixed(3)+cam.y.toFixed(3)+cam.z.toFixed(3);if(key!==lastCam){lastCam=key;ctx.clearRect(0,0,W,H);drawHeat();if(reduce)drawStatic()}}
+  window.probeMove&&probeMove();whaleCheck();if(parts.length&&Math.abs(Math.log(cam.z/partZ))>.3){partZ=cam.z;for(const p of parts)spawn(p)}const key=cam.x.toFixed(3)+cam.y.toFixed(3)+cam.z.toFixed(3);if(key!==lastCam){lastCam=key;ctx.clearRect(0,0,W,H);drawHeat();if(reduce)drawStatic()}}
 const ease=k=>k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
 let anim=null;
 function tween(ms,frame,done){if(anim)cancelAnimationFrame(anim);if(reduce){frame(1);done&&done();return}
@@ -1101,7 +1138,7 @@ function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.rou
   const all=Array.from({length:NDAYS},(_,k)=>hours(s,k)),ok=all.flat().filter(h=>!h.na);
   const gx=Math.max(30,...ok.map(h=>h.g)),wm=Math.max(2.5,...ok.map(h=>h.wh??0));
   const mm=r=>r<10?r.toFixed(1):Math.round(r),o=FC&&FC.spots[s.id],trg=tideRange(o);
-  document.getElementById("i-name").textContent=s.name;
+  document.getElementById("i-name").textContent=s.name;{const sb=document.getElementById("i-sub");sb.hidden=!s.sub;sb.textContent=s.sub||""}
   document.getElementById("i-beach").hidden=!(window.beachHas&&beachHas(s.id));
   const hd=`<div class="row hd"><div></div><div class="hrs">${all[0].map(h=>`<span class="${h.h===hr?"cur":""}">${h.h}</span>`).join("")}</div></div>`;
   const na='<div class="na"><span class="kn">·</span></div>';
@@ -1137,6 +1174,10 @@ function buildDetail(s){const p=s.pal,[x,y]=P(s.lon,s.lat),[fx,fy]=P(...s.fc);
   document.getElementById("d-coast").setAttribute("stroke",p.ink);
   const fl=document.getElementById("d-flora");fl.innerHTML="";plant(fl,.55);
   const m=document.getElementById("d-mark");m.innerHTML="";
+  if(s.custom){const b=document.getElementById("d-buoy");b.innerHTML="";
+    const ring=el("circle",{cx:x,cy:y,r:.12,fill:"none",stroke:"#fbf5e6","stroke-width":1.4,"vector-effect":"non-scaling-stroke"},b);
+    if(!reduce){el("animate",{attributeName:"r",from:.12,to:.6,dur:"2.2s",repeatCount:"indefinite"},ring);el("animate",{attributeName:"opacity",from:1,to:0,dur:"2.2s",repeatCount:"indefinite"},ring)}
+    el("circle",{cx:x,cy:y,r:.13,fill:"#fbf5e6",stroke:p.ink,"stroke-width":1.4,"vector-effect":"non-scaling-stroke"},b);el("circle",{cx:x,cy:y,r:.055,fill:"#ee6a39"},b);return}
   const dx=x-fx,dy=y-fy,dl=Math.hypot(dx,dy),S=2.1;let bx=x+dx/dl*1.25,by=y+dy/dl*1.25;if(s.lm){[bx,by]=P(...s.lm);by+=S*.3}
   el("use",{href:"#sym-"+s.sym,x:bx-S/2,y:by-S*.92,width:S,height:S},m);addFlags(m,s.sym,bx-S/2,by-S*.92,S);
   const b=document.getElementById("d-buoy");b.innerHTML="";
@@ -1170,7 +1211,7 @@ function closeSpot(){if(!selected||(diving&&performance.now()-divingSince<6000))
   tween(800,(e,k)=>{cam.x=s0.x+(x-s0.x)*e;cam.y=s0.y+(y-s0.y)*e;cam.z=Math.exp(Math.log(s0.z)+(Math.log(z1)-Math.log(s0.z))*e);applyCam();setReveal(R*Math.pow(1-k,1.4),3*Math.sin(Math.PI*k)*k)},
     ()=>{setReveal(0,0);selected=null;document.body.classList.remove("dive");
       for(const id of ["signs","markers"]){const n=document.getElementById(id);n.style.opacity=1;n.style.pointerEvents=""}
-      flyTo(fit(),850,()=>{diving=false;document.getElementById("mk-"+s.id).focus({preventScroll:true})})})}
+      flyTo(fit(),850,()=>{diving=false;document.getElementById("mk-"+s.id)?.focus({preventScroll:true})})})}
 // Back: if a transition is still running, wait for it and then go back (instead of ignoring the tap)
 let backLoop=0;
 function goBack(){cancelAnimationFrame(backLoop);const t0=performance.now();
@@ -1215,7 +1256,7 @@ function onTime(){const p=pct(curT);document.getElementById("tl-thumb").style.le
   document.querySelectorAll(".tl-day").forEach((e,i)=>e.classList.toggle("on",i===d));
   if(Math.abs(curT-waveT)>=0.25){buildWaves();drawHeat()}
   if(h!==lastHour){lastHour=h;if(selected)fillInfo(selected);if(reduce)drawStatic()}
-  window.beachTime&&beachTime()}
+  window.beachTime&&beachTime();window.probeFill&&probeFill()}
 function setTime(v){curT=Math.max(0,Math.min(N-1,v));if(curT>VE+.01&&!wide)setWide(true);onTime()}
 function setPlaying(p){playing=p;tlPlay.innerHTML=p?PAUSE:PLAY;tlPlay.setAttribute("aria-pressed",p);tlPlay.setAttribute("aria-label",p?"Pause forecast":"Play forecast");lastFrame=performance.now()}
 tlRange.addEventListener("input",()=>{setPlaying(false);setTime(+tlRange.value)});
@@ -1235,7 +1276,7 @@ function clock(now){const dt=Math.min(.1,(now-lastFrame)/1000);sailBoats(dt);if(
 
 /* ---------- toggles ---------- */
 function setLayer(l){layer=l;document.getElementById("l-wind").setAttribute("aria-pressed",l==="wind");document.getElementById("l-wave").setAttribute("aria-pressed",l==="waves");
-  document.getElementById("lg-wind").hidden=l!=="wind";document.getElementById("lg-wave").hidden=l!=="waves";try{localStorage.setItem("syv-layer",l)}catch(e){};resetParts();drawHeat();if(reduce)drawStatic()}
+  document.getElementById("lg-wind").hidden=l!=="wind";document.getElementById("lg-wave").hidden=l!=="waves";try{localStorage.setItem("syv-layer",l)}catch(e){};resetParts();drawHeat();if(reduce)drawStatic();window.probeFill&&probeFill()}
 document.getElementById("l-wind").onclick=()=>setLayer("wind");document.getElementById("l-wave").onclick=()=>setLayer("waves");
 try{if(localStorage.getItem("syv-layer")==="waves")layer="waves"}catch(e){}
 
@@ -1248,11 +1289,13 @@ try{if(localStorage.getItem("syv-layer")==="waves")layer="waves"}catch(e){}
 
 /* ---------- pan & zoom (overview only) ---------- */
 let drag=null;const pts=new Map();
-svg.addEventListener("pointerdown",e=>{if(selected||diving)return;svg.setPointerCapture(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);drag={d:null};if(anim){cancelAnimationFrame(anim);anim=null}svg.classList.add("drag")});
+let tapAt=null;
+svg.addEventListener("pointerdown",e=>{if(selected||diving)return;tapAt=pts.size?null:{x:e.clientX,y:e.clientY,t:performance.now()};svg.setPointerCapture(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);drag={d:null};if(anim){cancelAnimationFrame(anim);anim=null}svg.classList.add("drag")});
 svg.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId))return;const prev=pts.get(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);
   if(pts.size===2){const [a,b]=[...pts.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(drag.d){const mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,[wx,wy]=toWorld(mx,my);cam.z*=d/drag.d;clampCam();const [nx,ny]=toWorld(mx,my);cam.x+=wx-nx;cam.y+=wy-ny;clampCam()}drag.d=d;applyCam();return}
   cam.x-=(e.clientX-prev[0])/cam.z;cam.y-=(e.clientY-prev[1])/cam.z;clampCam();applyCam()});
-const up=e=>{pts.delete(e.pointerId);if(pts.size<2&&drag)drag.d=null;if(!pts.size){svg.classList.remove("drag");drag=null}};
+const up=e=>{if(e.type==="pointerup"&&tapAt&&pts.size===1&&Math.hypot(e.clientX-tapAt.x,e.clientY-tapAt.y)<7&&performance.now()-tapAt.t<500&&!selected&&!diving)window.probeAt&&probeAt(e.clientX,e.clientY);
+  if(pts.size>1)tapAt=null;pts.delete(e.pointerId);if(pts.size<2&&drag)drag.d=null;if(!pts.size){svg.classList.remove("drag");drag=null}};
 svg.addEventListener("pointerup",up);svg.addEventListener("pointercancel",up);
 svg.addEventListener("wheel",e=>{e.preventDefault();if(selected||diving)return;const [wx,wy]=toWorld(e.clientX,e.clientY);cam.z*=Math.exp(-e.deltaY*0.0015);clampCam();const [nx,ny]=toWorld(e.clientX,e.clientY);cam.x+=wx-nx;cam.y+=wy-ny;clampCam();applyCam()},{passive:false});
 const zoomBy=k=>{if(selected||diving)return;const t={x:cam.x,y:cam.y,z:Math.max(fitZ,Math.min(fitZ*14,cam.z*k))};flyTo(t,350,null,false)};
@@ -1304,6 +1347,7 @@ if(!reduce)requestAnimationFrame(tick);
 </script>
 <script src="beach.js?v=dev"></script>
 <script src="swell.js?v=dev"></script>
+<script src="probe.js?v=dev"></script>
 
 </body>
 </html>

@@ -1031,12 +1031,15 @@ function tick(){
   else{const dv=selected&&!diving;fadeTrails(.045);const am=(dv?.7:1)*(isEc(curT)?.55:1);
     for(const p of parts){const f=field(p.x,p.y),v=f.kn*0.045/cam.z,nx=p.x+f.vx*v,ny=p.y+f.vy*v,[a,b]=toScreen(p.x,p.y),[c,d]=toScreen(nx,ny),land=onLand(p.x,p.y),
       fade=Math.min(1,p.age/40,(p.life-p.age)/40);
-      ctx.strokeStyle=`rgba(${colFor(f.g,land)},${(land?(f.g>=20?.8:.6):.85)*fade*am*(f.g<5?.55:1)})`;ctx.lineWidth=f.g>35?1.6:f.g>25?1.3:1;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();
+      const al=(land?(f.g>=20?.8:.6):.85)*fade*am*(f.g<5?.55:1),lw=f.g>35?1.6:f.g>25?1.3:1;ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);
+      ctx.strokeStyle=`rgba(255,255,255,${(.45*al).toFixed(3)})`;ctx.lineWidth=lw+1.2;ctx.stroke();   // white outline so the gust colour reads over any wash
+      ctx.strokeStyle=`rgba(${colFor(f.g,land)},${al})`;ctx.lineWidth=lw+.2;ctx.stroke();
       p.x=nx;p.y=ny;p.age++;if(p.age>p.life||c<-20||c>W+20||d<-20||d>H+20)spawn(p)}}
   requestAnimationFrame(tick)}
 function drawStatic(){ctx.clearRect(0,0,W,H);if(layer==="waves")return;const step=46;ctx.lineCap="round";
   for(let sx=step/2;sx<W;sx+=step)for(let sy=step/2;sy<H;sy+=step){const [x,y]=toWorld(sx,sy),f=field(x,y),L=8+f.kn*.6,l=onLand(x,y);
-    ctx.strokeStyle=`rgba(${colFor(f.g,l)},${l?.55:.85})`;ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(sx-f.vx*L/2,sy-f.vy*L/2);ctx.lineTo(sx+f.vx*L/2,sy+f.vy*L/2);ctx.stroke()}}
+    ctx.beginPath();ctx.moveTo(sx-f.vx*L/2,sy-f.vy*L/2);ctx.lineTo(sx+f.vx*L/2,sy+f.vy*L/2);
+    ctx.strokeStyle=`rgba(255,255,255,${l?.35:.5})`;ctx.lineWidth=3.2;ctx.stroke();ctx.strokeStyle=`rgba(${colFor(f.g,l)},${l?.55:.85})`;ctx.lineWidth=1.6;ctx.stroke()}}
 
 /* ---------- spot detail ---------- */
 function hours(s,day){const o=FC&&FC.spots[s.id];

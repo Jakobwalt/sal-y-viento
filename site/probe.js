@@ -33,11 +33,12 @@ function fill(){if(!pw||!FC)return;const w=windAt(curT),v=waveAt(curT),waves=lay
     $("pb-row").innerHTML=[`<span><i style="background:${barCol(w.g)}"></i>gusts ${Math.round(w.g)}</span>`,v?`waves ${v.h.toFixed(1)} m · ${Math.round(v.p)} s`:""].filter(Boolean).join("<span>·</span>")}
   else{$("pb-v").textContent="–";$("pb-row").textContent="no forecast here";$("pb-dir").innerHTML=""}}
 
+// a named spot if the tap is on one (within ~1.5 km), otherwise just the coordinates
+const ns=(v,p,q)=>`${Math.abs(v).toFixed(2)}° ${v>=0?p:q}`;
+const coords=()=>`${ns(lat,"N","S")} · ${ns(lon,"E","W")}`;
 function name(){let best=null;
-  for(const [nm,lo,la] of TOWNS){const d=km(lon,lat,lo,la);if(!best||d<best.d)best={nm,d}}
-  for(const s of SPOTS){const d=km(lon,lat,s.lon,s.lat);if(d<(best?best.d:1e9))best={nm:s.name,d}}
-  const sea=!onLand(...pw);if(!best)return sea?"Open water":"Inland";
-  return best.d<1.5?best.nm:`${sea?"Off":"Near"} ${best.nm}`}
+  for(const s of SPOTS){const d=km(lon,lat,s.lon,s.lat);if(!best||d<best.d)best={nm:s.name,d}}
+  return best&&best.d<1.5?{nm:best.nm,spot:true}:{nm:coords(),spot:false}}
 
 // a spot for this place, from the grids
 function build(){const id="c"+(++n),o={kn:[],gust:[],dir:[],wh:[],wp:[],wd:[],temp:[],rain:[],cloud:[],tide:null};
@@ -50,8 +51,8 @@ function build(){const id="c"+(++n),o={kn:[],gust:[],dir:[],wh:[],wp:[],wd:[],te
   let tideNote="";if(near&&near.d<15&&FC.spots[near.s.id]&&FC.spots[near.s.id].tide){o.tide=FC.spots[near.s.id].tide;tideNote=` · tide as at ${near.s.name}`}
   for(const k of Object.keys(FC.spots))if(/^c\d+$/.test(k))delete FC.spots[k];
   FC.spots[id]=o;
-  const ns=(v,p,q)=>`${Math.abs(v).toFixed(2)}° ${v>=0?p:q}`;
-  return{id,custom:true,name:name(),sub:`${ns(lat,"N","S")} · ${ns(lon,"E","W")}${tideNote}`,sym:null,lon,lat,fc:[lon,lat],wp:[lon,lat],
+  const nm=name(),sub=nm.spot?coords()+tideNote:(tideNote?tideNote.slice(3):"Picked on the map");
+  return{id,custom:true,name:nm.nm,sub:sub.charAt(0).toUpperCase()+sub.slice(1),sym:null,lon,lat,fc:[lon,lat],wp:[lon,lat],
     pal:{sea:"#2a6f78",ring:"#4a8d95",shallow:"#9ccfc6",land:"#f0e4c8",ink:"#1b2f33"}}}
 
 window.probeAt=(sx,sy)=>{if(!FC||selected)return;const [x,y]=toWorld(sx,sy);pw=[x,y];lon=lonOf(x);lat=latOf(y);

@@ -15,7 +15,7 @@
    Tapping a spot flies in, then dives: the chart dissolves into that spot's own colour world
    with a finer shoreline, and the forecast rises from the bottom. Single sunlit look on purpose. */
 :root{
-  --sand:#ecdcb6;--foam:#fbf5e6;--ink:#23312f;--sea:#4b9c9c;--kite:#ee6a39;--wax:#f3c25a;--muted:#6c7570;
+  --sand:#ecdcb6;--foam:#fbf5e6;--ink:#23312f;--sea:#a6cfcb;--kite:#ee6a39;--wax:#f3c25a;--muted:#6c7570;
   --spot:#2a8a8c;
   --f-display:"Cormorant Garamond","Cormorant",Garamond,"Times New Roman",serif;
   --f-body:"Cormorant Garamond",Garamond,"Times New Roman",serif;
@@ -410,7 +410,7 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
 
 <svg id="map" preserveAspectRatio="none" role="img" aria-label="Map of the Costa de la Luz and the Strait of Gibraltar with wind, towns and spots" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="deep" cx="50%" cy="55%" r="70%"><stop offset="0" stop-color="#4fa1a0"/><stop offset="1" stop-color="#3b8588"/></radialGradient>
+    <radialGradient id="deep" cx="50%" cy="55%" r="70%"><stop offset="0" stop-color="#b2d8d4"/><stop offset="1" stop-color="#9cc7c4"/></radialGradient>
     <path id="es" fill-rule="evenodd" clip-rule="evenodd"/>
     <path id="esd" fill-rule="evenodd" clip-rule="evenodd"/>
     <clipPath id="landclip"><use href="#es"/></clipPath>
@@ -653,10 +653,10 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
   <g id="world">
     <rect x="-300" y="-300" width="900" height="900" fill="url(#deep)"/>
     <g fill="none" stroke-linejoin="round" stroke-linecap="round">
-      <use href="#es" stroke="#5aa9a6" stroke-width="10"/>
-      <use href="#es" stroke="#6cb6ae" stroke-width="6"/>
-      <use href="#es" stroke="#86c6b8" stroke-width="3"/>
-      <use href="#es" stroke="#addfcd" stroke-width="1.3"/>
+      <use href="#es" stroke="#badcd6" stroke-width="10"/>
+      <use href="#es" stroke="#c3e2da" stroke-width="6"/>
+      <use href="#es" stroke="#cfe8de" stroke-width="3"/>
+      <use href="#es" stroke="#ddf0e5" stroke-width="1.3"/>
       <use href="#es" stroke="#fbf5e6" stroke-width=".7" opacity=".9"/>
     </g>
     <use href="#es" fill="#e8d5aa"/>
@@ -664,7 +664,7 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
     <use href="#es" fill="none" stroke="#f6e8c6" stroke-width=".45" opacity=".9"/>
     <g id="salinas" clip-path="url(#landclip)"></g>
     <g id="flora"></g>
-    <g id="sealabels" font-family="Cormorant Garamond, Garamond, serif" font-style="italic" fill="#fbf5e6" opacity=".7"></g>
+    <g id="sealabels" font-family="Cormorant Garamond, Garamond, serif" font-style="italic" fill="#3d7774" opacity=".6"></g>
     <g id="deco"></g>
     <g id="marks"></g>
     <g id="buoys"></g>
@@ -971,7 +971,9 @@ const colFor=(g,land)=>windyRGB(g).map(c=>Math.round(c+(255-c)*(land&&g<20?.42:.
 const barCol=kn=>`rgb(${windyRGB(kn)})`;
 // how strongly the wash covers the map: light wind lets the map through. Over land, light wind stays faint
 // (the terrain matters more there) but strong wind fills in to nearly the strength it has over water
-const washA=(kn,land)=>{const w=Math.min(1,.38+Math.max(0,kn)*.042);if(!land)return w;
+const washA=(kn,land)=>{const x=Math.max(0,kn);
+  // over the (light) sea: a faint tint in light wind, full colour from about 22 kn
+  const w=x<10?.16+x*.026:Math.min(1,.42+(x-10)*.05);if(!land)return w;
   const k=Math.min(1,Math.max(0,(kn-10)/15));return w*(.45+.5*k)};
 
 /* ---------- wave field ---------- */

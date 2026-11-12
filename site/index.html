@@ -974,12 +974,21 @@ const barCol=kn=>`rgb(${windyRGB(kn)})`;
 const washA=(kn,land)=>{const x=Math.max(0,kn);
   // over the (light) sea: a faint tint in light wind, full colour from about 22 kn
   const w=x<10?.16+x*.026:Math.min(1,.42+(x-10)*.05);if(!land)return w;
-  const k=Math.min(1,Math.max(0,(kn-10)/15));return w*(.45+.5*k)};
+  // land (0–1: 0 on the coast, 1 a few km inland)
+  const k=Math.min(1,Math.max(0,(kn-10)/15)),lm=.45+.5*k;return w*(1-land*(1-lm))};
 
 /* ---------- wave field ---------- */
 const G={st:0.8};G.x0=D.x0;G.y0=D.y0;G.nx=Math.ceil((D.x1-D.x0)/G.st)+1;G.ny=Math.ceil((D.y1-D.y0)/G.st)+1;
 const GL=new Uint8Array(G.nx*G.ny),GV=new Uint8Array(G.nx*G.ny),GH=new Float32Array(G.nx*G.ny),GX=new Float32Array(G.nx*G.ny),GY=new Float32Array(G.nx*G.ny);
 for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++)if(onLand(G.x0+i*G.st,G.y0+j*G.st))GL[j*G.nx+i]=1;
+// how far inland each cell is (km, ~1.1 km per map unit): the coast keeps the sea's wind colour for the first
+// couple of km, then it eases into the lighter land treatment (otherwise light wind seems to stop at the beach)
+const GLF=new Float32Array(G.nx*G.ny);{const KM=G.st*1.11,d=new Float32Array(G.nx*G.ny).fill(1e9),q=[];
+  for(let k=0;k<d.length;k++)if(!GL[k]){d[k]=0;q.push(k)}
+  for(let n=0;n<q.length;n++){const k=q[n],i=k%G.nx,j=(k/G.nx)|0;
+    for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){if(!di&&!dj)continue;const a=i+di,b=j+dj;if(a<0||b<0||a>=G.nx||b>=G.ny)continue;
+      const m=b*G.nx+a,nd=d[k]+(di&&dj?1.414:1);if(nd<d[m]-1e-6){d[m]=nd;q.push(m)}}}
+  for(let k=0;k<d.length;k++)GLF[k]=GL[k]?Math.min(1,Math.max(0,(d[k]*KM-2)/3)):0}
 let waveT=-9;
 function buildWaves(){waveT=curT;GH.fill(0);GX.fill(0);GY.fill(0);GV.fill(0);
   if(FC&&FC.wv)for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i;if(GL[k])continue;
@@ -1009,7 +1018,7 @@ const hv=document.getElementById("heat"),hctx=hv.getContext("2d");
 const windSrc=document.createElement("canvas");windSrc.width=G.nx;windSrc.height=G.ny;
 function wcol(kn){return [...windyRGB(kn),1]}
 function paintWindSrc(){const c=windSrc.getContext("2d"),id=c.createImageData(G.nx,G.ny);
-  for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,kn=field(G.x0+i*G.st,G.y0+j*G.st,curT).kn,[r,g,b]=wcol(kn);id.data.set([r,g,b,washA(kn,GL[k])*255],k*4)}c.putImageData(id,0,0)}
+  for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const k=j*G.nx+i,kn=field(G.x0+i*G.st,G.y0+j*G.st,curT).kn,[r,g,b]=wcol(kn);id.data.set([r,g,b,washA(kn,GLF[k])*255],k*4)}c.putImageData(id,0,0)}
 function drawHeat(){hctx.setTransform(1,0,0,1,0,0);hctx.clearRect(0,0,hv.width,hv.height);
   if(layer!=="waves"){hv.style.opacity=(selected?.5:.78)*(isEc(curT)?.75:1);hv.style.mixBlendMode="normal";hctx.setTransform(dpr*cam.z,0,0,dpr*cam.z,dpr*(W/2-cam.x*cam.z),dpr*(H/2-cam.y*cam.z));hctx.imageSmoothingEnabled=true;
     hctx.drawImage(windSrc,G.x0-G.st/2,G.y0-G.st/2,G.nx*G.st,G.ny*G.st);return}

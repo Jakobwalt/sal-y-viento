@@ -104,9 +104,16 @@ button,.mk,input{touch-action:manipulation}
 .ktk{position:relative;display:block;width:198px;height:10px}
 .ktk b{position:absolute;font-weight:400;font-size:.6rem;transform:translateX(-50%)}
 .ktk b:nth-child(1){left:11.11%}.ktk b:nth-child(2){left:22.22%}.ktk b:nth-child(3){left:44.44%}.ktk b:nth-child(4){left:66.66%}.ktk b:nth-child(5){left:88.88%}
-.pill{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;align-items:center;min-width:300px;height:22px;padding:0 6px;border-radius:11px;font-family:var(--f-mono);font-size:.66rem;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45);box-shadow:0 1px 4px rgba(0,0,0,.18),inset 0 0 0 1px rgba(255,255,255,.18)}
-.pill b{font-weight:500;text-align:center}
-#lg-wind{flex-direction:column;align-items:flex-end;gap:3px}.pnote{font-size:.56rem;letter-spacing:.06em;opacity:.85}.pill b:first-child{opacity:.85}
+.lgc{display:grid;gap:5px;width:300px;padding:9px 11px 7px;background:rgba(251,245,230,.42);backdrop-filter:blur(10px) saturate(1.2);-webkit-backdrop-filter:blur(10px) saturate(1.2);border-radius:4px;box-shadow:0 8px 24px -16px rgba(20,40,40,.5);color:var(--ink);text-shadow:none}
+.lgc[hidden]{display:none}
+.lg-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.lg-h b{white-space:nowrap;font-family:var(--f-mono);font-weight:400;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;opacity:.8}
+.lg-h em{font-family:var(--f-display);font-size:.8rem;opacity:.75;white-space:nowrap}
+.lg-bar{display:block;height:7px;border-radius:2px;box-shadow:inset 0 0 0 1px rgba(35,49,47,.12),0 1px 0 rgba(251,245,230,.6)}
+.lg-tk{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;font-family:var(--f-mono);font-size:.6rem;opacity:.8}
+.lg-tk b{font-weight:400;text-align:center}
+
+
 .legend .ramp{width:110px;height:6px;border-radius:3px;margin:0;background:linear-gradient(90deg,#215f68,#3f9896,#78c4af,#f3c25a,#ee6a39)}
 .sample{font-family:var(--f-mono);font-size:.64rem;color:var(--foam);opacity:.85;text-transform:uppercase;letter-spacing:.08em}
 .zoomers{bottom:calc(env(safe-area-inset-bottom,0px) + 84px);right:max(18px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:6px;transition:opacity .3s}
@@ -250,7 +257,7 @@ body.dive.ready:not(.beach) #info .fc{pointer-events:auto}
   .tl-chip{bottom:calc(100% + 30px)}
   body.dive .tl-chip{display:none}
 }
-@media (max-width:760px){.rows{grid-template-columns:minmax(0,1fr)}#info{padding-top:60px}.pill{min-width:0;width:min(270px,calc(100vw - 120px));height:18px;font-size:.56rem;padding:0 3px}}
+@media (max-width:760px){.rows{grid-template-columns:minmax(0,1fr)}#info{padding-top:60px}.lgc{width:min(232px,calc(100vw - 120px));padding:7px 9px 5px;gap:4px}.lg-h em{display:none}.lg-tk{font-size:.54rem}}
 @media (prefers-reduced-motion:reduce){#info,.back{transition:opacity .2s}}
 /* short, wide screens (phones held sideways): smaller title beside the back button, slimmer panels */
 @media (max-height:520px){
@@ -693,8 +700,8 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
     <button id="l-wind" type="button" aria-pressed="true">Wind</button>
     <button id="l-wave" type="button" aria-pressed="false">Waves</button>
   </div>
-  <div class="legend" id="lg-wind"><span class="pill" id="pill-wind" role="img" aria-label="Wind colour scale in knots: the map colour is the mean wind, the streaks show the gusts"><b>kt</b><b>0</b><b>5</b><b>10</b><b>20</b><b>30</b><b>40</b><b>60</b></span><span class="pnote">colour = wind · streaks = gusts</span></div>
-  <div class="legend" id="lg-wave" hidden><span class="pill" id="pill-wave" role="img" aria-label="Wave height colour scale in metres"><b>m</b><b>0</b><b>0.5</b><b>1</b><b>1.5</b><b>2</b><b>3</b><b>5</b></span></div>
+  <div class="legend lgc" id="lg-wind" role="img" aria-label="Wind colour scale in knots: the map colour is the mean wind, the streaks show the gusts"><span class="lg-h"><b>Wind · knots</b><em>colour = wind, streaks = gusts</em></span><span class="lg-bar" id="pill-wind"></span><span class="lg-tk"><b>0</b><b>5</b><b>10</b><b>20</b><b>30</b><b>40</b><b>60</b></span></div>
+  <div class="legend lgc" id="lg-wave" role="img" aria-label="Wave height colour scale in metres" hidden><span class="lg-h"><b>Waves · metres</b><em>height of the sea</em></span><span class="lg-bar" id="pill-wave"></span><span class="lg-tk"><b>0</b><b>0.5</b><b>1</b><b>1.5</b><b>2</b><b>3</b><b>5</b></span></div>
   <div class="sample" id="status" aria-live="polite"></div>
   <button class="srcbtn" id="srcbtn" type="button" aria-expanded="false" aria-controls="srcpanel">Sources</button>
   <div class="srcpanel" id="srcpanel" hidden>
@@ -1006,9 +1013,9 @@ function waveAt(x,y){const fi=(x-G.x0)/G.st,fj=(y-G.y0)/G.st,i=Math.max(0,Math.m
 const WRAMPW=[[0,[98,113,183]],[.5,[57,97,159]],[1,[74,148,169]],[1.5,[77,141,123]],[2,[83,165,83]],[2.5,[167,157,81]],[3,[159,127,58]],[4,[161,108,92]],[5,[175,80,136]],[7,[117,74,147]],[9,[125,68,165]]];
 const ramp=h=>lerpRamp(WRAMPW,h);
 // the legend pills: evenly spaced labels like Windy's (the scale between them is not linear)
-function paintPill(id,R,vals){const el=document.getElementById(id);if(!el)return;const n=vals.length+1,st=[];
-  st.push(`rgb(${lerpRamp(R,vals[0])}) 0%`);vals.forEach((v,i)=>{const at=(i+1.5)/n*100;st.push(`rgb(${lerpRamp(R,v)}) ${at.toFixed(1)}%`);
-    if(i<vals.length-1)for(const f of [.33,.66]){const w=v+(vals[i+1]-v)*f;st.push(`rgb(${lerpRamp(R,w)}) ${(at+f/n*100).toFixed(1)}%`)}});
+function paintPill(id,R,vals){const el=document.getElementById(id);if(!el)return;const n=vals.length,st=[`rgb(${lerpRamp(R,vals[0])}) 0%`];
+  vals.forEach((v,i)=>{const at=(i+.5)/n*100;st.push(`rgb(${lerpRamp(R,v)}) ${at.toFixed(1)}%`);
+    if(i<n-1)for(const f of [.33,.66]){st.push(`rgb(${lerpRamp(R,v+(vals[i+1]-v)*f)}) ${(at+f/n*100).toFixed(1)}%`)}});
   st.push(`rgb(${lerpRamp(R,vals.at(-1))}) 100%`);el.style.background=`linear-gradient(90deg,${st.join(",")})`}
 paintPill("pill-wind",WINDY,[0,5,10,20,30,40,60]);paintPill("pill-wave",WRAMPW,[0,.5,1,1.5,2,3,5]);
 const heatSrc=document.createElement("canvas");heatSrc.width=G.nx;heatSrc.height=G.ny;

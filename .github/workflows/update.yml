@@ -18,7 +18,7 @@ on:
         default: false
   push:
     branches: ["main"]
-    paths: ["site/**", "pipeline/**", ".github/workflows/update.yml"]
+    paths: ["site/**", "pipeline/**", "tests/**", ".github/workflows/update.yml"]
 
 permissions:
   contents: write     # only for the keep-alive commit below
@@ -48,6 +48,11 @@ jobs:
       - name: Install
         run: pip install -r pipeline/requirements.txt
 
+      # On a code push, the offline tests must pass before anything is published (no network used).
+      - name: Test
+        if: github.event_name == 'push'
+        run: pip install pytest && python -m pytest tests -q
+
       # Scheduled runs fetch only when a source has a new run; a code push just republishes the live data.
       - name: Fetch forecasts and build data files
         id: build
@@ -60,7 +65,7 @@ jobs:
 
       # a fresh query string per deploy, so browsers load the new script instead of a cached one
       - name: Version the scripts
-        run: sed -i "s/beach.js?v=[A-Za-z0-9]*/beach.js?v=${GITHUB_SHA::8}/" site/index.html
+        run: sed -i -E "s/\.js\?v=[A-Za-z0-9]+/.js?v=${GITHUB_SHA::8}/g" site/index.html
 
       - name: Summary
         if: always()

@@ -59,7 +59,6 @@ NAME_RE = re.compile(r"down_(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\+00:00_(\w+?)\
 class AemetRun:
     times: list[dt.datetime]                       # valid times, UTC
     fields: dict[str, np.ndarray]                  # name → [T, NY, NX] on the output grid
-    first_valid: dt.datetime | None = None
     report: dict = field(default_factory=dict)
 
 
@@ -152,4 +151,4 @@ def fetch() -> AemetRun:
     worst = max(report["colour_miss_share"].values())
     if worst > 0.25:
         raise RuntimeError(f"AEMET colours no longer match the legend (miss share {worst:.0%}); legend may have changed")
-    return AemetRun(times=times, fields=fields, first_valid=times[0], report=report)
+    return AemetRun(times=times, fields=fields, report=report)

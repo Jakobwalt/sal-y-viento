@@ -173,7 +173,7 @@ def aemet_run_id():
     return name or None
 
 
-def source_signatures(now, aemet_mod, waves_mod):
+def source_signatures(now, waves_mod):
     """Cheap checks for whether new runs exist: AEMET's first archive entry, two wave catalogue reads."""
     sig = {}
     try:
@@ -286,7 +286,7 @@ def main(argv=None):
     from . import aemet, ecmwf, waves  # noqa: E402  (imported late so --help works without GDAL)
 
     prev = load_previous(args.previous)
-    sig = source_signatures(now, aemet, waves)
+    sig = source_signatures(now, waves)
     old = (prev or {}).get("meta", {}).get("signatures", {})
     same_day = bool(prev) and prev["times"][0] == t0
     log(f"source check: {sig}\n        live build: {old}")

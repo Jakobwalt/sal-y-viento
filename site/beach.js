@@ -1192,7 +1192,6 @@ const LAYERS = ["map", "detail", "heat", "wind"].map(id => document.getElementBy
 const sky = document.createElement("canvas");
 sky.id = "gull"; sky.setAttribute("aria-hidden", "true"); document.getElementById("grain").before(sky);
 const gc = sky.getContext("2d");
-const ease3 = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
 const easeIO = k => .5 - .5 * Math.cos(Math.PI * clamp(k));                      // gentle sine in-out
 const setWill = on => [...LAYERS, wrap].forEach(el => el.style.willChange = on ? "filter, opacity, transform" : "");
 

@@ -154,7 +154,8 @@ body.dive #probe{display:none}
 .ihead h2{align-self:flex-start}
 .isub{margin:0;align-self:flex-start;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;opacity:.8;pointer-events:none}
 .isub[hidden]{display:none}
-#i-beach{pointer-events:auto;margin-top:2px}
+#i-beach{margin-top:2px}
+body.dive.ready:not(.beach) #i-beach{pointer-events:auto}   /* only while the spot view shows */
 #info h2{font-family:var(--f-display);font-weight:300;font-size:clamp(2.8rem,7vw,5.4rem);line-height:.95;margin:0;letter-spacing:-.005em;text-wrap:balance}
 .small{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 26px;font-family:var(--f-mono);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
 .small span{display:inline-flex;align-items:center;gap:7px}
@@ -209,15 +210,7 @@ body.dive #probe{display:none}
 .more{margin-top:18px;background:none;border:0;border-top:1px solid rgba(251,245,230,.2);width:100%;max-width:1180px;text-align:left;padding:12px 0 0;cursor:pointer;color:var(--foam);font-family:var(--f-mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
 .more span{display:inline-block;transition:transform .3s;margin-left:6px}
 .more[aria-expanded="true"] span{transform:rotate(180deg)}
-.days{max-width:860px;margin-top:6px}
-.days button{display:grid;grid-template-columns:7.5rem 5rem minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:center;width:100%;background:none;border:0;border-bottom:1px solid rgba(251,245,230,.14);padding:11px 0;color:var(--foam);cursor:pointer;text-align:left;font-family:var(--f-mono);font-size:.74rem;font-variant-numeric:tabular-nums}
-.days button:hover{background:rgba(251,245,230,.05)}
-.days button[aria-current="true"] .dn{color:var(--wax)}
-.days .dn{font-family:var(--f-display);font-style:italic;font-size:1.15rem}
-.days .wx{display:flex;gap:8px;align-items:center}
-.days svg{width:14px;height:14px}
-.days small{opacity:.6}
-@media (max-width:760px){.tl-day{font-size:13px}.days button{grid-template-columns:4.6rem 4rem minmax(0,1fr)}.days .wv{display:none}}
+@media (max-width:760px){.tl-day{font-size:13px}}
 /* wind and waves side by side, floating over the spot on a soft blur with feathered edges; three days in view, the rest scrolls */
 .fc{position:absolute;left:max(18px,env(safe-area-inset-left,0px));right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 80px);
   display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
@@ -254,8 +247,6 @@ body.dive.ready:not(.beach) #info .fc{pointer-events:auto}
 .hrs .cur{opacity:1;color:var(--wax)}
 .tbl .row[data-day]{cursor:pointer}
 .tbl .row.dim[data-day]:hover .dlab em{opacity:1;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
-#i-later:empty{display:none}
-#i-later .later{margin-top:0}
 .later{margin:14px 0 4px;font-family:var(--f-mono);font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;opacity:.6}
 .later span{text-transform:none;letter-spacing:.04em}
 .tbl .row.late .strip div:not(.na){opacity:.55}
@@ -330,7 +321,6 @@ body.dx-waves #b-wind,body.dx-wind #b-wave{background:color-mix(in srgb,var(--sp
 .sw-key .k-p{background:rgb(112,166,204);box-shadow:inset 0 0 0 1px rgba(251,245,230,.9)}
 .sw-key .k-s{background:rgba(251,245,230,.16);outline:1px dashed rgba(251,245,230,.75);outline-offset:-1px}
 .sw-key .k-3h{opacity:.6}
-.sw-key .k-t{background:rgba(78,143,196,.26);outline:1px dashed rgba(251,245,230,.6);outline-offset:-1px}
 .sw-key .k-per i{width:54px;height:6px;border-radius:3px;background:linear-gradient(90deg,rgb(205,230,226),rgb(138,196,214),rgb(78,143,196),rgb(58,94,174),rgb(64,55,143))}
 .sw-key .note{opacity:.7;font-style:italic;letter-spacing:.02em}
 .sw-key .k-per{margin-left:auto}
@@ -371,7 +361,6 @@ body.dx-waves #b-wind,body.dx-wind #b-wave{background:color-mix(in srgb,var(--sp
 .wd{flex-direction:column;gap:1px!important;font-size:.56rem;opacity:.85}.wd i{display:block;width:16px;height:3px;border-radius:2px}.wd svg{width:10px;height:10px}.wd small{font-size:.56rem}
 .sw-r>.src{justify-self:stretch;display:block;border-top:2px solid rgba(251,245,230,.55);padding-top:3px;font-size:.54rem;letter-spacing:.08em;opacity:.7;white-space:nowrap;margin:0 1px}
 .src em{position:sticky;left:6px;font-style:normal}
-.src.s-ibi{border-top-style:solid;opacity:.6}.src.s-out{border-top-style:dashed;opacity:.5}
 .sw-now{position:absolute;top:20px;bottom:0;left:0;width:0;border-left:1.5px solid var(--wax);pointer-events:none;transition:transform .25s ease}
 .sw-l{position:relative;display:flex;flex-direction:column;justify-content:center;gap:1px;padding-right:10px}
 .sw-l b{font-weight:500;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase}
@@ -518,11 +507,6 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
       <g fill="#23312f"><rect x="52.5" y="40" width="3" height="5" rx="1.5"/><rect x="38" y="66" width="2.5" height="3.5"/><rect x="25" y="74" width="2.5" height="3.5"/><rect x="64" y="68" width="2.5" height="3.5"/></g>
       <g fill="#c0603a"><rect x="33" y="60" width="16" height="3"/><rect x="59" y="62" width="15" height="3"/></g>
     </symbol>
-    <symbol id="sym-rock" viewBox="0 0 100 100">
-      <path d="M0 100C10 92 18 60 34 40 46 24 62 8 74 6c6 4 8 24 14 46s10 40 12 48Z" fill="#c9bfa8"/>
-      <path d="M74 6c6 4 8 24 14 46s10 40 12 48H72C76 70 74 30 74 6Z" fill="#a99f86"/>
-      <path d="M24 70c10-6 22-6 30 2" stroke="#8f9a6a" stroke-width="5" fill="none" opacity=".6"/>
-    </symbol>
     <symbol id="sym-atlas" viewBox="0 0 100 100">
       <path d="M0 100L18 58 30 70 50 30 66 56 76 44 100 100Z" fill="#b98a6a"/>
       <path d="M50 30l16 26 10-12 24 56H62C62 70 56 48 50 30Z" fill="#9f7357"/>
@@ -580,10 +564,6 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
       <path d="M27 5.2c1.6-3.4 4.4-5 7.6-5-1.8 1.6-2.6 3.4-2.4 5.6Z" fill="#567a8f"/>
       <path d="M3.4 11.6L-2.4 6.4 1 12.2-2.6 17.4Z" fill="#567a8f"/>
       <circle cx="49.5" cy="9.6" r=".8" fill="#1d2b33"/>
-    </symbol>
-    <symbol id="sym-dolphins" viewBox="0 0 100 50">
-      <g fill="#5c7f93"><path d="M10 34c6-14 22-20 34-14l6-6 0 9c2 2 2 5 0 7-12-6-24-4-34 8Z"/><path d="M48 40c6-12 20-17 30-12l5-5v8c2 2 2 4 0 6-10-5-21-3-29 6Z"/></g>
-      <g stroke="#fbf5e6" stroke-width="1.8" fill="none" stroke-linecap="round"><path d="M4 44q10-4 20 0t20 0"/><path d="M44 47q9-3 18 0t18 0" opacity=".7"/></g>
     </symbol>
     <symbol id="sym-ferry" viewBox="0 0 100 44">
       <path d="M2 28h90l-4 10H12Z" fill="#fbf5e6"/><path d="M2 28h90l-.6 2.6H4.4Z" fill="#2f7f84"/>
@@ -648,9 +628,6 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
       <g><rect x="18" y="14" width="12" height="10" fill="#2f7f84"/><rect x="31" y="14" width="12" height="10" fill="#ee6a39"/><rect x="44" y="14" width="12" height="10" fill="#f3c25a"/><rect x="57" y="14" width="12" height="10" fill="#2f7f84"/><rect x="70" y="14" width="12" height="10" fill="#ecdcb6"/><rect x="31" y="5" width="12" height="9" fill="#f3c25a"/><rect x="57" y="5" width="12" height="9" fill="#ee6a39"/></g>
       <path d="M90 24V8h14v16Z" fill="#fbf5e6"/><rect x="93" y="11" width="8" height="3" fill="#23312f"/>
       <path d="M0 38q15-3 30 0t30 0 30 0 30 0" stroke="#fbf5e6" stroke-width="1.4" fill="none" opacity=".7"/>
-    </symbol>
-    <symbol id="sym-gulls" viewBox="0 0 60 30">
-      <g stroke="#fbf5e6" stroke-width="2" fill="none" stroke-linecap="round"><path d="M4 16q6-8 12 0 6-8 12 0"/><path d="M30 8q5-6 10 0 5-6 10 0"/><path d="M40 22q4-5 8 0 4-5 8 0"/></g>
     </symbol>
     <symbol id="sym-flamingos" viewBox="0 0 60 60">
       <g stroke="#d97a7a" stroke-width="1.4" fill="none"><path d="M18 58V40M24 58l-2-18M42 58V42"/></g>
@@ -795,9 +772,6 @@ document.getElementById("esd").setAttribute("d",GEO.detail);document.getElementB
 const LAND=new Path2D(GEO.coast),hit=document.createElement("canvas").getContext("2d");
 const onLand=(x,y)=>hit.isPointInPath(LAND,x,y,"evenodd");
 for(const id of ["terrain","d-terrain"]){const t=document.getElementById(id),[x,y,w,h]=GEO.box;t.setAttribute("href",GEO.img);t.setAttribute("x",x);t.setAttribute("y",y);t.setAttribute("width",w);t.setAttribute("height",h)}
-function smoothOpen(ll){const p=ll.map(a=>P(...a)),n=p.length,f=v=>v.toFixed(2);let d=`M${f(p[0][0])} ${f(p[0][1])}`;
-  for(let i=0;i<n-1;i++){const p0=p[Math.max(0,i-1)],p1=p[i],p2=p[i+1],p3=p[Math.min(n-1,i+2)];
-    d+=`C${f(p1[0]+(p2[0]-p0[0])/6)} ${f(p1[1]+(p2[1]-p0[1])/6)} ${f(p2[0]-(p3[0]-p1[0])/6)} ${f(p2[1]-(p3[1]-p1[1])/6)} ${f(p2[0])} ${f(p2[1])}`}return d}
 // salt pans in the Bay of Cádiz marshes
 {const g=document.getElementById("salinas");for(let i=0;i<5;i++)for(let j=0;j<3;j++){const [x,y]=P(-6.205+i*.009,36.452-j*.007);el("rect",{x,y,width:.62,height:.5,fill:i%2?"#9fd0c4":"#c9e3d6",stroke:"#f6ecd6","stroke-width":.08},g)}}
 // what grows and stands inland
@@ -965,8 +939,8 @@ const markersEls=SPOTS.map(s=>{const b=document.createElement("button");b.type="
   b.innerHTML=`<span class="dot"></span>`;b.onclick=e=>{e.stopPropagation();requestSpot(s)};document.getElementById("markers").append(b);return{s,e:b}});
 
 /* ---------- forecast data ----------
-   data/meta.json, wind.bin, waves.bin, spots.json are written 4x a day by pipeline/build.py.
-   The timeline runs hourly from 00:00 today (Madrid) to the last hour of the newest run. */
+   data/meta.json, wind.bin, waves.bin, spots.json are written by pipeline/build.py (docs/data-format.md).
+   The timeline runs hourly from 00:00 today (Madrid) to the end of the ECMWF outlook (up to 10 days). */
 const TZ="Europe/Madrid";
 const fmtDay=new Intl.DateTimeFormat("en-GB",{timeZone:TZ,weekday:"short",day:"numeric"});
 const fmtHour=new Intl.DateTimeFormat("en-GB",{timeZone:TZ,hour:"2-digit",hourCycle:"h23"});
@@ -1004,7 +978,7 @@ function field(x,y,t=curT){if(!FC)return{vx:1,vy:0,kn:0,g:0};
   // kn = mean wind (drives the motion), g = gusts (drive the colour)
   const m=Math.hypot(s[0],s[1]),g=Math.max(m,s[2]||0);return m<.05?{vx:1,vy:0,kn:0,g}:{vx:s[0]/m,vy:-s[1]/m,kn:m,g}}
 // Windy's wind colours (their scale in m/s, here in knots): calm blue-violet → blue → teal → greens → olive →
-// brown → wine → magenta → violet. Colour always shows the gusts.
+// brown → wine → magenta → violet. The wash is coloured by the mean wind, the streaks by the gusts.
 const WINDY=[[0,[98,113,183]],[1.9,[57,97,159]],[5.8,[74,148,169]],[9.7,[77,141,123]],[13.6,[83,165,83]],[17.5,[53,159,53]],[21.4,[167,157,81]],
   [25.3,[159,127,58]],[29.2,[161,108,92]],[33,[129,58,78]],[36.9,[175,80,136]],[40.8,[117,74,147]],[46.7,[109,97,163]],[52.5,[68,105,141]],[56.4,[92,144,152]],[70,[125,68,165]]];
 const lerpRamp=(R,v)=>{if(!(v>R[0][0]))return R[0][1];for(let i=0;i<R.length-1;i++){const [a,ca]=R[i],[b,cb]=R[i+1];if(v<=b){const k=(v-a)/(b-a);return ca.map((c,n)=>Math.round(c+(cb[n]-c)*k))}}return R.at(-1)[1]};

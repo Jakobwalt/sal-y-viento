@@ -34,7 +34,7 @@ Steps:
 1. Install → Test (push only).
 2. Build: writes `site/data`, and sets `changed`.
 3. Version the scripts: replaces `?v=dev` in `index.html` with the commit SHA, so browsers load the
-   new `beach.js`, `swell.js` and `probe.js`.
+   new `beach.js`, `swell.js`, `probe.js` and `nav.js`.
 4. Summary: `report.json` in the run summary.
 5. Deploy to Pages, only if `changed` is true. A failed deploy is retried once after 90 s.
 6. Keep alive: GitHub disables scheduled workflows after 60 days without a commit, so after 45 quiet

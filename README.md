@@ -6,9 +6,10 @@ Tarifa. Live at **https://jakobwalt.github.io/sal-y-viento**.
 It has three parts:
 
 - **The map.** An animated map shows wind or waves for any hour of the next ten days, with eight named
-  kite and surf spots.
+  kite and surf spots, each labelled with its wind (or waves) at that hour.
 - **Spot views.** Tap a spot to open hourly wind, wave and tide tables, plus panels with more detail.
-  Tap anywhere else on the map to see the wind and waves at that point.
+  Tap anywhere else on the map to see the wind and waves at that point. Every view has its own
+  link (for example `#valde/sat14/15h`), and the browser's back button steps out of it.
 - **An hourly job.** A GitHub Actions job checks the forecast providers for new model runs. When one
   appears, it downloads it, cuts out this stretch of coast and republishes the site.
 
@@ -18,8 +19,8 @@ files sit next to them and are rebuilt by a Python script.
 ```
  AEMET HARMONIE ──┐
  ECMWF IFS ───────┤   pipeline/build.py      site/data/            site/index.html
- Puertos (waves) ─┼─▶ (GitHub Actions, ──▶   meta.json      ──▶   + beach.js, swell.js, probe.js
- MFWAM (waves) ───┤    hourly check)         spots.json            (static, GitHub Pages)
+ Puertos (waves) ─┼─▶ (GitHub Actions, ──▶   meta.json      ──▶   + beach.js, swell.js, probe.js,
+ MFWAM (waves) ───┤    hourly check)         spots.json              nav.js (static, GitHub Pages)
  SMOC (tide) ─────┘                          wind.bin, waves.bin
 ```
 
@@ -44,6 +45,7 @@ site/                    the website (published as is)
   beach.js               the beach view (Valdevaqueros only)
   swell.js               the "Wave details" and "Wind details" panels
   probe.js               tap anywhere on the map: pin, then a spot view for that place
+  nav.js                 shareable links (#valde/sat14/15h/waves) and the browser's back button
   assets/terrain.jpg     shaded relief under the map
   data/                  written by the pipeline, not in git (see .gitignore)
 pipeline/                Python that fetches the sources and writes site/data

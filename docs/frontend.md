@@ -5,16 +5,17 @@ Plain HTML, CSS and JavaScript, with no framework, no build step and no dependen
 
 | File | Lines | What |
 | --- | --- | --- |
-| `index.html` | ~1,330 | page markup, all CSS, the map, timeline, spot view, data loading |
+| `index.html` | ~1,410 | page markup, all CSS, the map, timeline, spot view, data loading |
 | `beach.js` | ~1,330 | the beach view: a painted, live view along the beach at Valdevaqueros |
 | `swell.js` | ~230 | the "Wave details" and "Wind details" panels |
 | `probe.js` | ~70 | tap anywhere on the map: a pin, then a spot view for that place |
+| `nav.js` | ~70 | the address bar and browser history: shareable links, the back button |
 | `assets/terrain.jpg` | 360 KB | shaded relief drawn under the map |
 
 `index.html` defines everything as top-level globals (`FC`, `curT`, `N`, `selected`, `layer`, `cam`,
-`P`, `tween`, …). The three scripts after it read those globals. Each one keeps its own state inside
+`P`, `tween`, …). The four scripts after it read those globals. Each one keeps its own state inside
 an IIFE and exports a few functions on `window` (`openBeach`, `swellOpen`, `probeAt`, …). The load
-order matters: `index.html`'s inline script, then `beach.js`, `swell.js`, `probe.js`.
+order matters: `index.html`'s inline script, then `beach.js`, `swell.js`, `probe.js`, `nav.js`.
 
 ## What the visitor sees
 
@@ -23,7 +24,14 @@ order matters: `index.html`'s inline script, then `beach.js`, `swell.js`, `probe
   by the gusts. The legend explains both.
 - **Waves layer:** wave height as colour plus drawn wave crests. Toggle the layer top left; the
   choice is remembered in `localStorage` (`syv-layer`).
+- **Spot labels:** each spot marker carries its name and the value at the timeline's hour: mean
+  wind in knots with a direction arrow, or wave height and period on the waves layer. The bar on
+  the label's left edge is the value's colour on the scale. `layoutLabels()` places them so they
+  don't overlap each other, the dots, the town names or the controls (sea side first, then further
+  out with a thin leader line).
 - **Navigation:** pan by dragging, zoom with the wheel, a pinch or the +/− buttons.
+- **Phones:** the legend is a slim bar with the unit beside it (tap it for the title), and
+  "Updated" and "Sources" share one line.
 - **Decorations:** towns, landmarks, trees, a ferry, a cargo ship, gulls, a whale, dolphins and tuna
   are decoration. The flags at landmarks stream with the forecast wind.
 - **Timeline** (bottom):
@@ -41,15 +49,17 @@ spot's palette), and two tables float over it:
 - **Waves:** height, period and direction, plus the tide's high and low water times and a small tide
   curve per day.
 - The first three days are shown. The ECMWF outlook continues below a "ECMWF outlook" label and is
-  hatched.
+  hatched. The tables open with today in view, starting at the top of a whole day.
+- **Phones:** the two tables sit side by side in a sideways scroller. A **Wind | Waves** switch at
+  the top of each table jumps between them (swiping still works).
 - Tapping a day row moves the map and timeline to that day at the same hour.
 - **Wind details** (button in the wind table) and **Wave details** (button in the wave table) each
   expand to the whole spot view and fold the other table into a slim bar; see
   [swell.js](#swelljs-wind-details-and-wave-details).
 - **Beach view ↗** appears under the spot name for spots that have a beach scene (currently only
   Valdevaqueros).
-- **Back** (top left) or Escape returns to the map. The browser's back button leaves the site (the
-  page keeps no history of its own).
+- **Back** (top left), Escape or the browser's back button returns to the map; see
+  [nav.js](#navjs-links-and-the-back-button).
 
 **Tap anywhere on the map** (overview only): a pin with the wind there, or the waves on the wave
 layer, for the timeline's hour. Tapping its card opens a spot view for that place (see
@@ -161,6 +171,29 @@ and a note says so. Exports: `swellOpen()`, `swellClose(instant)`, `swellFill(sp
   These exist only for the named spots, so the weather row and secondary swell are empty, and the
   waves show the combined sea.
 
+## nav.js: links and the back button
+
+The address follows the page, so a view can be shared:
+
+| Address | Opens |
+| --- | --- |
+| `#valde` | a spot (its id from `SPOTS`) |
+| `#valde/beach` | its beach view (ignored for spots without one) |
+| `#@36.034,-5.702` | a place picked on the map (lat, lon); ignored outside the grid |
+| `…/sat14/15h` | that day of the month and hour, Madrid time; the weekday is only for reading. Left out when it is the current hour |
+| `…/waves` | the waves layer; left out for wind |
+
+- **History.** Opening a spot or a beach view by a tap pushes a history entry (`navOpened`,
+  `navBeach`); hour and layer changes only rewrite the current entry (`navNote`, once things settle,
+  never while playing). The ← button and Escape call `navBack()`: if the page added the entry, it
+  goes `history.back()`, otherwise it steps up a level and rewrites the address. So Back never
+  leaves the site from inside a spot.
+- **Following the address.** On load (`navStart`, after the data) and on `popstate`, the wanted view
+  is reached one level at a time by a small loop that waits for each transition (close beach →
+  close spot → open spot → open beach), with a 20 s limit. On load the address also sets the hour
+  and layer; Back and Forward leave the hour where it is.
+- A day that is no longer in the data (an old link) is ignored, and the hour falls back to now.
+
 ## beach.js: the beach view
 
 A full-screen canvas scene looking along the beach, drawn every frame from the forecast at the
@@ -215,6 +248,7 @@ repo that regenerates them. Edit them only if the coverage area changes. The dat
 - Tested on desktop, iPhone, Pixel and iPad sizes (see `tests/ui_smoke.py`), including rotation
   mid-transition.
 - `prefers-reduced-motion` turns off the animations and transitions.
-- Spot markers and all controls are buttons with labels. Escape closes, in order: details, beach
+- Spot markers and all controls are buttons with labels. A marker's label includes the value it
+  shows. Escape closes, in order: details, beach
   view, spot view.
 - iOS page pinch-zoom is suppressed, because the map has its own zoom.

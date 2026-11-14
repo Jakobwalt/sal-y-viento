@@ -58,6 +58,8 @@ function build(){const id="c"+(++n),o={kn:[],gust:[],dir:[],wh:[],wp:[],wd:[],te
 window.probeAt=(sx,sy)=>{if(!FC||selected)return;const [x,y]=toWorld(sx,sy);pw=[x,y];lon=lonOf(x);lat=latOf(y);
   wavePoint();box.hidden=false;place();fill();
   if(!reduce&&box.animate)box.querySelector(".pb-wrap").animate([{opacity:0,transform:"translateY(8px)"},{opacity:1,transform:"none"}],{duration:280,easing:"cubic-bezier(.2,.8,.2,1)"})};
+// a place from a shared link (#@lat,lon): straight to its spot view
+window.probeOpen=(lo,la)=>{if(!FC||selected)return;lon=lo;lat=la;wavePoint();requestSpot(build())};
 window.probeMove=place;
 window.probeFill=fill;
 const hide=()=>{box.hidden=true;pw=null};

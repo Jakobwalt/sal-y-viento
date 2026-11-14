@@ -76,6 +76,17 @@ button,.mk,input{touch-action:manipulation}
 .mk:hover .dot,.mk:focus-visible .dot{transform:scale(1.25)}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(238,106,57,.28)}55%{box-shadow:0 0 0 9px rgba(238,106,57,0)}100%{box-shadow:0 0 0 0 rgba(238,106,57,0)}}
 @media (prefers-reduced-motion:reduce){.mk .dot{animation:none}}
+/* each marker carries its name and the wind (or waves) at the timeline hour; placed by layoutLabels() so they don't overlap */
+.mk .lab{position:absolute;left:0;top:0;display:grid;gap:1px;padding:3px 7px 4px 8px;white-space:nowrap;text-align:left;color:var(--ink);background:rgba(251,245,230,.8);
+  backdrop-filter:blur(8px) saturate(1.2);-webkit-backdrop-filter:blur(8px) saturate(1.2);border-radius:0 3px 3px 0;box-shadow:inset 3px 0 0 var(--lc,var(--ink)),0 6px 16px -10px rgba(20,40,40,.6)}
+.lb-n{font-family:var(--f-mono);font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;opacity:.75}
+.lb-v{display:flex;align-items:baseline;gap:3px;line-height:1}
+.lb-v b{font-family:var(--f-display);font-weight:400;font-size:1.05rem}
+.lb-v small{font-family:var(--f-mono);font-size:.55rem;opacity:.7}
+.lb-v svg{width:10px;height:10px;align-self:center;margin-left:2px;opacity:.8}
+.mk .ld{position:absolute;left:0;top:0;height:1px;background:rgba(35,49,47,.55);transform-origin:0 50%;pointer-events:none}
+.mk:hover .lab,.mk:focus-visible .lab{background:rgba(251,245,230,.95)}
+@media (max-width:760px){.mk .lab{padding:2px 6px 3px 7px;gap:0}.lb-n{font-size:.44rem;letter-spacing:.1em}.lb-v b{font-size:.92rem}.lb-v small{font-size:.5rem}.lb-v svg{width:9px;height:9px}}
 
 /* controls */
 .ui{position:fixed;z-index:6}
@@ -114,6 +125,20 @@ button,.mk,input{touch-action:manipulation}
 .lg-tk b{font-weight:400;text-align:center}
 
 
+.metarow{display:contents}
+.lg-u{display:none}
+@media (max-width:760px){
+  /* phones: a slim legend (unit beside the bar, tap for the title) and "Updated · Sources" on one line */
+  .lgc{grid-template-columns:auto minmax(0,1fr);column-gap:7px;row-gap:2px;padding:5px 8px 3px;width:min(210px,calc(100vw - 120px));cursor:pointer}
+  .lgc .lg-h{display:none;grid-column:1/-1}
+  .lgc.open .lg-h{display:flex}
+  .lg-u{display:block;grid-row:span 2;align-self:center;font-family:var(--f-mono);font-size:.56rem;letter-spacing:.08em;opacity:.8}
+  .lgc.open .lg-u{display:none}
+  .lgc.open .lg-bar,.lgc.open .lg-tk{grid-column:1/-1}
+  .lg-bar{height:5px}
+  .metarow{display:flex;gap:10px;align-items:baseline}
+  .metarow .sample{font-size:.58rem}
+}
 .legend .ramp{width:110px;height:6px;border-radius:3px;margin:0;background:linear-gradient(90deg,#215f68,#3f9896,#78c4af,#f3c25a,#ee6a39)}
 .sample{font-family:var(--f-mono);font-size:.64rem;color:var(--foam);opacity:.85;text-transform:uppercase;letter-spacing:.08em}
 .zoomers{bottom:calc(env(safe-area-inset-bottom,0px) + 84px);right:max(18px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:6px;transition:opacity .3s}
@@ -275,7 +300,7 @@ body.dive.ready:not(.beach) #info .fc{pointer-events:auto}
   .tl-chip{bottom:calc(100% + 30px)}
   body.dive .tl-chip{display:none}
 }
-@media (max-width:760px){.rows{grid-template-columns:minmax(0,1fr)}#info{padding-top:60px}.lgc{width:min(232px,calc(100vw - 120px));padding:7px 9px 5px;gap:4px}.lg-h em{display:none}.lg-tk{font-size:.54rem}}
+@media (max-width:760px){.rows{grid-template-columns:minmax(0,1fr)}#info{padding-top:60px}.lg-h em{display:none}.lg-tk{font-size:.54rem}}
 @media (prefers-reduced-motion:reduce){#info,.back{transition:opacity .2s}}
 /* short, wide screens (phones held sideways): smaller title beside the back button, slimmer panels */
 @media (max-height:520px){
@@ -295,6 +320,16 @@ body.dive.ready:not(.beach) #info .fc{pointer-events:auto}
 }
 /* beach view */
 .rhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+/* phones: the wind and wave tables sit side by side in a sideways scroller; this switch says so and jumps between them */
+.fcsw{display:none}
+@media (max-width:760px){
+  body:not(.swell) #info .fcsw{display:flex;margin:0;padding:2px;align-self:center;background:rgba(251,245,230,.16);box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+  body:not(.swell) .fcsw button{color:var(--foam);padding:4px 9px;font-size:.56rem;letter-spacing:.12em}
+  body:not(.swell) .fcsw button small{font-size:.5rem;margin-left:3px}
+  body:not(.swell) .fcsw button[aria-pressed="true"]{background:var(--foam);color:var(--ink)}
+  body:not(.swell) #i-klab,body:not(.swell) #i-wlab{display:none}
+  body:not(.swell) .blk>.rhead{align-items:center;margin-bottom:6px}
+}
 .bv{background:none;border:0;border-bottom:1px solid rgba(251,245,230,.35);padding:3px 0;color:var(--foam);cursor:pointer;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;opacity:.7;transition:opacity .2s}
 .bv:hover{opacity:1}.bv[hidden]{display:none}
 /* wave details: the waves panel takes the page, the wind table folds into a bar */
@@ -713,10 +748,10 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
     <button id="l-wind" type="button" aria-pressed="true">Wind</button>
     <button id="l-wave" type="button" aria-pressed="false">Waves</button>
   </div>
-  <div class="legend lgc" id="lg-wind" role="img" aria-label="Wind colour scale in knots: the map colour is the mean wind, the streaks show the gusts"><span class="lg-h"><b>Wind · knots</b><em>colour = wind, streaks = gusts</em></span><span class="lg-bar" id="pill-wind"></span><span class="lg-tk"><b>0</b><b>5</b><b>10</b><b>20</b><b>30</b><b>40</b><b>60</b></span></div>
-  <div class="legend lgc" id="lg-wave" role="img" aria-label="Wave height colour scale in metres" hidden><span class="lg-h"><b>Waves · metres</b><em>height of the sea</em></span><span class="lg-bar" id="pill-wave"></span><span class="lg-tk"><b>0</b><b>0.5</b><b>1</b><b>1.5</b><b>2</b><b>3</b><b>5</b></span></div>
-  <div class="sample" id="status" aria-live="polite"></div>
-  <button class="srcbtn" id="srcbtn" type="button" aria-expanded="false" aria-controls="srcpanel">Sources</button>
+  <div class="legend lgc" id="lg-wind" role="img" aria-label="Wind colour scale in knots: the map colour is the mean wind, the streaks show the gusts"><span class="lg-h"><b>Wind · knots</b><em>colour = wind, streaks = gusts</em></span><small class="lg-u">kn</small><span class="lg-bar" id="pill-wind"></span><span class="lg-tk"><b>0</b><b>5</b><b>10</b><b>20</b><b>30</b><b>40</b><b>60</b></span></div>
+  <div class="legend lgc" id="lg-wave" role="img" aria-label="Wave height colour scale in metres" hidden><span class="lg-h"><b>Waves · metres</b><em>height of the sea</em></span><small class="lg-u">m</small><span class="lg-bar" id="pill-wave"></span><span class="lg-tk"><b>0</b><b>0.5</b><b>1</b><b>1.5</b><b>2</b><b>3</b><b>5</b></span></div>
+  <div class="metarow"><div class="sample" id="status" aria-live="polite"></div>
+  <button class="srcbtn" id="srcbtn" type="button" aria-expanded="false" aria-controls="srcpanel">Sources</button></div>
   <div class="srcpanel" id="srcpanel" hidden>
     <h3>Where the forecast comes from</h3>
     <dl>
@@ -751,8 +786,8 @@ body.beach-on #beach-fc{opacity:1;transform:none;pointer-events:auto}
 <section id="info" aria-live="polite" aria-hidden="true">
   <div class="ihead" id="i-head"><h2 id="i-name">Spot</h2><p class="isub" id="i-sub" hidden></p><button class="bv bvb" id="i-beach" type="button" hidden>Beach view <span aria-hidden="true">↗</span></button></div>
   <div class="fc">
-    <div class="blk" id="b-wind"><div class="rlab rhead"><span id="i-klab">Wind · knots</span><button class="bv" id="i-wdet" type="button" aria-expanded="false">Wind details <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wind"></div><div class="tbl" id="i-wind"></div><button class="wmini" id="i-wmini" type="button" tabindex="-1"></button><div class="sw" id="wx" hidden></div></div>
-    <div class="blk" id="b-wave"><div class="rlab rhead"><span id="i-wlab">Waves · metres · period · tide</span><button class="bv" id="i-swell" type="button" aria-expanded="false">Wave details <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wave"></div><div class="tbl" id="i-wave"></div><div class="sw" id="sw" hidden></div><button class="wmini" id="i-vmini" type="button" tabindex="-1"></button></div>
+    <div class="blk" id="b-wind"><div class="rlab rhead"><span class="fcsw toggle small" role="group" aria-label="Forecast table"><button type="button" aria-pressed="true" data-go="b-wind">Wind <small>kn</small></button><button type="button" aria-pressed="false" data-go="b-wave">Waves <small>m</small></button></span><span id="i-klab">Wind · knots</span><button class="bv" id="i-wdet" type="button" aria-expanded="false">Wind details <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wind"></div><div class="tbl" id="i-wind"></div><button class="wmini" id="i-wmini" type="button" tabindex="-1"></button><div class="sw" id="wx" hidden></div></div>
+    <div class="blk" id="b-wave"><div class="rlab rhead"><span class="fcsw toggle small" role="group" aria-label="Forecast table"><button type="button" aria-pressed="false" data-go="b-wind">Wind <small>kn</small></button><button type="button" aria-pressed="true" data-go="b-wave">Waves <small>m</small></button></span><span id="i-wlab">Waves · metres · period · tide</span><button class="bv" id="i-swell" type="button" aria-expanded="false">Wave details <span aria-hidden="true">↗</span></button></div><div class="hdr" id="h-wave"></div><div class="tbl" id="i-wave"></div><div class="sw" id="sw" hidden></div><button class="wmini" id="i-vmini" type="button" tabindex="-1"></button></div>
   </div>
 </section>
 
@@ -926,6 +961,7 @@ function applyCam(){
   markersEls.forEach(({s,e})=>{const [x,y]=toScreen(...P(s.lon,s.lat));e.style.transform=`translate(${x}px,${y}px)`});
   const showMinor=cam.z>fitZ*1.15||W>1100;
   signs.forEach(o=>{const [x,y]=toScreen(...o.w);o.d.style.transform=`translate(${x}px,${y}px) translateY(-50%)`;o.d.hidden=!o.maj&&!showMinor});
+  if(!selected)layoutLabels();
   window.probeMove&&probeMove();whaleCheck();if(parts.length&&Math.abs(Math.log(cam.z/partZ))>.3){partZ=cam.z;for(const p of parts)spawn(p)}const key=cam.x.toFixed(3)+cam.y.toFixed(3)+cam.z.toFixed(3);if(key!==lastCam){lastCam=key;ctx.clearRect(0,0,W,H);drawHeat();if(reduce)drawStatic()}}
 const ease=k=>k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
 let anim=null;
@@ -935,8 +971,45 @@ function flyTo(t,ms=950,done,arc=true){const s={...cam},lz0=Math.log(s.z),lz1=Ma
   tween(ms,e=>{cam.x=s.x+(t.x-s.x)*e;cam.y=s.y+(t.y-s.y)*e;cam.z=Math.exp(lz0+(lz1-lz0)*e-(arc?0.35*Math.sin(Math.PI*e):0));applyCam()},done)}
 
 /* ---------- markers ---------- */
-const markersEls=SPOTS.map(s=>{const b=document.createElement("button");b.type="button";b.className="mk";b.id="mk-"+s.id;b.setAttribute("aria-label",s.name);b.title=s.name;
-  b.innerHTML=`<span class="dot"></span>`;b.onclick=e=>{e.stopPropagation();requestSpot(s)};document.getElementById("markers").append(b);return{s,e:b}});
+const markersEls=SPOTS.map(s=>{const b=document.createElement("button");b.type="button";b.className="mk";b.id="mk-"+s.id;b.setAttribute("aria-label",s.name);
+  b.innerHTML=`<span class="ld" hidden></span><span class="dot"></span><span class="lab"><span class="lb-n">${s.name}</span><span class="lb-v"></span></span>`;
+  b.onclick=e=>{e.stopPropagation();requestSpot(s)};document.getElementById("markers").append(b);
+  return{s,e:b,lab:b.querySelector(".lab"),val:b.querySelector(".lb-v"),ld:b.querySelector(".ld"),w:0,h:0}});
+// the value on each label: mean wind and direction, or wave height and period on the waves map
+function markLabels(){const T=Math.round(curT);uiBoxes=null;
+  for(const m of markersEls){const o=FC&&FC.spots[m.s.id];let html="",col="";
+    if(o&&layer==="waves"&&o.wh[T]!=null){html=`<b>${o.wh[T].toFixed(1)}</b><small>m</small>${o.wp[T]!=null?`<small>· ${Math.round(o.wp[T])}s</small>`:""}`;col=waveCol(o.wh[T])}
+    else if(o&&layer!=="waves"&&o.kn[T]!=null){html=`<b>${o.kn[T]}</b><small>kn</small>${o.dir[T]!=null?arrow(o.dir[T]):""}`;col=barCol(o.kn[T])}
+    else html=`<small>–</small>`;
+    if(m.html!==html){m.val.innerHTML=html;m.html=html;m.w=0}
+    m.lab.style.setProperty("--lc",col||"var(--ink)");
+    m.e.setAttribute("aria-label",m.s.name+(o&&html!=="<small>–</small>"?", "+m.val.textContent.replace("·",""):""))}
+  layoutLabels()}
+/* Places the labels around their dots without overlapping each other, the dots or the town names.
+   Each spot tries the sea side first (west on the Atlantic coast, south on the Strait), then further out with a leader line. */
+const SEA={sancti:"w",palmar:"w",canos:"w"};
+let uiBoxes=null,uiKey="";
+function layoutLabels(){const taken=[],R=9,key=W+"x"+H;
+  // the controls, zoom buttons and timeline (measured once per screen size)
+  if(key!==uiKey||!uiBoxes){uiKey=key;uiBoxes=[".ctrl .toggle",".ctrl .lgc:not([hidden])","#status",".zoomers","#tl"].map(q=>document.querySelector(q)).filter(Boolean)
+    .map(e=>e.getBoundingClientRect()).filter(r=>r.width).map(r=>[r.left-6,r.top-6,r.right+6,r.bottom+6])}
+  taken.push(...uiBoxes);
+  for(const m of markersEls){const [x,y]=toScreen(...P(m.s.lon,m.s.lat));m.x=x;m.y=y;taken.push([x-R,y-R,x+R,y+R])}
+  for(const o of signs){if(o.d.hidden)continue;if(!o.wd){o.wd=o.d.offsetWidth;o.hd=o.d.offsetHeight}const [x,y]=toScreen(...o.w);taken.push([x-4,y-o.hd/2,x+o.wd,y+o.hd/2])}
+  const hit=a=>a[0]<6||a[1]<6||a[2]>W-6||a[3]>H-6||taken.some(b=>a[0]<b[2]&&a[2]>b[0]&&a[1]<b[3]&&a[3]>b[1]);
+  // from Tarifa westwards: the crowded spots get the first choice
+  for(const m of [...markersEls].sort((a,b)=>b.s.lon-a.s.lon)){if(!m.w){m.w=m.lab.offsetWidth;m.h=m.lab.offsetHeight}const w=m.w,h=m.h;
+    const L=[-12-w,-h/2],Rt=[12,-h/2],Dn=[-w/2,12],Up=[-w/2,-12-h],DL=[-8-w,6],DR=[8,6],UL=[-8-w,-6-h],UR=[8,-6-h];
+    const near=SEA[m.s.id]?[L,UL,DL,Rt,Dn,Up,UR,DR]:[DL,Dn,DR,L,Rt,UL,UR,Up];
+    let pick=null,far=false;
+    for(const k of [0,1,2]){for(const [dx,dy] of near){const ox=dx+Math.sign(dx+w/2)*k*16,oy=dy+Math.sign(dy+h/2)*k*16;
+        const r=[m.x+ox,m.y+oy,m.x+ox+w,m.y+oy+h];if(!hit(r)){pick=[ox,oy];far=k>0;break}}if(pick)break}
+    if(!pick){pick=near[0];far=false}
+    taken.push([m.x+pick[0],m.y+pick[1],m.x+pick[0]+w,m.y+pick[1]+h]);
+    m.lab.style.transform=`translate(${(pick[0]+11).toFixed(1)}px,${(pick[1]+11).toFixed(1)}px)`;
+    // leader line from the dot's edge to the nearest point of the label
+    m.ld.hidden=!far;if(far){const cx=Math.max(pick[0],Math.min(pick[0]+w,0)),cy=Math.max(pick[1],Math.min(pick[1]+h,0)),len=Math.hypot(cx,cy);
+      m.ld.style.width=Math.max(0,len-7)+"px";m.ld.style.transform=`translate(11px,11px) rotate(${Math.atan2(cy,cx)}rad) translateX(7px)`}}}
 
 /* ---------- forecast data ----------
    data/meta.json, wind.bin, waves.bin, spots.json are written by pipeline/build.py (docs/data-format.md).
@@ -1133,8 +1206,14 @@ function fillInfo(s){const day=Math.min(NDAYS-1,Math.floor(curT/24)),hr=Math.rou
   for(const [k,t] of [[0,tw],[1,tv]]){const r=[...t.querySelectorAll(".row")].slice(0,3);
     const h3=r.reduce((a,e)=>a+e.offsetHeight,0)+14;const nr=t.querySelector(".row.now")||r[0],one=nr?nr.offsetHeight+16:0;   // always at least one full day
     t.style.maxHeight=Math.max(one,Math.min(h3,innerHeight*(innerHeight<520?.24:innerWidth<760?.4:.46)))+"px";
-    if(key!==infoKey){const n=t.querySelector(".row.now");t.scrollTop=n?Math.max(0,n.offsetTop-t.offsetTop+n.offsetHeight-t.clientHeight+16):0}else t.scrollTop=keep[k]}
+    // today's row in view, starting at the top of a whole day (never half a row cut off at the top)
+    if(key!==infoKey){const n=t.querySelector(".row.now");let y=0;
+      if(n){const want=n.offsetTop-t.offsetTop+n.offsetHeight-t.clientHeight+16;y=Math.max(0,Math.min(n.offsetTop-t.offsetTop,...[...t.querySelectorAll(".row")].map(e=>e.offsetTop-t.offsetTop).filter(v=>v>=want-1)))}
+      t.scrollTop=y}else t.scrollTop=keep[k]}
   infoKey=key;window.swellFill&&swellFill(s)}
+// phones: the Wind / Waves switch scrolls the side-by-side tables to the one asked for
+document.querySelectorAll(".fcsw button").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();const fc=document.querySelector("#info .fc"),k=document.getElementById(b.dataset.go);
+  fc.scrollTo({left:k.offsetLeft-(fc.clientWidth-k.offsetWidth)/2,behavior:reduce?"auto":"smooth"})}));
 // a day row takes the map (and the timeline) to that day, same hour
 document.getElementById("info").addEventListener("click",e=>{const r=e.target.closest(".row[data-day]");if(!r||!selected)return;
   const d=+r.dataset.day,h=Math.round(curT)%24;setPlaying(false);setTime(Math.min(N-1,d*24+h))});
@@ -1172,7 +1251,7 @@ function requestSpot(s){cancelAnimationFrame(spotLoop);const t0=performance.now(
   const loop=()=>{if(selected===s)return;
     const free=!selected&&!(diving&&performance.now()-divingSince<6000)&&!(window.beachOpen&&beachOpen());
     if(free){openSpot(s);return}if(performance.now()-t0<9000)spotLoop=requestAnimationFrame(loop)};loop()}
-function openSpot(s){if(selected||(diving&&performance.now()-divingSince<6000))return;diving=true;divingSince=performance.now();selected=s;buildDetail(s);fillInfo(s);
+function openSpot(s){if(selected||(diving&&performance.now()-divingSince<6000))return;diving=true;divingSince=performance.now();selected=s;buildDetail(s);fillInfo(s);window.navOpened&&navOpened();
   document.body.classList.add("dive");document.getElementById("signs").style.opacity=.0;document.getElementById("markers").style.opacity=0;document.getElementById("markers").style.pointerEvents="none";
   const [x,y]=P(s.lon,s.lat),z1=Math.max(fitZ*3.2,cam.z),narrow=W<=760,zD=narrow?Math.min(fitZ*10.5,H*.15/Math.max(.5,Math.hypot(x-P(...s.fc)[0],y-P(...s.fc)[1]))):fitZ*10.5;
   const ty=(narrow?(y+P(...s.fc)[1])/2:Math.max(y,P(...s.fc)[1]))+(H/2-H*(narrow?.2:.43))/zD,tx=narrow?x:Math.min(x,P(...s.fc)[0])+W*.04/zD;
@@ -1183,7 +1262,7 @@ function openSpot(s){if(selected||(diving&&performance.now()-divingSince<6000))r
 function closeSpot(){if(!selected||(diving&&performance.now()-divingSince<6000))return;window.swellClose&&swellClose(true);diving=true;divingSince=performance.now();const s=selected;document.body.classList.remove("ready");document.getElementById("info").setAttribute("aria-hidden","true");
   const s0={...cam},[x,y]=P(s.lon,s.lat),z1=fitZ*3.2,R=Math.hypot(W,H);
   tween(800,(e,k)=>{cam.x=s0.x+(x-s0.x)*e;cam.y=s0.y+(y-s0.y)*e;cam.z=Math.exp(Math.log(s0.z)+(Math.log(z1)-Math.log(s0.z))*e);applyCam();setReveal(R*Math.pow(1-k,1.4),3*Math.sin(Math.PI*k)*k)},
-    ()=>{setReveal(0,0);selected=null;document.body.classList.remove("dive");
+    ()=>{setReveal(0,0);selected=null;markLabels();document.body.classList.remove("dive");
       for(const id of ["signs","markers"]){const n=document.getElementById(id);n.style.opacity=1;n.style.pointerEvents=""}
       flyTo(fit(),850,()=>{diving=false;document.getElementById("mk-"+s.id)?.focus({preventScroll:true})})})}
 // Back: if a transition is still running, wait for it and then go back (instead of ignoring the tap)
@@ -1195,9 +1274,11 @@ function goBack(){cancelAnimationFrame(backLoop);const t0=performance.now();
     if(diving&&performance.now()-divingSince<6000)return false;
     closeSpot();return true};
   const loop=()=>{if(attempt()||performance.now()-t0>9000)return;backLoop=requestAnimationFrame(loop)};loop()}
-document.getElementById("back").onclick=goBack;
-document.getElementById("i-beach").onclick=()=>window.openBeach&&openBeach();
-addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(window.swellOpen&&swellOpen()&&!(window.beachOpen&&beachOpen())){swellClose();return}goBack()});
+// Back goes through nav.js, so the address and the browser history follow
+const userBack=()=>window.navBack?navBack():goBack();
+document.getElementById("back").onclick=userBack;
+document.getElementById("i-beach").onclick=()=>{if(!window.openBeach)return;openBeach();window.navBeach&&navBeach()};
+addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(window.swellOpen&&swellOpen()&&!(window.beachOpen&&beachOpen())){swellClose();return}userBack()});
 
 /* ---------- timeline ---------- */
 const tlRange=document.getElementById("tl-range"),tlPlay=document.getElementById("tl-play");
@@ -1229,7 +1310,7 @@ function onTime(){const p=pct(curT);document.getElementById("tl-thumb").style.le
   document.getElementById("tl-chip").textContent=`${dayName(d)} · ${hh}:00${isEc(h)?" · ECMWF":""}`;
   document.querySelectorAll(".tl-day").forEach((e,i)=>e.classList.toggle("on",i===d));
   if(Math.abs(curT-waveT)>=0.25){buildWaves();drawHeat()}
-  if(h!==lastHour){lastHour=h;if(selected)fillInfo(selected);if(reduce)drawStatic()}
+  if(h!==lastHour){lastHour=h;if(selected)fillInfo(selected);else markLabels();if(reduce)drawStatic();window.navNote&&navNote()}
   window.beachTime&&beachTime();window.probeFill&&probeFill()}
 function setTime(v){curT=Math.max(0,Math.min(N-1,v));if(curT>VE+.01&&!wide)setWide(true);onTime()}
 function setPlaying(p){playing=p;tlPlay.innerHTML=p?PAUSE:PLAY;tlPlay.setAttribute("aria-pressed",p);tlPlay.setAttribute("aria-label",p?"Pause forecast":"Play forecast");lastFrame=performance.now()}
@@ -1250,10 +1331,11 @@ function clock(now){const dt=Math.min(.1,(now-lastFrame)/1000);sailBoats(dt);if(
 
 /* ---------- toggles ---------- */
 function setLayer(l){layer=l;document.getElementById("l-wind").setAttribute("aria-pressed",l==="wind");document.getElementById("l-wave").setAttribute("aria-pressed",l==="waves");
-  document.getElementById("lg-wind").hidden=l!=="wind";document.getElementById("lg-wave").hidden=l!=="waves";try{localStorage.setItem("syv-layer",l)}catch(e){};resetParts();drawHeat();if(reduce)drawStatic();window.probeFill&&probeFill()}
+  document.getElementById("lg-wind").hidden=l!=="wind";document.getElementById("lg-wave").hidden=l!=="waves";try{localStorage.setItem("syv-layer",l)}catch(e){};markLabels();window.navNote&&navNote();resetParts();drawHeat();if(reduce)drawStatic();window.probeFill&&probeFill()}
 document.getElementById("l-wind").onclick=()=>setLayer("wind");document.getElementById("l-wave").onclick=()=>setLayer("waves");
 try{if(localStorage.getItem("syv-layer")==="waves")layer="waves"}catch(e){}
 
+for(const id of ["lg-wind","lg-wave"])document.getElementById(id).addEventListener("click",e=>{e.currentTarget.classList.toggle("open");uiBoxes=null;layoutLabels()});
 /* ---------- sources ---------- */
 {const b=document.getElementById("srcbtn"),pn=document.getElementById("srcpanel");
   const show=v=>{pn.hidden=!v;b.setAttribute("aria-expanded",v)};
@@ -1315,13 +1397,15 @@ loadForecast().then(()=>{VE=viewEnd();buildTimeline();lastHour=-1;waveT=-9;setTi
       document.getElementById("src-ecmwf").textContent=[up?`Updated ${st(up)}`:"",src.ecmwf.outlook_from?`takes over from AEMET at ${st(src.ecmwf.outlook_from)}`:""].filter(Boolean).join(" · ")}
     if(src.waves){const w=src.waves;document.getElementById("src-waves").textContent=[w.run?`Run of ${st(w.run)}`:"",
       w.outlook_from?`Météo-France MFWAM outlook from ${st(w.outlook_from)}${w.outlook_fetched?` (updated ${st(w.outlook_fetched)})`:""}`:""].filter(Boolean).join(" · ")}
-    if(src.tide&&src.tide.fetched)document.getElementById("src-tide").textContent=`Updated ${st(src.tide.fetched)}`;if(selected)fillInfo(selected)})
+    if(src.tide&&src.tide.fetched)document.getElementById("src-tide").textContent=`Updated ${st(src.tide.fetched)}`;if(selected)fillInfo(selected);
+    window.navStart&&navStart()})
   .catch(e=>{console.warn("forecast",e);status.textContent="Forecast unavailable, try again later"});
 if(!reduce)requestAnimationFrame(tick);
 </script>
 <script src="beach.js?v=dev"></script>
 <script src="swell.js?v=dev"></script>
 <script src="probe.js?v=dev"></script>
+<script src="nav.js?v=dev"></script>
 
 </body>
 </html>

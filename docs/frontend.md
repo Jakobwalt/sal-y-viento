@@ -24,11 +24,11 @@ order matters: `index.html`'s inline script, then `beach.js`, `swell.js`, `probe
   by the gusts. The legend explains both.
 - **Waves layer:** wave height as colour plus drawn wave crests. Toggle the layer top left; the
   choice is remembered in `localStorage` (`syv-layer`).
-- **Spot labels:** each spot marker carries its name and the value at the timeline's hour: mean
-  wind in knots with a direction arrow, or wave height and period on the waves layer. The bar on
-  the label's left edge is the value's colour on the scale. `layoutLabels()` places them so they
-  don't overlap each other, the dots, the town names or the controls (sea side first, then further
-  out with a thin leader line).
+- **Spot labels:** each spot marker carries a small label with the value at the timeline's hour
+  (`markLabels()`): mean wind in knots with a direction arrow, or wave height and period on the
+  waves layer. No spot name; the name is in the marker's tooltip and accessible label. The label
+  sits at a fixed place below and left of the dot (CSS only, `.mk .lab`), and the bar on its left
+  edge is the value's colour on the scale. Near Tarifa the labels can touch at the widest zoom.
 - **Navigation:** pan by dragging, zoom with the wheel, a pinch or the +/− buttons.
 - **Phones:** the legend is a slim bar with the unit beside it (tap it for the title), and
   "Updated" and "Sources" share one line.

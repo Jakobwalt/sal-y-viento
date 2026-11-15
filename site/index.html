@@ -76,17 +76,15 @@ button,.mk,input{touch-action:manipulation}
 .mk:hover .dot,.mk:focus-visible .dot{transform:scale(1.25)}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(238,106,57,.28)}55%{box-shadow:0 0 0 9px rgba(238,106,57,0)}100%{box-shadow:0 0 0 0 rgba(238,106,57,0)}}
 @media (prefers-reduced-motion:reduce){.mk .dot{animation:none}}
-/* each marker carries its name and the wind (or waves) at the timeline hour; placed by layoutLabels() so they don't overlap */
-.mk .lab{position:absolute;left:0;top:0;display:grid;gap:1px;padding:3px 7px 4px 8px;white-space:nowrap;text-align:left;color:var(--ink);background:rgba(251,245,230,.8);
-  backdrop-filter:blur(8px) saturate(1.2);-webkit-backdrop-filter:blur(8px) saturate(1.2);border-radius:0 3px 3px 0;box-shadow:inset 3px 0 0 var(--lc,var(--ink)),0 6px 16px -10px rgba(20,40,40,.6)}
-.lb-n{font-family:var(--f-mono);font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;opacity:.75}
-.lb-v{display:flex;align-items:baseline;gap:3px;line-height:1}
-.lb-v b{font-family:var(--f-display);font-weight:400;font-size:1.05rem}
-.lb-v small{font-family:var(--f-mono);font-size:.55rem;opacity:.7}
-.lb-v svg{width:10px;height:10px;align-self:center;margin-left:2px;opacity:.8}
-.mk .ld{position:absolute;left:0;top:0;height:1px;background:rgba(35,49,47,.55);transform-origin:0 50%;pointer-events:none}
+/* each marker carries the wind (or waves) at the timeline hour, fixed below and left of its dot */
+.mk .dot{z-index:1}
+.mk .lab{position:absolute;right:14px;top:17px;display:flex;align-items:baseline;gap:2px;padding:1px 5px 2px 6px;white-space:nowrap;line-height:1;color:var(--ink);background:rgba(251,245,230,.8);
+  backdrop-filter:blur(6px) saturate(1.2);-webkit-backdrop-filter:blur(6px) saturate(1.2);border-radius:0 2px 2px 0;box-shadow:inset 2px 0 0 var(--lc,var(--ink)),0 4px 10px -7px rgba(20,40,40,.6);pointer-events:none}
+.mk .lab b{font-family:var(--f-display);font-weight:400;font-size:.8rem}
+.mk .lab small{font-family:var(--f-mono);font-size:.46rem;opacity:.7}
+.mk .lab svg{width:8px;height:8px;align-self:center;margin-left:1px;opacity:.8}
 .mk:hover .lab,.mk:focus-visible .lab{background:rgba(251,245,230,.95)}
-@media (max-width:760px){.mk .lab{padding:2px 6px 3px 7px;gap:0}.lb-n{font-size:.44rem;letter-spacing:.1em}.lb-v b{font-size:.92rem}.lb-v small{font-size:.5rem}.lb-v svg{width:9px;height:9px}}
+@media (max-width:760px){.mk .lab b{font-size:.74rem}.mk .lab small{font-size:.42rem}}
 
 /* controls */
 .ui{position:fixed;z-index:6}
@@ -961,7 +959,6 @@ function applyCam(){
   markersEls.forEach(({s,e})=>{const [x,y]=toScreen(...P(s.lon,s.lat));e.style.transform=`translate(${x}px,${y}px)`});
   const showMinor=cam.z>fitZ*1.15||W>1100;
   signs.forEach(o=>{const [x,y]=toScreen(...o.w);o.d.style.transform=`translate(${x}px,${y}px) translateY(-50%)`;o.d.hidden=!o.maj&&!showMinor});
-  if(!selected)layoutLabels();
   window.probeMove&&probeMove();whaleCheck();if(parts.length&&Math.abs(Math.log(cam.z/partZ))>.3){partZ=cam.z;for(const p of parts)spawn(p)}const key=cam.x.toFixed(3)+cam.y.toFixed(3)+cam.z.toFixed(3);if(key!==lastCam){lastCam=key;ctx.clearRect(0,0,W,H);drawHeat();if(reduce)drawStatic()}}
 const ease=k=>k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
 let anim=null;
@@ -971,45 +968,19 @@ function flyTo(t,ms=950,done,arc=true){const s={...cam},lz0=Math.log(s.z),lz1=Ma
   tween(ms,e=>{cam.x=s.x+(t.x-s.x)*e;cam.y=s.y+(t.y-s.y)*e;cam.z=Math.exp(lz0+(lz1-lz0)*e-(arc?0.35*Math.sin(Math.PI*e):0));applyCam()},done)}
 
 /* ---------- markers ---------- */
-const markersEls=SPOTS.map(s=>{const b=document.createElement("button");b.type="button";b.className="mk";b.id="mk-"+s.id;b.setAttribute("aria-label",s.name);
-  b.innerHTML=`<span class="ld" hidden></span><span class="dot"></span><span class="lab"><span class="lb-n">${s.name}</span><span class="lb-v"></span></span>`;
+const markersEls=SPOTS.map(s=>{const b=document.createElement("button");b.type="button";b.className="mk";b.id="mk-"+s.id;b.title=s.name;b.setAttribute("aria-label",s.name);
+  b.innerHTML=`<span class="dot"></span><span class="lab"></span>`;
   b.onclick=e=>{e.stopPropagation();requestSpot(s)};document.getElementById("markers").append(b);
-  return{s,e:b,lab:b.querySelector(".lab"),val:b.querySelector(".lb-v"),ld:b.querySelector(".ld"),w:0,h:0}});
+  return{s,e:b,lab:b.querySelector(".lab")}});
 // the value on each label: mean wind and direction, or wave height and period on the waves map
-function markLabels(){const T=Math.round(curT);uiBoxes=null;
+function markLabels(){const T=Math.round(curT);
   for(const m of markersEls){const o=FC&&FC.spots[m.s.id];let html="",col="";
     if(o&&layer==="waves"&&o.wh[T]!=null){html=`<b>${o.wh[T].toFixed(1)}</b><small>m</small>${o.wp[T]!=null?`<small>· ${Math.round(o.wp[T])}s</small>`:""}`;col=waveCol(o.wh[T])}
     else if(o&&layer!=="waves"&&o.kn[T]!=null){html=`<b>${o.kn[T]}</b><small>kn</small>${o.dir[T]!=null?arrow(o.dir[T]):""}`;col=barCol(o.kn[T])}
     else html=`<small>–</small>`;
-    if(m.html!==html){m.val.innerHTML=html;m.html=html;m.w=0}
+    if(m.html!==html){m.lab.innerHTML=html;m.html=html}
     m.lab.style.setProperty("--lc",col||"var(--ink)");
-    m.e.setAttribute("aria-label",m.s.name+(o&&html!=="<small>–</small>"?", "+m.val.textContent.replace("·",""):""))}
-  layoutLabels()}
-/* Places the labels around their dots without overlapping each other, the dots or the town names.
-   Each spot tries the sea side first (west on the Atlantic coast, south on the Strait), then further out with a leader line. */
-const SEA={sancti:"w",palmar:"w",canos:"w"};
-let uiBoxes=null,uiKey="";
-function layoutLabels(){const taken=[],R=9,key=W+"x"+H;
-  // the controls, zoom buttons and timeline (measured once per screen size)
-  if(key!==uiKey||!uiBoxes){uiKey=key;uiBoxes=[".ctrl .toggle",".ctrl .lgc:not([hidden])","#status",".zoomers","#tl"].map(q=>document.querySelector(q)).filter(Boolean)
-    .map(e=>e.getBoundingClientRect()).filter(r=>r.width).map(r=>[r.left-6,r.top-6,r.right+6,r.bottom+6])}
-  taken.push(...uiBoxes);
-  for(const m of markersEls){const [x,y]=toScreen(...P(m.s.lon,m.s.lat));m.x=x;m.y=y;taken.push([x-R,y-R,x+R,y+R])}
-  for(const o of signs){if(o.d.hidden)continue;if(!o.wd){o.wd=o.d.offsetWidth;o.hd=o.d.offsetHeight}const [x,y]=toScreen(...o.w);taken.push([x-4,y-o.hd/2,x+o.wd,y+o.hd/2])}
-  const hit=a=>a[0]<6||a[1]<6||a[2]>W-6||a[3]>H-6||taken.some(b=>a[0]<b[2]&&a[2]>b[0]&&a[1]<b[3]&&a[3]>b[1]);
-  // from Tarifa westwards: the crowded spots get the first choice
-  for(const m of [...markersEls].sort((a,b)=>b.s.lon-a.s.lon)){if(!m.w){m.w=m.lab.offsetWidth;m.h=m.lab.offsetHeight}const w=m.w,h=m.h;
-    const L=[-12-w,-h/2],Rt=[12,-h/2],Dn=[-w/2,12],Up=[-w/2,-12-h],DL=[-8-w,6],DR=[8,6],UL=[-8-w,-6-h],UR=[8,-6-h];
-    const near=SEA[m.s.id]?[L,UL,DL,Rt,Dn,Up,UR,DR]:[DL,Dn,DR,L,Rt,UL,UR,Up];
-    let pick=null,far=false;
-    for(const k of [0,1,2]){for(const [dx,dy] of near){const ox=dx+Math.sign(dx+w/2)*k*16,oy=dy+Math.sign(dy+h/2)*k*16;
-        const r=[m.x+ox,m.y+oy,m.x+ox+w,m.y+oy+h];if(!hit(r)){pick=[ox,oy];far=k>0;break}}if(pick)break}
-    if(!pick){pick=near[0];far=false}
-    taken.push([m.x+pick[0],m.y+pick[1],m.x+pick[0]+w,m.y+pick[1]+h]);
-    m.lab.style.transform=`translate(${(pick[0]+11).toFixed(1)}px,${(pick[1]+11).toFixed(1)}px)`;
-    // leader line from the dot's edge to the nearest point of the label
-    m.ld.hidden=!far;if(far){const cx=Math.max(pick[0],Math.min(pick[0]+w,0)),cy=Math.max(pick[1],Math.min(pick[1]+h,0)),len=Math.hypot(cx,cy);
-      m.ld.style.width=Math.max(0,len-7)+"px";m.ld.style.transform=`translate(11px,11px) rotate(${Math.atan2(cy,cx)}rad) translateX(7px)`}}}
+    m.e.setAttribute("aria-label",m.s.name+(o&&html!=="<small>–</small>"?", "+m.lab.textContent.replace("·",""):""))}}
 
 /* ---------- forecast data ----------
    data/meta.json, wind.bin, waves.bin, spots.json are written by pipeline/build.py (docs/data-format.md).
@@ -1335,7 +1306,7 @@ function setLayer(l){layer=l;document.getElementById("l-wind").setAttribute("ari
 document.getElementById("l-wind").onclick=()=>setLayer("wind");document.getElementById("l-wave").onclick=()=>setLayer("waves");
 try{if(localStorage.getItem("syv-layer")==="waves")layer="waves"}catch(e){}
 
-for(const id of ["lg-wind","lg-wave"])document.getElementById(id).addEventListener("click",e=>{e.currentTarget.classList.toggle("open");uiBoxes=null;layoutLabels()});
+for(const id of ["lg-wind","lg-wave"])document.getElementById(id).addEventListener("click",e=>{e.currentTarget.classList.toggle("open")});
 /* ---------- sources ---------- */
 {const b=document.getElementById("srcbtn"),pn=document.getElementById("srcpanel");
   const show=v=>{pn.hidden=!v;b.setAttribute("aria-expanded",v)};

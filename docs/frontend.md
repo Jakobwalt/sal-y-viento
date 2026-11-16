@@ -44,8 +44,10 @@ order matters: `index.html`'s inline script, then `beach.js`, `swell.js`, `probe
 
 **Spot view**: tap a spot marker. The map dives to that spot (circular reveal, close-up map in the
 spot's palette), and two tables float over it:
-- **Wind:** one row per day, one column per hour. Gusts on top, mean wind, a bar coloured on the
-  Windy scale, and a direction arrow.
+- **Wind:** one row per day, one column per hour. The gust and mean wind figures, a bar, and a
+  direction arrow. Every wind bar on the site (this table, Wind details and the beach view's hourly
+  strip) is stacked: the mean wind at the bottom in its colour on the Windy scale, the gusts on top
+  in the gust's colour, with a thin cream line between.
 - **Waves:** height, period and direction, plus the tide's high and low water times and a small tide
   curve per day.
 - The first three days are shown. The ECMWF outlook continues below a "ECMWF outlook" label and is
@@ -117,7 +119,7 @@ ever cut short, for example by rapid tapping or a rotation mid-animation.
 
 | Scale | Where | Defined in |
 | --- | --- | --- |
-| Wind | `WINDY` (Windy's scale, converted from m/s to knots) via `windyRGB(kn)`. Wash = mean wind, streaks = gusts lifted towards white, table bars `barCol(kn)` | `index.html`, forecast data |
+| Wind | `WINDY` (Windy's scale, converted from m/s to knots) via `windyRGB(kn)`. Wash = mean wind, streaks = gusts lifted towards white, table bars `barCol(kn)` for the mean wind and `barCol(gust)` for the gust part | `index.html`, forecast data |
 | Wash opacity | `washA(kn, land)`: light wind lets the map through, full colour from ~22 kn. On land, light wind stays faint and strong wind fills in. "Land" starts 2–5 km inland (`GLF`), so the coast keeps the sea treatment | `index.html` |
 | Wave height (map) | `WRAMPW`, same colour family as the wind, steps in metres | `index.html`, wave field |
 | Wave bars (tables) | `waveCol`, cool foam → blue → violet | `index.html`, spot detail |
@@ -145,7 +147,7 @@ then rows:
   - **Secondary** swell.
   - **Tide**, wind in brief, and the source per hour.
 - **Wind details:**
-  - Mean-wind bars with gust caps.
+  - Stacked wind bars: mean wind at the bottom, gusts on top, each in its own colour.
   - Wind pill, gusts, direction with compass point.
   - Weather: sky icon, °C, rain mm.
   - Tide, waves in brief, and the source (AEMET / ECMWF outlook).

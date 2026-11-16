@@ -1132,6 +1132,9 @@ function tideHud() {
   const o = FC && selected && FC.spots[selected.id], tn = o && typeof tideNow === "function" ? tideNow(o, curT) : null; if (!tn) return "";
   return `<span class="bt">${tn.rising ? TUP : TDN}tide ${tn.rising ? "rising" : "falling"}${tn.next ? ` · ${tn.next.hi ? "high" : "low"} ${hm(tn.next.t)}` : ""}</span>`;
 }
+// the bar: mean wind at the bottom, the gusts on top, each in its colour from the map's scale, a cream line between
+const windStack = (kn, gu) => { if (gu <= kn) return barCol(kn); const p = Math.round(kn / gu * 100);
+  return `linear-gradient(to top,${barCol(kn)} ${p}%,rgba(251,245,230,.85) ${p}%,rgba(251,245,230,.85) calc(${p}% + 1px),${barCol(gu)} calc(${p}% + 1px))`; };
 function fillPanel() {
   const o = FC && FC.spots[selected.id]; if (!o) { panel.innerHTML = ""; return; }
   const cur = Math.round(curT), days = Math.ceil(N / 24);
@@ -1143,7 +1146,7 @@ function fillPanel() {
       const T = d * 24 + h; if (T >= N || o.kn[T] == null) return '<span class="na">·</span>';
       const kn = Math.round(o.kn[T]), gu = Math.round(Math.max(o.gust[T] ?? kn, kn)), ec = FC.model[T] === "ecmwf", wh = o.wh[T];
       return `<button type="button" data-t="${T}" class="${T === cur ? "cur" : ""}${ec ? " ec" : ""}" aria-label="${dayName(d)} ${h}:00, ${kn} knots">` +
-        `<i class="g">${gu}</i><b>${kn}</b><em style="height:${Math.round(2 + kn / gx * 11)}px;background:${barCol(kn)}"></em>` +
+        `<i class="g">${gu}</i><b>${kn}</b><em style="height:${Math.round(2 + gu / gx * 11)}px;background:${windStack(kn, gu)}"></em>` +
         `${o.dir[T] != null ? arrow(o.dir[T]) : ""}<i class="w">${wh != null ? wh.toFixed(1) : ""}</i></button>`;
     }).join("");
     const tc = typeof tidePath === "function" && trg ? tidePath(o, d * 24 - .5, d * 24 + 23.5, 240, 12, trg) : null;
@@ -1152,7 +1155,7 @@ function fillPanel() {
   }
   // re-rendering must not move the table: keep where the reader scrolled to
   const old = panel.querySelector(".bf-scroll"), keep = old ? [old.scrollLeft, old.scrollTop] : null;
-  panel.innerHTML = html + '</div></div><p class="bf-key">knots · gusts above · waves in metres below · tide line underneath</p>';
+  panel.innerHTML = html + '</div></div><p class="bf-key">knots, gusts in small above · bar: mean wind, gusts on top · waves in metres below · tide line underneath</p>';
   const sc2 = panel.querySelector(".bf-scroll");
   if (panelFresh) placePanel(); else if (keep && sc2) { sc2.scrollLeft = keep[0]; sc2.scrollTop = keep[1]; }
 }

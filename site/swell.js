@@ -3,7 +3,7 @@
    One column per hour (06–21), a drawing on top, then the numbers.
    - Waves: a drawn wave per three hours (larger screens), primary swell (height, direction, period,
      energy), secondary swell, tide, wind in brief. The map shows waves while open.
-   - Wind: mean-wind bars with the gusts as caps, wind (coloured as on the map), gusts, direction,
+   - Wind: mean-wind bars with the gusts stacked on top, wind (coloured as on the map), gusts, direction,
      weather, tide, waves in brief. The map shows wind while open.
    Reads the per-spot arrays in FC.spots; if the swell partitions (s1h…s2d) are not there, the combined
    sea (wh/wp/wd) stands in for the primary swell. */
@@ -85,12 +85,14 @@ function waveGraph(cw,GH){const base=GH-8,top=12;
         if(h>16)for(const f of [.7,.42])g+=`<path d="${backLine(x0+w*(1-f)*.62,base,w*f,h*f)}" fill="none" stroke="rgba(251,245,230,${f>.5?.4:.28})" stroke-width=".9"/>`}
       else g+=`<path d="${d}" fill="rgba(251,245,230,.16)" stroke="rgba(251,245,230,.75)" stroke-width="1" stroke-dasharray="3 2"/>`}}
   return{svg:g+"</svg>",ticks:ticks.map(t=>({t,y:base-Y(t),u:"m"}))}}
-// wind: a bar per hour for the mean wind (coloured as on the map), a cap on a fine stem for the gusts
+// wind: a bar per hour, the mean wind at the bottom and the gusts stacked on top, each in its own colour from the map's scale
 function windGraph(cw,GH){const base=GH-8,top=14,gmax=Math.max(25,...cols.map(c=>c.w?c.w.g:0))*1.08,Y=v=>Math.max(0,v)/gmax*(base-top);
   const ticks=[10,20,30,40,50,60].filter(t=>t<=gmax);let g=frame(cw,GH,base,ticks,Y);
   cols.forEach((c,i)=>{if(!c.w)return;const x=i*cw,bw=Math.max(6,cw*.46),bx=x+(cw-bw)/2,yk=base-Y(c.w.kn),yg=base-Y(c.w.g),cx=x+cw/2;
-    if(c.w.g>c.w.kn+.5)g+=`<line x1="${cx}" x2="${cx}" y1="${yk.toFixed(1)}" y2="${yg.toFixed(1)}" stroke="rgba(251,245,230,.55)" stroke-width="1" stroke-dasharray="1.5 2"/><line x1="${(cx-bw*.42).toFixed(1)}" x2="${(cx+bw*.42).toFixed(1)}" y1="${yg.toFixed(1)}" y2="${yg.toFixed(1)}" stroke="#fbf5e6" stroke-width="2" stroke-linecap="round"/>`;
-    g+=`<rect x="${bx.toFixed(1)}" y="${yk.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,base-yk).toFixed(1)}" rx="2" fill="${barCol(c.w.kn)}" stroke="rgba(251,245,230,.5)" stroke-width=".8" ${c.wm==="ecmwf"?'fill-opacity=".75"':""}/>`});
+    const op=c.wm==="ecmwf"?' fill-opacity=".75"':"",gu=c.w.g>c.w.kn+.5;
+    if(gu)g+=`<rect x="${bx.toFixed(1)}" y="${yg.toFixed(1)}" width="${bw.toFixed(1)}" height="${(base-yg).toFixed(1)}" rx="2" fill="${barCol(c.w.g)}" stroke="rgba(251,245,230,.5)" stroke-width=".8"${op}/>`;
+    g+=`<rect x="${bx.toFixed(1)}" y="${yk.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,base-yk).toFixed(1)}" rx="${gu?0:2}" fill="${barCol(c.w.kn)}" stroke="rgba(251,245,230,.5)" stroke-width=".8"${op}/>`;
+    if(gu)g+=`<line x1="${bx.toFixed(1)}" x2="${(bx+bw).toFixed(1)}" y1="${yk.toFixed(1)}" y2="${yk.toFixed(1)}" stroke="#fbf5e6" stroke-width="1.2"/>`});
   return{svg:g+"</svg>",ticks:ticks.map(t=>({t,y:base-Y(t),u:"kn"}))}}
 
 const badge=(v,big)=>v?`<b class="ht${big?"":" sec"}" title="${v.h.toFixed(1)} m${v.t!=null?` · ${Math.round(v.t)} s`:""}${v.d!=null?` · from ${comp(v.d)} ${Math.round(v.d)}°`:""}">${v.h<10?v.h.toFixed(1):Math.round(v.h)}</b>`:"<i>·</i>";
@@ -144,7 +146,7 @@ function render(s,ghFit){if(!s||!mode)return;const md=mode,box=boxEl();cols=coll
   box.style.setProperty("--cw",cw+"px");box.style.setProperty("--n",cols.length);box.style.setProperty("--gh",GH+"px");
   const split=cols.some(c=>c.split),hasS=cols.some(c=>c.s);
   const keyline=md==="wind"
-    ?`<span><i class="k-bar"></i>bar = mean wind</span><span><i class="k-cap"></i>cap = gusts</span><span class="k-3h">colours as on the map</span>`
+    ?`<span><i class="k-bar"></i>bottom = mean wind</span><span><i class="k-cap"></i>top = gusts</span><span class="k-3h">colours as on the map</span>`
     :`${split?`<span><i class="k-p"></i>Primary</span>${hasS?`<span><i class="k-s"></i>Secondary</span>`:""}`:`<span><i class="k-p"></i>Combined sea</span>${s.custom?`<span class="note">Swell trains are only worked out at the named spots</span>`:""}`}<span class="k-per">period <i></i> short → long</span><span class="k-3h">drawn per 3 hours</span>`;
   box.innerHTML=`<div class="sw-key">${keyline}</div>
     <div class="sw-body"><div class="sw-labs">${labs}</div><div class="sw-scroll"><div class="sw-in">${body}<div class="sw-now"></div></div></div></div>`;

@@ -79,12 +79,15 @@ button,.mk,input{touch-action:manipulation}
 /* each marker carries the wind (or waves) at the timeline hour, fixed below and left of its dot */
 .mk .dot{z-index:1}
 .mk .lab{position:absolute;right:14px;top:17px;display:flex;align-items:baseline;gap:2px;padding:1px 5px 2px 6px;white-space:nowrap;line-height:1;color:var(--ink);background:rgba(251,245,230,.8);
-  backdrop-filter:blur(6px) saturate(1.2);-webkit-backdrop-filter:blur(6px) saturate(1.2);border-radius:0 2px 2px 0;box-shadow:inset 2px 0 0 var(--lc,var(--ink)),0 4px 10px -7px rgba(20,40,40,.6);pointer-events:none}
+  backdrop-filter:blur(6px) saturate(1.2);-webkit-backdrop-filter:blur(6px) saturate(1.2);border-radius:0 2px 2px 0;box-shadow:0 4px 10px -7px rgba(20,40,40,.6);pointer-events:none}
+/* the stripe on the left: the mean wind's colour, with the gusts' colour on top like the bars */
+.mk .lab::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(to top,var(--lc,var(--ink)) 55%,var(--gc,var(--lc,var(--ink))) 55%)}
+.mk .lab .to{font-family:var(--f-display);font-size:.8rem;opacity:.6;margin:0 -1px}
 .mk .lab b{font-family:var(--f-display);font-weight:400;font-size:.8rem}
 .mk .lab small{font-family:var(--f-mono);font-size:.46rem;opacity:.7}
 .mk .lab svg{width:8px;height:8px;align-self:center;margin-left:1px;opacity:.8}
 .mk:hover .lab,.mk:focus-visible .lab{background:rgba(251,245,230,.95)}
-@media (max-width:760px){.mk .lab b{font-size:.74rem}.mk .lab small{font-size:.42rem}}
+@media (max-width:760px){.mk .lab b,.mk .lab .to{font-size:.74rem}.mk .lab small{font-size:.42rem}}
 
 /* controls */
 .ui{position:fixed;z-index:6}
@@ -974,15 +977,16 @@ const markersEls=SPOTS.map(s=>{const b=document.createElement("button");b.type="
   b.innerHTML=`<span class="dot"></span><span class="lab"></span>`;
   b.onclick=e=>{e.stopPropagation();requestSpot(s)};document.getElementById("markers").append(b);
   return{s,e:b,lab:b.querySelector(".lab")}});
-// the value on each label: mean wind and direction, or wave height and period on the waves map
+// the value on each label: mean wind to gusts and the direction, or wave height and period on the waves map
 function markLabels(){const T=Math.round(curT);
-  for(const m of markersEls){const o=FC&&FC.spots[m.s.id];let html="",col="";
+  for(const m of markersEls){const o=FC&&FC.spots[m.s.id];let html="",col="",gcol="";
     if(o&&layer==="waves"&&o.wh[T]!=null){html=`<b>${o.wh[T].toFixed(1)}</b><small>m</small>${o.wp[T]!=null?`<small>· ${Math.round(o.wp[T])}s</small>`:""}`;col=waveCol(o.wh[T])}
-    else if(o&&layer!=="waves"&&o.kn[T]!=null){html=`<b>${o.kn[T]}</b><small>kn</small>${o.dir[T]!=null?arrow(o.dir[T]):""}`;col=barCol(o.kn[T])}
+    else if(o&&layer!=="waves"&&o.kn[T]!=null){const k=o.kn[T],g=Math.max(o.gust[T]??k,k);
+      html=`<b>${k}</b>${g>k?`<span class="to">–</span><b>${g}</b>`:""}<small>kn</small>${o.dir[T]!=null?arrow(o.dir[T]):""}`;col=barCol(k);gcol=g>k?barCol(g):""}
     else html=`<small>–</small>`;
     if(m.html!==html){m.lab.innerHTML=html;m.html=html}
-    m.lab.style.setProperty("--lc",col||"var(--ink)");
-    m.e.setAttribute("aria-label",m.s.name+(o&&html!=="<small>–</small>"?", "+m.lab.textContent.replace("·",""):""))}}
+    m.lab.style.setProperty("--lc",col||"var(--ink)");if(gcol)m.lab.style.setProperty("--gc",gcol);else m.lab.style.removeProperty("--gc");
+    m.e.setAttribute("aria-label",m.s.name+(o&&html!=="<small>–</small>"?", "+m.lab.textContent.replace("·","").replace("–"," to "):""))}}
 
 /* ---------- forecast data ----------
    data/meta.json, wind.bin, waves.bin, spots.json are written by pipeline/build.py (docs/data-format.md).

@@ -251,8 +251,9 @@ body.dive.ready:not(.beach) #info .fc{pointer-events:auto}
 .blk .rlab{margin-bottom:4px}
 .tbl{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-bottom:14px;-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 22px),transparent)}
 .tbl::-webkit-scrollbar{display:none}
-.hdr .row.hd{padding:2px 0 4px}
-.tbl .row{display:grid;grid-template-columns:5.4rem minmax(0,1fr);gap:12px;align-items:end;padding:9px 0;border-top:1px solid rgba(251,245,230,.14)}
+/* the hour headings sit outside the scrolling table, on the same columns as its rows */
+.hdr .row.hd{padding:2px 0 4px;border:0}
+.tbl .row,.hdr .row{display:grid;grid-template-columns:5.4rem minmax(0,1fr);gap:12px;align-items:end;padding:9px 0;border-top:1px solid rgba(251,245,230,.14)}
 .tbl .row.hd{border:0;padding:0 0 4px}
 .tbl .row.dim .kn,.tbl .row.dim .gu,.tbl .row.dim .pd,.tbl .row.dim em{opacity:.72}
 .tbl .row.dim .bar,.tbl .row.dim .gbar{opacity:.85}
@@ -271,7 +272,7 @@ body.dive.ready:not(.beach) #info .fc{pointer-events:auto}
 .strip div.ec{opacity:.5}
 .strip div.ec .bar,.strip div.ec .gbar{background-image:repeating-linear-gradient(135deg,transparent 0 3px,rgba(255,255,255,.25) 3px 5px)}
 .ectag{display:inline-block;font-weight:400;margin-left:7px;vertical-align:2px;font-family:var(--f-mono);font-style:normal;font-size:.5rem;letter-spacing:.14em;padding:1px 4px;border:1px solid currentColor;border-radius:2px;opacity:.75}
-.hrs{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));font-family:var(--f-mono);font-size:.62rem;text-align:center;opacity:.6;font-variant-numeric:tabular-nums}
+.hrs{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px;font-family:var(--f-mono);font-size:.62rem;text-align:center;opacity:.6;font-variant-numeric:tabular-nums}
 .hrs .cur{opacity:1;color:var(--wax)}
 .tbl .row[data-day]{cursor:pointer}
 .tbl .row.dim[data-day]:hover .dlab em{opacity:1;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
@@ -283,8 +284,9 @@ body.dive.ready:not(.beach) #info .fc{pointer-events:auto}
   .fc{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;left:0;right:0;padding:0 12px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);scrollbar-width:none}
   .fc::-webkit-scrollbar{display:none}
   .blk{flex:0 0 90%;scroll-snap-align:center;padding:12px 14px 4px}
-  .tbl .row{grid-template-columns:minmax(0,1fr);gap:6px;padding:8px 0}
-  .tbl .row.hd{padding:0}
+  .tbl .row,.hdr .row{grid-template-columns:minmax(0,1fr);gap:6px;padding:8px 0}
+  .tbl .row.hd,.hdr .row.hd{padding:0 0 2px}
+  .hdr .row.hd>div:first-child{display:none}
   .dlab{display:flex;align-items:baseline;gap:10px}
   .dlab em{font-size:1.05rem}
   /* every hour on phones too: twelve slim columns */
@@ -294,7 +296,7 @@ body.dive.ready:not(.beach) #info .fc{pointer-events:auto}
   .strip .gu,.strip .pd{font-size:.5rem}
   .strip svg{width:10px;height:10px}
   .strip .bar,.strip .stack{width:58%}
-  .hrs{font-size:.52rem}
+  .hrs{font-size:.52rem;gap:1px}
   #info{padding:66px 20px 0}
   #info h2{font-size:2.3rem}
   body.dive .ctrl{opacity:0;pointer-events:none}
